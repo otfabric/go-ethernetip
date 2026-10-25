@@ -307,7 +307,7 @@ func TestDefaultInterfaceAttributes(t *testing.T) {
 			t.Errorf("TCP/IP attribute %d = %x, want %x", attr, r.Data, want)
 		}
 	}
-	if r := p.get(cip.ClassEthernetLink, 1, 2); !bytes.Equal(r.Data, []byte{0x0D, 0, 0, 0}) {
+	if r := p.get(cip.ClassEthernetLink, 1, 2); !bytes.Equal(r.Data, []byte{0x0F, 0, 0, 0}) {
 		t.Errorf("interface flags = %x", r.Data)
 	}
 }

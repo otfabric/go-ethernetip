@@ -180,6 +180,12 @@ type IOConfig struct {
 	Key *cip.KeySegment
 	// Reconnect, when set, reopens the connection after a timeout.
 	Reconnect *Reconnect
+	// Output is the output data sent from the first datagram on, OutputSize
+	// octets; nil sends zeros until SetOutput. Idle starts the connection
+	// in idle (FormatHeader32 only), so that a device does not act on
+	// outputs before the application sets them and calls SetRun(true).
+	Output []byte
+	Idle   bool
 	// OnInput is called with each new input (T->O) data and its run
 	// state, on the endpoint's goroutine: it must not block. data is only
 	// valid during the call.
@@ -249,6 +255,8 @@ func (c IOConfig) validate() error {
 		return fmt.Errorf("%w: RPI above %v", ethernetip.ErrInvalidOption, maxRPI)
 	case c.OutputSize < 0 || c.InputSize < 0 || c.OutputSize > 65000 || c.InputSize > 65000:
 		return fmt.Errorf("%w: I/O sizes", ethernetip.ErrInvalidOption)
+	case c.Output != nil && len(c.Output) != c.OutputSize:
+		return fmt.Errorf("%w: %d octets of initial output for size %d", ethernetip.ErrInvalidOption, len(c.Output), c.OutputSize)
 	case c.TimeoutMultiplier > 7:
 		return fmt.Errorf("%w: timeout multiplier %d", ethernetip.ErrInvalidOption, c.TimeoutMultiplier)
 	}
@@ -282,7 +290,8 @@ func (s *Scanner) Open(ctx context.Context, cfg IOConfig) (*IO, error) {
 	if err := cfg.validate(); err != nil {
 		return nil, err
 	}
-	io := &IO{s: s, cfg: cfg, out: make([]byte, cfg.OutputSize), run: true, done: make(chan struct{}), stopping: make(chan struct{})}
+	io := &IO{s: s, cfg: cfg, out: make([]byte, cfg.OutputSize), run: !cfg.Idle, done: make(chan struct{}), stopping: make(chan struct{})}
+	copy(io.out, cfg.Output)
 	s.mu.Lock()
 	if s.closed {
 		s.mu.Unlock()

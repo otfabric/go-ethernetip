@@ -136,8 +136,8 @@ func (s *Server) Identity() cip.Identity { return s.identity.get() }
 // SetIdentityStatus sets the status word of the Identity object.
 func (s *Server) SetIdentityStatus(st cip.IdentityStatus) { s.identity.setStatus(st) }
 
-// ListenAndServe listens on addr for TCP sessions, on UDP port 44818 of
-// the same host for ListIdentity and ListServices, and on the I/O address
+// ListenAndServe listens on addr for TCP sessions, on the same host and
+// port over UDP for ListIdentity and ListServices (44818 by default), and on the I/O address
 // (WithIOAddress, default UDP port 2222 of the same host), and serves
 // until Close. addr defaults to port 44818 (2221 with WithTLS) when it has
 // no port. It returns ethernetip.ErrClosed after Close.
@@ -149,9 +149,9 @@ func (s *Server) ListenAndServe(addr string) error {
 }
 
 // Listen opens the server's sockets without serving them yet: the TCP
-// listener on addr, UDP 44818 on its host (no error when it is taken, as
-// by another server on the same host; ListIdentity is then served over TCP
-// only), and the I/O endpoint.
+// listener on addr, a UDP socket on the same host and port (no error when
+// it is taken, as by another server on the same host; ListIdentity is then
+// served over TCP only), and the I/O endpoint.
 func (s *Server) Listen(addr string) error {
 	if _, _, err := net.SplitHostPort(addr); err != nil {
 		port := encap.TCPPort

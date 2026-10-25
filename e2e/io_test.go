@@ -178,3 +178,29 @@ func TestTargetTimesOutOriginator(t *testing.T) {
 		t.Fatalf("timeouts counter %x %v", ctr, err)
 	}
 }
+
+// TestIOInitialOutputIdle starts a connection with initial output in idle:
+// the adapter gets the data with idle, then run after SetRun.
+func TestIOInitialOutputIdle(t *testing.T) {
+	a := startAdapter(t)
+	c := dial(t, a.addr)
+	s := newScanner(t, c)
+	cfg := exclusiveOwner(5 * time.Millisecond)
+	cfg.Output = bytes.Repeat([]byte{0x77}, ioSize)
+	cfg.Idle = true
+	io, err := s.Open(ctxT(t), cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	eventually(t, 3*time.Second, "initial output", func() bool { return bytes.Equal(a.out.Data(), cfg.Output) })
+	if a.out.Run() {
+		t.Fatal("run before SetRun")
+	}
+	io.SetRun(true)
+	eventually(t, 3*time.Second, "run", a.out.Run)
+	bad := cfg
+	bad.Output = []byte{1}
+	if _, err := s.Open(ctxT(t), bad); !errors.Is(err, ethernetip.ErrInvalidOption) {
+		t.Fatalf("short initial output: %v", err)
+	}
+}

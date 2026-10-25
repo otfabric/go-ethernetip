@@ -29,7 +29,8 @@ tested against OpENer, EIPScanner, pycomm3 and cpppo
 - **Client**: unconnected and routed explicit messaging, Class 3
   connections, typed attribute helpers, discovery, auto-reconnect, metrics.
 - **Scanner**: Class 0/1 connections, point-to-point and multicast,
-  exclusive owner, input only, listen only, run/idle, reconnect.
+  exclusive owner, input only, listen only, run/idle, initial output and
+  idle start, reconnect.
 - **Server**: Identity, Message Router, Assembly, Connection Manager, Port,
   TCP/IP Interface and Ethernet Link objects; user objects; Class 0/1/3
   target connections with ownership rules, shared multicast production,

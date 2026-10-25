@@ -244,8 +244,9 @@ func newEthernetLinkObject(s *Server) *StandardObject {
 		speed = 100
 	}
 	in.SetAttribute(1, Attribute{Get: func() []byte { return cip.AppendUint32(nil, speed) }, InGetAll: true})
-	// Link active, full duplex, negotiation successful.
-	in.SetAttribute(2, Attribute{Get: func() []byte { return cip.AppendUint32(nil, 0x0D) }, InGetAll: true})
+	// Interface flags: link active (bit 0), full duplex (bit 1), speed and
+	// duplex negotiated successfully (bits 2-4 = 3).
+	in.SetAttribute(2, Attribute{Get: func() []byte { return cip.AppendUint32(nil, 0x0F) }, InGetAll: true})
 	in.SetAttribute(3, Attribute{Get: func() []byte { return append([]byte(nil), s.opts.iface.MAC[:]...) }, InGetAll: true})
 	in.SetAttribute(7, Attribute{Get: func() []byte { return []byte{2} }}) // twisted pair
 	in.SetAttribute(8, Attribute{Get: func() []byte { return []byte{1} }}) // enabled
