@@ -712,8 +712,9 @@ func TestProduceFailuresAreLogged(t *testing.T) {
 		t.Errorf("Sent = %d", c.Stats().Sent)
 	}
 
-	// The limited broadcast address needs SO_BROADCAST: the send fails.
-	c2 := open(t, e, Config{ProducedID: 2, Destination: mustAddrPort("255.255.255.255:2222"), ProduceRPI: time.Hour, ProduceSize: 1})
+	// An IPv6 destination cannot be reached from the endpoint's IPv4
+	// socket: the send fails on every platform.
+	c2 := open(t, e, Config{ProducedID: 2, Destination: mustAddrPort("[::1]:2222"), ProduceRPI: time.Hour, ProduceSize: 1})
 	waitFor(t, "send failure", func() bool { return log.has("send failed") })
 	if c2.Stats().Sent != 0 {
 		t.Errorf("Sent = %d", c2.Stats().Sent)

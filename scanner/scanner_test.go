@@ -125,7 +125,9 @@ func newScanner(t testing.TB, c *client.Client, opts ...Option) *Scanner {
 
 func owner(rpi time.Duration) IOConfig {
 	return IOConfig{ConfigInstance: asmConfig, OutputInstance: asmOutput, InputInstance: asmInput,
-		OutputSize: ioSize, InputSize: ioSize, RPI: rpi}
+		OutputSize: ioSize, InputSize: ioSize, RPI: rpi,
+		// 16 RPIs: short RPIs meet coarse timers on loaded CI runners.
+		TimeoutMultiplier: 2}
 }
 
 // stateRec records state changes.

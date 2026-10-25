@@ -155,5 +155,8 @@ func exclusiveOwner(rpi time.Duration) scanner.IOConfig {
 		OutputSize:     ioSize,
 		InputSize:      ioSize,
 		RPI:            rpi,
+		// 16 RPIs: short RPIs meet coarse timers on loaded CI runners
+		// (Windows); the timeout tests set their own.
+		TimeoutMultiplier: 2,
 	}
 }

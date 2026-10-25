@@ -65,6 +65,10 @@ type session struct {
 	conns   map[uint32]*Conn      // connected messaging, by both connection IDs
 	err     error                 // set when the session ended
 	done    chan struct{}
+
+	// closing is set by Client.Close before UnRegisterSession: the target
+	// then closes the connection, which is not a lost connection.
+	closing atomic.Bool
 }
 
 type reply struct {
@@ -285,6 +289,7 @@ func (c *Client) Close() error {
 	c.sess = nil
 	c.mu.Unlock()
 	if s != nil {
+		s.closing.Store(true)
 		_, _ = s.writeBy(encap.Packet{Header: encap.Header{Command: encap.CommandUnRegisterSession, Session: s.handle}}, time.Now().Add(time.Second))
 		s.close(ethernetip.ErrClosed)
 		<-s.done
@@ -350,6 +355,9 @@ func (c *Client) readLoop(s *session) {
 		err = fmt.Errorf("%w: %w", ethernetip.ErrProtocol, err)
 	} else {
 		err = fmt.Errorf("%w: %w", ethernetip.ErrConnectionLost, err)
+	}
+	if s.closing.Load() {
+		err = ethernetip.ErrClosed
 	}
 	s.close(err)
 	c.mu.Lock()
