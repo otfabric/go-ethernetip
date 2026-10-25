@@ -27,11 +27,9 @@ Branch: `feature/initial-implementation` in each repository.
 | fuzz: 15 targets x 60 s locally, CI 15 s per push and 10 min nightly | no crashers after the fixes |
 | interop (dev images): 49 pass / 0 fail / 10 N/A | done, rendered in INTEROPERABILITY.md |
 | ethernetip-interop: adapters, contract, fixtures, scripts, CI | done (commit 534a275): smoke 94/94, self-test 50 pass / 58 N/A |
-| ethernetipctl | in progress (subagent) |
+| ethernetipctl | done: 95.0% coverage, lint clean, 7 release targets build, verified against OpENer in Docker |
 | push, PRs, CI on GitHub, v0.1.0 tags and image digests | not done: needs the user's go-ahead |
 
 ## Next actions
 
-1. Review ethernetipctl when its subagent reports; run its gates.
-2. Final verification from clean clones of all three branches.
-3. With approval: push branches, open PRs, tag ethernetip-interop v0.1.0 so images publish, pin digests in interop/harness_test.go.
+1. With approval: push branches, open PRs, tag ethernetip-interop v0.1.0 so images publish, pin digests in interop/harness_test.go.
