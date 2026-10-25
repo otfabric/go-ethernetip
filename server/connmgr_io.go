@@ -164,19 +164,26 @@ func (cm *connectionManager) openIO(ex *exchange, fo cip.ForwardOpen, parts open
 		cm.mu.Unlock()
 		return reply, nil, connFailure(cip.ConnStatusInUse)
 	}
-	out.mu.Lock()
-	owned := out.kind == AssemblyOutput && out.owner != nil
-	out.mu.Unlock()
-	if owned {
-		cm.mu.Unlock()
-		return reply, nil, connFailure(cip.ConnStatusOwnershipConflict)
-	}
 	prod := cm.productions[toPoint]
 	if listenOnly && (prod == nil || len(prod.owners) == 0) {
 		cm.mu.Unlock()
 		return reply, nil, connFailure(cip.ConnStatusNonListenOnlyNotOpened)
 	}
 	c := &ioConn{cm: cm, orig: orig, out: out, in: in, listen: listenOnly}
+	if out.kind == AssemblyOutput {
+		// The output is claimed in the same critical section as the check,
+		// so that concurrent Forward_Opens cannot both own it.
+		out.mu.Lock()
+		owned := out.owner != nil
+		if !owned {
+			out.owner = c
+		}
+		out.mu.Unlock()
+		if owned {
+			cm.mu.Unlock()
+			return reply, nil, connFailure(cip.ConnStatusOwnershipConflict)
+		}
+	}
 	otID := cm.newID()
 	toID := fo.TOConnID
 	multicast := fo.TOParams.Type == cip.ConnectionMulticast
@@ -208,11 +215,6 @@ func (cm *connectionManager) openIO(ex *exchange, fo cip.ForwardOpen, parts open
 
 	if parts.hasData {
 		cfg.write(parts.config, true)
-	}
-	if out.kind == AssemblyOutput {
-		out.mu.Lock()
-		out.owner = c
-		out.mu.Unlock()
 	}
 	ep := cm.s.io
 	timeout := cip.ConnectionTimeout(c.info.OTRPI, fo.TimeoutMultiplier)

@@ -230,8 +230,13 @@ func (c *Client) dial(ctx context.Context) (*session, error) {
 	pkt, _, err := encap.ReadPacket(conn, nil, c.opts.maxPacket)
 	if err != nil {
 		_ = conn.Close()
+		// The read deadline is the context's: it may expire before the
+		// context reports it.
+		var ne net.Error
 		if ctx.Err() != nil {
 			err = fmt.Errorf("%w: %w", ethernetip.ErrTimeout, ctx.Err())
+		} else if errors.As(err, &ne) && ne.Timeout() {
+			err = fmt.Errorf("%w: %w", ethernetip.ErrTimeout, err)
 		}
 		return nil, fmt.Errorf("%w: RegisterSession reply: %w", ethernetip.ErrConnectFailed, err)
 	}
@@ -280,8 +285,7 @@ func (c *Client) Close() error {
 	c.sess = nil
 	c.mu.Unlock()
 	if s != nil {
-		_ = s.conn.SetWriteDeadline(time.Now().Add(time.Second))
-		_ = s.write(encap.Packet{Header: encap.Header{Command: encap.CommandUnRegisterSession, Session: s.handle}})
+		_, _ = s.writeBy(encap.Packet{Header: encap.Header{Command: encap.CommandUnRegisterSession, Session: s.handle}}, time.Now().Add(time.Second))
 		s.close(ethernetip.ErrClosed)
 		<-s.done
 	}
@@ -411,20 +415,36 @@ func (s *session) close(err error) {
 	}
 }
 
+// write writes pkt. The write deadline is the client's timeout, never a
+// request's deadline: the stream is shared, and a write that cannot
+// complete within the timeout means the peer stopped reading, which ends
+// the session.
 func (s *session) write(pkt encap.Packet) error {
+	_, err := s.writeBy(pkt, time.Now().Add(s.c.opts.timeout))
+	return err
+}
+
+// writeBy writes pkt with the write deadline dl (none when zero), set in
+// the same critical section as the write. It returns the number of octets
+// written.
+func (s *session) writeBy(pkt encap.Packet, dl time.Time) (int, error) {
 	b, err := pkt.AppendTo(make([]byte, 0, encap.HeaderSize+len(pkt.Data)))
 	if err != nil {
-		return err
+		return 0, err
 	}
 	s.wmu.Lock()
 	defer s.wmu.Unlock()
-	if _, err := s.conn.Write(b); err != nil {
-		return err
+	if !dl.IsZero() {
+		_ = s.conn.SetWriteDeadline(dl)
+	}
+	n, err := s.conn.Write(b)
+	if err != nil {
+		return n, err
 	}
 	if m := s.c.opts.metrics; m != nil {
 		m.OnPacketSent(s.remote, pkt.Command, len(b))
 	}
-	return nil
+	return n, nil
 }
 
 // roundTrip sends an encapsulation packet with a fresh sender context and
@@ -443,6 +463,10 @@ func (c *Client) roundTrip(ctx context.Context, cmd encap.Command, data []byte) 
 	}
 	defer func() { <-c.turn }()
 
+	if ctx.Err() != nil {
+		// Expired while waiting for a turn: nothing was sent.
+		return encap.Packet{}, ctxErr(ctx)
+	}
 	id := c.ctxSeq.Add(1)
 	ch := make(chan reply, 1)
 	s.mu.Lock()
@@ -456,11 +480,6 @@ func (c *Client) roundTrip(ctx context.Context, cmd encap.Command, data []byte) 
 
 	h := encap.Header{Command: cmd, Session: s.handle}
 	binary.LittleEndian.PutUint64(h.Context[:], id)
-	if dl, ok := ctx.Deadline(); ok {
-		s.wmu.Lock()
-		_ = s.conn.SetWriteDeadline(dl)
-		s.wmu.Unlock()
-	}
 	if err := s.write(encap.Packet{Header: h, Data: data}); err != nil {
 		s.close(fmt.Errorf("%w: write: %w", ethernetip.ErrConnectionLost, err))
 		r := <-ch

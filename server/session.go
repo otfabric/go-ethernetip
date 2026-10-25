@@ -445,6 +445,6 @@ func replyAddr(c *net.UDPConn, from netip.AddrPort) net.Addr {
 	if err != nil {
 		return local
 	}
-	defer probe.Close()
+	defer func() { _ = probe.Close() }()
 	return probe.LocalAddr()
 }

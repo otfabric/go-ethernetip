@@ -8,6 +8,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"math"
 	"sync"
 	"time"
 
@@ -213,7 +214,9 @@ func classThreeTiming(d time.Duration) (uint8, uint32) {
 			return mult, uint32(rpi / time.Microsecond)
 		}
 	}
-	return 7, uint32(d / 512 / time.Microsecond)
+	// The RPI is a 32-bit count of microseconds: longer timeouts are
+	// clamped to the largest (about 610 hours).
+	return 7, uint32(min(d/512/time.Microsecond, math.MaxUint32))
 }
 
 // Info returns the connection's IDs, triad and intervals.
@@ -243,6 +246,10 @@ func (cn *Conn) do(ctx context.Context, req cip.Request) (cip.Response, error) {
 	if err != nil {
 		return cip.Response{}, fmt.Errorf("%w: %w", ethernetip.ErrInvalidOption, err)
 	}
+	if ctx.Err() != nil {
+		// Expired while waiting for a turn: nothing was sent.
+		return cip.Response{}, ctxErr(ctx)
+	}
 	cn.mu.Lock()
 	if cn.err != nil {
 		err := cn.err
@@ -268,11 +275,6 @@ func (cn *Conn) do(ctx context.Context, req cip.Request) (cip.Response, error) {
 	}}.Encode()
 	if err != nil {
 		return cip.Response{}, fmt.Errorf("%w: %w", ethernetip.ErrInvalidOption, err)
-	}
-	if dl, ok := ctx.Deadline(); ok {
-		cn.s.wmu.Lock()
-		_ = cn.s.conn.SetWriteDeadline(dl)
-		cn.s.wmu.Unlock()
 	}
 	if err := cn.s.write(encap.Packet{Header: encap.Header{Command: encap.CommandSendUnitData, Session: cn.s.handle}, Data: data}); err != nil {
 		cn.s.close(fmt.Errorf("%w: write: %w", ethernetip.ErrConnectionLost, err))
@@ -367,12 +369,16 @@ func (cn *Conn) lost(err error) {
 // it out). Close is idempotent.
 func (cn *Conn) Close(ctx context.Context) error {
 	cn.mu.Lock()
-	if cn.err != nil {
-		cn.mu.Unlock()
-		return nil
+	ended := cn.err != nil
+	if !ended {
+		cn.err = ethernetip.ErrClosed
 	}
-	cn.err = ethernetip.ErrClosed
 	cn.mu.Unlock()
+	if ended {
+		// Closed before, or ended with the session: nothing to send, and
+		// closing again is not an error.
+		return nil //nolint:nilerr // the connection's error is not Close's
+	}
 	cn.s.mu.Lock()
 	delete(cn.s.conns, cn.info.OTConnID)
 	delete(cn.s.conns, cn.info.TOConnID)

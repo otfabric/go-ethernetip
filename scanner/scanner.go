@@ -379,6 +379,8 @@ func (io *IO) open(ctx context.Context) error {
 			if a := netip.AddrFrom4(sa.Addr); a.IsMulticast() {
 				group = a
 			}
+		default:
+			// Other items carry nothing for the I/O connection.
 		}
 	}
 	if cfg.Multicast && !group.IsValid() {

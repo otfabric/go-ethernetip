@@ -84,7 +84,7 @@ func Discover(ctx context.Context, opts DiscoverOptions) ([]Device, error) {
 	if err != nil {
 		return nil, fmt.Errorf("%w: %w", ethernetip.ErrConnectFailed, err)
 	}
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 
 	var h encap.Header
 	h.Command = encap.CommandListIdentity
