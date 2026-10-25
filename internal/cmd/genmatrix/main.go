@@ -121,8 +121,8 @@ func run(check bool) error {
 		}
 		p("\n")
 	}
-	p("%d passed, %d failed, %d not applicable. Empty cells: not tested (the\n", counts["pass"], counts["fail"], counts["n/a"])
-	p("reference lacks the role). N/A: the reference has the role but not the\nfeature.\n\n")
+	p("%d passed, %d failed, %d not applicable. N/A: the reference has the\n", counts["pass"], counts["fail"], counts["n/a"])
+	p("role but not the feature. Empty: not exercised with that reference in\nthat direction (it lacks the role, or no case covers it yet).\n\n")
 	var notes []string
 	seen := map[string]bool{}
 	for _, r := range m.Rows {
