@@ -23,21 +23,15 @@ Branch: `feature/initial-implementation` in each repository.
 
 | Milestone | State |
 |---|---|
-| Discovery, research | done |
-| cip, encap, implicit codecs; catalog generator | done (unit 96-100%, fuzzed) |
-| client, scanner, server | done; unit tests in progress (subagent) |
-| logix, eds | done (99.9%, 99.5%) |
-| e2e, chaos (TCP + UDP + forged datagrams), stress, leak checks | done |
-| benchmarks, examples, executable examples | done |
-| Makefile, CI (ci, interop, fuzz, release), codecov | done (not yet run on GitHub: nothing pushed) |
-| docs: README, ARCHITECTURE, ERRORS, OBSERVABILITY, SECURITY, TESTING, CONTRIBUTING, RELEASE, INTEROPERABILITY, THIRD_PARTY_NOTICES, docs/*.md | done; API.md pending |
-| interopnode + interop suite | done: 49 pass / 10 N/A / 0 fail locally (dev images) |
-| ethernetip-interop docs/infra | in progress (subagent) |
+| go-ethernetip: all packages, tests, docs, CI config | done; combined coverage 98.6% (race), lint clean |
+| fuzz: 15 targets x 60 s locally, CI 15 s per push and 10 min nightly | no crashers after the fixes |
+| interop (dev images): 49 pass / 0 fail / 10 N/A | done, rendered in INTEROPERABILITY.md |
+| ethernetip-interop: adapters, contract, fixtures, scripts, CI | done (commit 534a275): smoke 94/94, self-test 50 pass / 58 N/A |
 | ethernetipctl | in progress (subagent) |
+| push, PRs, CI on GitHub, v0.1.0 tags and image digests | not done: needs the user's go-ahead |
 
 ## Next actions
 
-1. Integrate the client/server test subagent's work (incl. the write-deadline fix); re-run coverage gate.
-2. API.md; lint client/server/scanner.
-3. Re-run interop with matrix; render INTEROPERABILITY.md (internal/cmd/genmatrix).
-4. Review ethernetip-interop and ethernetipctl results; final verification from clean checkouts.
+1. Review ethernetipctl when its subagent reports; run its gates.
+2. Final verification from clean clones of all three branches.
+3. With approval: push branches, open PRs, tag ethernetip-interop v0.1.0 so images publish, pin digests in interop/harness_test.go.
