@@ -43,7 +43,7 @@ func run(check bool) error {
 			return fmt.Errorf("%s: %s", source, is)
 		}
 	}
-	src, err := eds.GenerateGo(f, eds.GenerateOptions{Package: "sampledevice", Source: source})
+	src, err := eds.GenerateGo(f, eds.GenerateOptions{Package: "sampledevice", Source: source, License: "MIT"})
 	if err != nil {
 		return err
 	}

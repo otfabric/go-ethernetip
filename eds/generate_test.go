@@ -67,7 +67,7 @@ func structFields(t testing.TB, scope *types.Scope, name string) string {
 
 func TestGenerateGolden(t *testing.T) {
 	f := sample(t)
-	opts := GenerateOptions{Package: "sampledevice", Source: "eds/testdata/otfabric_adapter.eds"}
+	opts := GenerateOptions{Package: "sampledevice", Source: "eds/testdata/otfabric_adapter.eds", License: "MIT"}
 	a, err := GenerateGo(f, opts)
 	if err != nil {
 		t.Fatal(err)
