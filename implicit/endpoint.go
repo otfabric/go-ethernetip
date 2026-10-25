@@ -28,6 +28,13 @@ type Endpoint struct {
 	groups map[netip.Addr]int // multicast memberships, counted
 	closed bool
 
+	// faults, when set (by the package's chaos tests), decides the fate of
+	// each datagram sent: it returns the datagrams to send now, which may
+	// be none (dropped), the datagram twice (duplicated) or older ones
+	// (reordered). It is called with the endpoint's send lock held.
+	faults func(b []byte) [][]byte
+	sendMu sync.Mutex
+
 	wg sync.WaitGroup
 }
 
@@ -144,8 +151,18 @@ func (e *Endpoint) drop(from netip.AddrPort, reason string) {
 }
 
 func (e *Endpoint) send(dst netip.AddrPort, b []byte) error {
-	_, err := e.conn.WriteToUDPAddrPort(b, dst)
-	return err
+	if e.faults == nil {
+		_, err := e.conn.WriteToUDPAddrPort(b, dst)
+		return err
+	}
+	e.sendMu.Lock()
+	defer e.sendMu.Unlock()
+	for _, d := range e.faults(b) {
+		if _, err := e.conn.WriteToUDPAddrPort(d, dst); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // join makes the endpoint's socket receive datagrams to a multicast group

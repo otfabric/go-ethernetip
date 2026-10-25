@@ -35,7 +35,7 @@ func fuzzServer(f *testing.F) (*TagServer, *server.Server) {
 	if err != nil {
 		f.Fatal(err)
 	}
-	f.Cleanup(func() { srv.Close() })
+	f.Cleanup(func() { _ = srv.Close() })
 	ts.Attach(srv)
 	return ts, srv
 }

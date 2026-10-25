@@ -132,7 +132,7 @@ func camel(name string) string {
 	var sb strings.Builder
 	up := true
 	for _, r := range name {
-		if r > unicode.MaxASCII || !(unicode.IsLetter(r) || unicode.IsDigit(r)) {
+		if r > unicode.MaxASCII || !unicode.IsLetter(r) && !unicode.IsDigit(r) {
 			up = true
 			continue
 		}
@@ -205,8 +205,9 @@ func goType(t cip.DataType) (string, bool) {
 		return "float32", true
 	case cip.TypeLREAL:
 		return "float64", true
+	default:
+		return "", false
 	}
-	return "", false
 }
 
 // literal returns v as a Go literal of type gt, or false.
@@ -270,7 +271,7 @@ func (g *gen) paramDecls(params []Param) {
 			continue
 		}
 		var checks []string
-		if lit, ok := literal(p.Min, gt); ok && !(strings.HasPrefix(gt, "u") && lit == "0") {
+		if lit, ok := literal(p.Min, gt); ok && (!strings.HasPrefix(gt, "u") || lit != "0") {
 			checks = append(checks, fmt.Sprintf("v < %s", lit))
 		}
 		if lit, ok := literal(p.Max, gt); ok {
@@ -512,6 +513,8 @@ func (g *gen) connectionDecls(conns []Connection) {
 				cls = cip.Class(l.Value) == cip.ClassAssembly
 			case cip.LogicalInstance, cip.LogicalConnectionPoint:
 				points = append(points, l.Value)
+			default:
+				// Members, attributes and service IDs do not name I/O points.
 			}
 		}
 		class := c.Class()

@@ -41,7 +41,7 @@ func main() {
 
 func run(args []string, stdout, stderr io.Writer) int {
 	if len(args) == 0 {
-		fmt.Fprintln(stderr, "usage: interopnode server|client <op>|print-capabilities|version")
+		_, _ = fmt.Fprintln(stderr, "usage: interopnode server|client <op>|print-capabilities|version")
 		return 2
 	}
 	switch args[0] {
@@ -49,7 +49,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 		return serve(args[1:], stdout, stderr)
 	case "client":
 		if len(args) < 2 {
-			fmt.Fprintln(stderr, "client needs an operation")
+			_, _ = fmt.Fprintln(stderr, "client needs an operation")
 			return 2
 		}
 		return clientOp(args[1], args[2:], stdout, stderr)
@@ -57,10 +57,10 @@ func run(args []string, stdout, stderr io.Writer) int {
 		_ = json.NewEncoder(stdout).Encode(capabilities())
 		return 0
 	case "version":
-		fmt.Fprintf(stdout, "{\"adapter\":\"go-ethernetip\",\"contract\":\"1.0\"}\n")
+		_, _ = fmt.Fprintf(stdout, "{\"adapter\":\"go-ethernetip\",\"contract\":\"1.0\"}\n")
 		return 0
 	default:
-		fmt.Fprintf(stderr, "unknown command %q\n", args[0])
+		_, _ = fmt.Fprintf(stderr, "unknown command %q\n", args[0])
 		return 2
 	}
 }
@@ -130,7 +130,7 @@ func revision(s string) cip.Revision {
 
 func event(w io.Writer, fields map[string]any) {
 	b, _ := json.Marshal(fields)
-	fmt.Fprintf(w, "%s\n", b)
+	_, _ = fmt.Fprintf(w, "%s\n", b)
 }
 
 func serve(args []string, stdout, stderr io.Writer) int {
@@ -145,7 +145,7 @@ func serve(args []string, stdout, stderr io.Writer) int {
 	}
 	f, err := loadFixture(*fixture)
 	if err != nil {
-		fmt.Fprintln(stderr, err)
+		_, _ = fmt.Fprintln(stderr, err)
 		return 4
 	}
 	id := cip.Identity{
@@ -156,7 +156,7 @@ func serve(args []string, stdout, stderr io.Writer) int {
 		server.WithIOAddress(net.JoinHostPort("0.0.0.0", strconv.Itoa(*ioPort))),
 		server.WithMaxPacket(65535))
 	if err != nil {
-		fmt.Fprintln(stderr, err)
+		_, _ = fmt.Fprintln(stderr, err)
 		return 4
 	}
 	asms := map[uint32]*server.Assembly{}
@@ -165,12 +165,12 @@ func serve(args []string, stdout, stderr io.Writer) int {
 	for _, a := range f.Assemblies {
 		k, ok := kinds[a.Kind]
 		if !ok {
-			fmt.Fprintf(stderr, "assembly kind %q\n", a.Kind)
+			_, _ = fmt.Fprintf(stderr, "assembly kind %q\n", a.Kind)
 			return 4
 		}
 		asm, err := srv.AddAssembly(a.Instance, k, a.Size)
 		if err != nil {
-			fmt.Fprintln(stderr, err)
+			_, _ = fmt.Fprintln(stderr, err)
 			return 4
 		}
 		asms[a.Instance] = asm
@@ -183,14 +183,14 @@ func serve(args []string, stdout, stderr io.Writer) int {
 		ts := logix.NewTagServer(logix.WithProgramName(f.Name))
 		for _, t := range f.Tags {
 			if err := addTag(ts, t); err != nil {
-				fmt.Fprintln(stderr, err)
+				_, _ = fmt.Fprintln(stderr, err)
 				return 4
 			}
 		}
 		ts.Attach(srv)
 	}
 	if err := srv.Listen(net.JoinHostPort("0.0.0.0", strconv.Itoa(*port))); err != nil {
-		fmt.Fprintln(stderr, err)
+		_, _ = fmt.Fprintln(stderr, err)
 		return 1
 	}
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGTERM, os.Interrupt)
@@ -210,7 +210,7 @@ func serve(args []string, stdout, stderr io.Writer) int {
 		event(stdout, map[string]any{"event": "stopped", "adapter": "go-ethernetip"})
 		return 0
 	case err := <-done:
-		fmt.Fprintln(stderr, err)
+		_, _ = fmt.Fprintln(stderr, err)
 		return 1
 	}
 }
@@ -324,7 +324,7 @@ func clientOp(op string, args []string, stdout, stderr io.Writer) int {
 	values := fs.String("values", "", "comma-separated values")
 	if err := fs.Parse(args); err != nil || *host == "" {
 		if *host == "" {
-			fmt.Fprintln(stderr, "--host is required")
+			_, _ = fmt.Fprintln(stderr, "--host is required")
 		}
 		return 2
 	}
@@ -355,7 +355,7 @@ func clientOp(op string, args []string, stdout, stderr io.Writer) int {
 	if *route != "" {
 		r, err := cip.ParseRoute(*route)
 		if err != nil {
-			fmt.Fprintln(stderr, err)
+			_, _ = fmt.Fprintln(stderr, err)
 			return 2
 		}
 		opts = append(opts, client.WithRoute(r))
@@ -364,14 +364,14 @@ func clientOp(op string, args []string, stdout, stderr io.Writer) int {
 	if err != nil {
 		return fail(err)
 	}
-	defer c.Close()
+	defer func() { _ = c.Close() }()
 	var d client.Doer = c
 	if *connected {
 		cn, err := c.OpenConnection(ctx, client.ConnectionOptions{Large: *large})
 		if err != nil {
 			return fail(err)
 		}
-		defer cn.Close(ctx)
+		defer func() { _ = cn.Close(ctx) }()
 		d = cn
 	}
 	status := func(resp cip.Response, err error) (bool, int) {
@@ -416,7 +416,7 @@ func clientOp(op string, args []string, stdout, stderr io.Writer) int {
 		case "set-attribute":
 			b, err := hex.DecodeString(*data)
 			if err != nil {
-				fmt.Fprintln(stderr, "--data:", err)
+				_, _ = fmt.Fprintln(stderr, "--data:", err)
 				return 2
 			}
 			req.Service, req.Data = cip.ServiceSetAttributeSingle, b
@@ -430,7 +430,7 @@ func clientOp(op string, args []string, stdout, stderr io.Writer) int {
 		for _, p := range paths {
 			path, err := cip.ParsePath(p)
 			if err != nil {
-				fmt.Fprintln(stderr, err)
+				_, _ = fmt.Fprintln(stderr, err)
 				return 2
 			}
 			reqs = append(reqs, cip.Request{Service: cip.ServiceGetAttributeSingle, Path: path})
@@ -472,12 +472,12 @@ func clientOp(op string, args []string, stdout, stderr io.Writer) int {
 	case "write-tag":
 		t, ok := cip.ParseDataType(*typ)
 		if !ok {
-			fmt.Fprintln(stderr, "--type")
+			_, _ = fmt.Fprintln(stderr, "--type")
 			return 2
 		}
 		v, err := parseValues(t, *values)
 		if err != nil {
-			fmt.Fprintln(stderr, err)
+			_, _ = fmt.Fprintln(stderr, err)
 			return 2
 		}
 		err = logix.NewClient(d, logix.WithMaxData(maxData(*connected, *large))).Write(ctx, *tag, v)
@@ -500,7 +500,7 @@ func clientOp(op string, args []string, stdout, stderr io.Writer) int {
 		}
 		res["tags"], res["ok"] = out, true
 	default:
-		fmt.Fprintf(stderr, "unknown operation %q\n", op)
+		_, _ = fmt.Fprintf(stderr, "unknown operation %q\n", op)
 		return 2
 	}
 	return write(0)
@@ -526,7 +526,7 @@ func ioOp(ctx context.Context, c *client.Client, res result, write func(int) int
 	if err != nil {
 		return fail(err)
 	}
-	defer s.Close(ctx)
+	defer func() { _ = s.Close(ctx) }()
 	var first []byte
 	received := 0
 	cfg.OnInput = func(data []byte, _ bool) {

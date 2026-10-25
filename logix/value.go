@@ -129,6 +129,8 @@ func (v Value) Int(i int) (int64, error) {
 		return int64(int32(binary.LittleEndian.Uint32(b))), nil
 	case cip.TypeLINT, cip.TypeLTIME:
 		return int64(binary.LittleEndian.Uint64(b)), nil
+	default:
+		// Unsigned types below.
 	}
 	u, err := v.Uint(i)
 	if err != nil {
@@ -172,6 +174,7 @@ func (v Value) Float(i int) (float64, error) {
 		return float64(math.Float32frombits(binary.LittleEndian.Uint32(b))), nil
 	case cip.TypeLREAL:
 		return math.Float64frombits(binary.LittleEndian.Uint64(b)), nil
+	default:
 	}
 	return 0, fmt.Errorf("%w: %s is not REAL or LREAL", ErrType, v.Type)
 }

@@ -24,24 +24,20 @@ Branch: `feature/initial-implementation` in each repository.
 | Milestone | State |
 |---|---|
 | Discovery, research | done |
-| cip, encap codecs + catalog generator | done |
-| client (explicit, Class 3, Forward_Open/Close, discovery) | done |
-| implicit (Class 0/1 codec, endpoint, connection runtime) | done |
-| server (objects, sessions, Connection Manager, I/O, multicast) | done |
-| scanner (I/O originator, timeout, reconnect) | done |
-| e2e: explicit, routing, MSP, I/O exchange, refusals, timeouts | done (passing, -race) |
-| logix (client + server emulation) | done (99.9% unit coverage) |
-| eds (parser, validation, writer, builder, Go generator) | done; tests in progress |
-| unit tests + fuzz: cip/encap/implicit, eds | in progress (subagents) |
-| client/server/scanner negative tests, chaos, stress, leak | next |
-| internal/cmd/interopnode (library behind the container contract) | done |
-| ethernetip-interop images: opener, eipscanner, pycomm3, cpppo | built, cross-tested manually |
-| interop harness (go-ethernetip/interop, build tag interop) | next |
-| docs, examples, Makefile, CI | pending |
-| ethernetipctl | pending |
+| cip, encap, implicit codecs; catalog generator | done (unit 96-100%, fuzzed) |
+| client, scanner, server | done; unit tests in progress (subagent) |
+| logix, eds | done (99.9%, 99.5%) |
+| e2e, chaos (TCP + UDP + forged datagrams), stress, leak checks | done |
+| benchmarks, examples, executable examples | done |
+| Makefile, CI (ci, interop, fuzz, release), codecov | done (not yet run on GitHub: nothing pushed) |
+| docs: README, ARCHITECTURE, ERRORS, OBSERVABILITY, SECURITY, TESTING, CONTRIBUTING, RELEASE, INTEROPERABILITY, THIRD_PARTY_NOTICES, docs/*.md | done; API.md pending |
+| interopnode + interop suite | done: 49 pass / 10 N/A / 0 fail locally (dev images) |
+| ethernetip-interop docs/infra | in progress (subagent) |
+| ethernetipctl | in progress (subagent) |
 
 ## Next actions
 
-1. Unit tests + fuzz targets for cip, encap, implicit.
-2. logix package.
-3. eds package.
+1. Integrate the client/server test subagent's work (incl. the write-deadline fix); re-run coverage gate.
+2. API.md; lint client/server/scanner.
+3. Re-run interop with matrix; render INTEROPERABILITY.md (internal/cmd/genmatrix).
+4. Review ethernetip-interop and ethernetipctl results; final verification from clean checkouts.

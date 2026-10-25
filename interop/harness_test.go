@@ -60,7 +60,7 @@ var (
 func TestMain(m *testing.M) {
 	code, err := setup(m)
 	if err != nil {
-		fmt.Fprintln(os.Stderr, "interop:", err)
+		_, _ = fmt.Fprintln(os.Stderr, "interop:", err)
 		os.Exit(1)
 	}
 	os.Exit(code)
@@ -82,7 +82,7 @@ func setup(m *testing.M) (int, error) {
 	if err != nil {
 		return 0, err
 	}
-	defer os.RemoveAll(nodeDir)
+	defer func() { _ = os.RemoveAll(nodeDir) }()
 	_, self, _, _ := runtime.Caller(0)
 	root := filepath.Dir(filepath.Dir(self))
 	build := exec.Command("go", "build", "-o", filepath.Join(nodeDir, "interopnode"), "./internal/cmd/interopnode")

@@ -215,7 +215,7 @@ func TestLogixConnected(t *testing.T) {
 	ctx := ctxT(t)
 	cn, err := c.OpenConnection(ctx, client.ConnectionOptions{Large: true})
 	must(t, err)
-	defer cn.Close(ctx)
+	defer func() { _ = cn.Close(ctx) }()
 	testLogix(t, ctx, logix.NewClient(cn, logix.WithMaxData(3900)), ts)
 	// Instance addressing, as pycomm3 uses with firmware 21 and later.
 	tags, err := logix.NewClient(cn).ListTags(ctx, "")

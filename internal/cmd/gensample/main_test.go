@@ -17,7 +17,7 @@ func TestCheck(t *testing.T) {
 	if err := os.Chdir("../../.."); err != nil {
 		t.Fatal(err)
 	}
-	defer os.Chdir(wd)
+	defer func() { _ = os.Chdir(wd) }()
 	if err := run(true); err != nil {
 		t.Fatal(err)
 	}

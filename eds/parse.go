@@ -72,7 +72,7 @@ func (f Field) String() string {
 	}
 }
 
-// Entry is a keyword and its fields: Keyword = f1, f2, ...;
+// Entry is a keyword and its fields, written "Keyword = f1, f2, ...;".
 type Entry struct {
 	Keyword string
 	Fields  []Field
@@ -171,15 +171,15 @@ func (p *parser) peek() byte {
 func (p *parser) skip() {
 	for p.pos < len(p.src) {
 		c := p.src[p.pos]
-		switch {
-		case c == '\n':
+		switch c {
+		case '\n':
 			p.line++
 			p.pos++
-		case c == '$':
+		case '$':
 			for p.pos < len(p.src) && p.src[p.pos] != '\n' {
 				p.pos++
 			}
-		case c == ' ' || c == '\t' || c == '\r' || c == '\f' || c == '\v':
+		case ' ', '\t', '\r', '\f', '\v':
 			p.pos++
 		default:
 			return
@@ -275,8 +275,8 @@ func (p *parser) entry() (Entry, error) {
 
 func (p *parser) field() (Field, error) {
 	p.skip()
-	switch c := p.peek(); {
-	case c == '"':
+	switch p.peek() {
+	case '"':
 		var sb strings.Builder
 		for p.peek() == '"' {
 			p.pos++
@@ -299,7 +299,7 @@ func (p *parser) field() (Field, error) {
 			p.skip()
 		}
 		return Field{Kind: FieldString, Value: sb.String()}, nil
-	case c == '{':
+	case '{':
 		depth := 0
 		start := p.pos
 		for p.pos < len(p.src) {
@@ -320,7 +320,7 @@ func (p *parser) field() (Field, error) {
 			}
 		}
 		return Field{}, p.errf("unterminated dataset")
-	case c == ',' || c == ';':
+	case ',', ';':
 		return Field{Kind: FieldEmpty}, nil
 	default:
 		start := p.pos

@@ -41,7 +41,7 @@ func newHarness(t *testing.T, opts ...TagServerOption) *harness {
 	must(t, ts.AddTag("Program:Main.Local", cip.TypeSINT))
 	srv, err := server.New()
 	must(t, err)
-	t.Cleanup(func() { srv.Close() })
+	t.Cleanup(func() { _ = srv.Close() })
 	ts.Attach(srv)
 	return &harness{t: t, ts: ts, srv: srv}
 }
@@ -700,7 +700,7 @@ func TestTagServerListPaging(t *testing.T) {
 		must(t, ts.AddTag(n, cip.TypeDINT))
 	}
 	srv, _ := server.New()
-	defer srv.Close()
+	defer func() { _ = srv.Close() }()
 	ts.Attach(srv)
 	sym := srv.Object(cip.ClassSymbol)
 	var names []string

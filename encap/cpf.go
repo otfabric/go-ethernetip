@@ -222,7 +222,7 @@ type IdentityItem struct {
 func (it IdentityItem) Encode() ([]byte, error) {
 	b := binary.LittleEndian.AppendUint16(make([]byte, 0, 64), it.ProtocolVersion)
 	b = it.Socket.AppendTo(b)
-	b, err := it.Identity.AppendAttributes(b)
+	b, err := it.AppendAttributes(b)
 	if err != nil {
 		return nil, err
 	}
