@@ -84,7 +84,8 @@ type CIPError struct {
 func (e *CIPError) Error() string {
 	var sb strings.Builder
 	sb.WriteString("ethernetip: ")
-	sb.WriteString(e.Service.String())
+	c, _ := e.Path.Class()
+	sb.WriteString(cip.ServiceName(c, e.Service))
 	if len(e.Path) > 0 {
 		sb.WriteString(" ")
 		sb.WriteString(e.Path.String())

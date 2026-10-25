@@ -507,7 +507,7 @@ func (cm *connectionManager) unconnectedSend(ctx context.Context, r *Request) ci
 		words, _ := us.Route.Words()
 		return cip.Response{Status: cip.StatusConnectionFailure, Extended: []uint16{uint16(cip.ConnStatusPortNotAvailable)}, Data: []byte{byte(words), 0}}
 	}
-	if us.Request.Service == cip.ServiceUnconnectedSend {
+	if c, _ := us.Request.Path.Class(); us.Request.Service == cip.ServiceUnconnectedSend && c == cip.ClassConnectionManager {
 		return cip.Response{Status: cip.StatusConnectionFailure, Extended: []uint16{uint16(cip.ConnStatusUnconnectedParameterError)}}
 	}
 	// The reply of an Unconnected_Send is the embedded request's reply,
