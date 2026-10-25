@@ -30,11 +30,14 @@ Branch: `feature/initial-implementation` in each repository.
 | server (objects, sessions, Connection Manager, I/O, multicast) | done |
 | scanner (I/O originator, timeout, reconnect) | done |
 | e2e: explicit, routing, MSP, I/O exchange, refusals, timeouts | done (passing, -race) |
-| unit tests of codecs, fuzz, chaos, stress, leak tests | next |
-| logix (client + server emulation) | pending |
-| eds (parser, validation, writer, Go generator) | pending |
+| logix (client + server emulation) | done (99.9% unit coverage) |
+| eds (parser, validation, writer, builder, Go generator) | done; tests in progress |
+| unit tests + fuzz: cip/encap/implicit, eds | in progress (subagents) |
+| client/server/scanner negative tests, chaos, stress, leak | next |
+| internal/cmd/interopnode (library behind the container contract) | done |
+| ethernetip-interop images: opener, eipscanner, pycomm3, cpppo | built, cross-tested manually |
+| interop harness (go-ethernetip/interop, build tag interop) | next |
 | docs, examples, Makefile, CI | pending |
-| ethernetip-interop (OpENer, cpppo, EIPScanner, pycomm3) | pending |
 | ethernetipctl | pending |
 
 ## Next actions

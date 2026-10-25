@@ -283,6 +283,7 @@ func (c *Client) ListTags(ctx context.Context, program string) ([]Tag, error) {
 	var out []Tag
 	next := uint32(0)
 	for {
+		start := next
 		path := append(append(cip.Path{}, prefix...), cip.ClassSegment(cip.ClassSymbol), cip.InstanceSegment(next))
 		data := []byte{3, 0, 1, 0, 2, 0, 8, 0} // name, type, dimensions
 		resp, err := c.d.Do(ctx, cip.Request{Service: cip.ServiceGetInstanceAttributeList, Path: path, Data: data})
@@ -317,6 +318,10 @@ func (c *Client) ListTags(ctx context.Context, program string) ([]Tag, error) {
 		}
 		if n == 0 {
 			return out, fmt.Errorf("%w: empty partial tag list", ethernetip.ErrProtocol)
+		}
+		if next <= start {
+			// The instances must advance, or the list never ends.
+			return out, fmt.Errorf("%w: tag list does not advance past instance %d", ethernetip.ErrProtocol, start)
 		}
 	}
 }

@@ -182,6 +182,23 @@ type Field struct {
 // their template, and are otherwise left raw in Value. Hidden members are
 // left out.
 func (t *Template) Decode(data []byte, lookup func(id uint16) *Template) ([]Field, error) {
+	budget := maxFields
+	return t.decode(data, lookup, 0, &budget)
+}
+
+// maxNesting bounds the nesting of structures Decode follows, so that a
+// template that contains itself (directly or not) cannot recurse forever;
+// maxFields bounds the fields of one Decode, so that templates whose
+// members overlap cannot make the work grow exponentially with nesting.
+const (
+	maxNesting = 32
+	maxFields  = 1 << 16
+)
+
+func (t *Template) decode(data []byte, lookup func(id uint16) *Template, depth int, budget *int) ([]Field, error) {
+	if depth > maxNesting {
+		return nil, fmt.Errorf("%w: structure %s nested more than %d deep", ErrType, t.Name, maxNesting)
+	}
 	if uint32(len(data)) < t.Size {
 		return nil, fmt.Errorf("%w: %d octets for structure %s of %d", ErrType, len(data), t.Name, t.Size)
 	}
@@ -189,6 +206,9 @@ func (t *Template) Decode(data []byte, lookup func(id uint16) *Template) ([]Fiel
 	for _, m := range t.Members {
 		if m.Hidden() {
 			continue
+		}
+		if *budget--; *budget < 0 {
+			return nil, fmt.Errorf("%w: structure %s has more than %d fields", ErrType, t.Name, maxFields)
 		}
 		count := 1
 		if m.Type.Dims() > 0 || (m.Info > 0 && m.Type.Atomic() != cip.TypeBOOL) {
@@ -208,7 +228,7 @@ func (t *Template) Decode(data []byte, lookup func(id uint16) *Template) ([]Fiel
 			raw := tail(data, m.Offset, int(sub.Size)*count)
 			f.Value = Value{Handle: sub.Handle, Count: count, Data: raw}
 			if count == 1 && len(raw) >= int(sub.Size) {
-				s, err := sub.Decode(raw, lookup)
+				s, err := sub.decode(raw, lookup, depth+1, budget)
 				if err != nil {
 					return nil, err
 				}

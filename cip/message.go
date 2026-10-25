@@ -207,7 +207,7 @@ func SplitMultiple(b []byte) ([][]byte, error) {
 	lo := 2 + 2*n
 	out := make([][]byte, n)
 	for i := 0; i < n; i++ {
-		if offs[i] < lo || offs[i] > offs[i+1] {
+		if offs[i] < lo || offs[i] > offs[i+1] || offs[i+1] > len(b) {
 			return nil, fmt.Errorf("multiple service packet: %w: offset %d of service %d", ErrMalformed, offs[i], i)
 		}
 		lo = offs[i]

@@ -25,15 +25,10 @@ type Endpoint struct {
 
 	mu     sync.Mutex
 	conns  map[uint32]*Connection
-	groups map[netip.Addr]*groupSocket
+	groups map[netip.Addr]int // multicast memberships, counted
 	closed bool
 
 	wg sync.WaitGroup
-}
-
-type groupSocket struct {
-	conn  *net.UDPConn
-	users int
 }
 
 // EndpointOption configures an [Endpoint].
@@ -67,7 +62,7 @@ func Listen(addr string, opts ...EndpointOption) (*Endpoint, error) {
 // NewEndpoint returns an endpoint serving an open UDP socket. The endpoint
 // owns it and closes it on Close.
 func NewEndpoint(c *net.UDPConn, opts ...EndpointOption) *Endpoint {
-	e := &Endpoint{conn: c, conns: map[uint32]*Connection{}, groups: map[netip.Addr]*groupSocket{}}
+	e := &Endpoint{conn: c, conns: map[uint32]*Connection{}, groups: map[netip.Addr]int{}}
 	for _, o := range opts {
 		o(e)
 	}
@@ -93,16 +88,12 @@ func (e *Endpoint) Close() error {
 	for _, c := range e.conns {
 		conns = append(conns, c)
 	}
-	groups := e.groups
-	e.groups = map[netip.Addr]*groupSocket{}
+	e.groups = map[netip.Addr]int{}
 	e.mu.Unlock()
 	for _, c := range conns {
 		c.Close()
 	}
 	err := e.conn.Close()
-	for _, g := range groups {
-		_ = g.conn.Close()
-	}
 	e.wg.Wait()
 	return err
 }
@@ -157,45 +148,59 @@ func (e *Endpoint) send(dst netip.AddrPort, b []byte) error {
 	return err
 }
 
-// join makes the endpoint receive datagrams to a multicast group on the
-// endpoint's port. Joins are counted: the group is left when the last
-// connection that joined it closes.
+// join makes the endpoint's socket receive datagrams to a multicast group
+// (IP_ADD_MEMBERSHIP on the socket itself, so that the group's datagrams to
+// the endpoint's port arrive where the unicast ones do). Joins are counted:
+// the group is left when the last connection that joined it closes.
 func (e *Endpoint) join(group netip.Addr, ifi *net.Interface) error {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	if e.closed {
 		return ethernetip.ErrClosed
 	}
-	if g := e.groups[group]; g != nil {
-		g.users++
+	if !group.Is4() || !group.IsMulticast() {
+		return fmt.Errorf("%w: %s is not an IPv4 multicast group", ethernetip.ErrInvalidOption, group)
+	}
+	if e.groups[group] > 0 {
+		e.groups[group]++
 		return nil
 	}
-	ua := &net.UDPAddr{IP: group.AsSlice(), Port: int(e.LocalAddr().Port())}
-	c, err := net.ListenMulticastUDP("udp4", ifi, ua)
-	if err != nil {
+	if err := membership(e.conn, group, interfaceAddr(ifi), true); err != nil {
 		return err
 	}
-	e.groups[group] = &groupSocket{conn: c, users: 1}
-	e.wg.Add(1)
-	go e.receive(c)
+	e.groups[group] = 1
 	return nil
 }
 
 func (e *Endpoint) leave(group netip.Addr) {
 	e.mu.Lock()
-	g := e.groups[group]
-	if g != nil {
-		g.users--
-		if g.users == 0 {
-			delete(e.groups, group)
-		} else {
-			g = nil
+	defer e.mu.Unlock()
+	if e.groups[group] == 0 {
+		return
+	}
+	e.groups[group]--
+	if e.groups[group] == 0 {
+		delete(e.groups, group)
+		if !e.closed {
+			_ = membership(e.conn, group, netip.IPv4Unspecified(), false)
 		}
 	}
-	e.mu.Unlock()
-	if g != nil {
-		_ = g.conn.Close()
+}
+
+// interfaceAddr returns the first IPv4 address of ifi, or 0.0.0.0 to let
+// the system choose.
+func interfaceAddr(ifi *net.Interface) netip.Addr {
+	if ifi != nil {
+		addrs, _ := ifi.Addrs()
+		for _, a := range addrs {
+			if n, ok := a.(*net.IPNet); ok {
+				if ip, ok := netip.AddrFromSlice(n.IP); ok && ip.Unmap().Is4() {
+					return ip.Unmap()
+				}
+			}
+		}
 	}
+	return netip.IPv4Unspecified()
 }
 
 // Connections returns the number of open connections on the endpoint.

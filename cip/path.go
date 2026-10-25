@@ -603,6 +603,13 @@ func decodeLogical(r *Reader, head byte, packed bool) (Segment, error) {
 	default:
 		// Format 3 is reserved; pycomm3 sends it for 32-bit values, so it is
 		// read as 32 bits like format 2.
+		//
+		// 32-bit class, attribute and service IDs are not defined (the
+		// encoder refuses them); accepting one would let Path.Class and
+		// Path.Attribute silently truncate it to 16 bits.
+		if t != LogicalInstance && t != LogicalMember && t != LogicalConnectionPoint {
+			return nil, fmt.Errorf("%w: 32-bit %s segment 0x%02X", ErrMalformed, t, head)
+		}
 		if !packed {
 			r.Skip(1)
 		}

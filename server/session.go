@@ -395,7 +395,7 @@ func (s *Server) serveUDP(c *net.UDPConn) {
 		var data []byte
 		switch pkt.Command {
 		case encap.CommandListIdentity:
-			data = s.listIdentity(c.LocalAddr())
+			data = s.listIdentity(replyAddr(c, from))
 		case encap.CommandListServices:
 			data = listServices()
 		case encap.CommandListInterfaces:
@@ -430,4 +430,21 @@ func (s *Server) discoveryDelay(pkt encap.Packet) time.Duration {
 		maxD = s.opts.discoveryDelayMax
 	}
 	return time.Duration(mrand.Int63n(int64(maxD)))
+}
+
+// replyAddr returns the local address of a UDP socket as seen by from: a
+// socket bound to all interfaces reports the address of the interface
+// that routes to from, as found by connecting a UDP socket (which sends
+// nothing).
+func replyAddr(c *net.UDPConn, from netip.AddrPort) net.Addr {
+	local := c.LocalAddr()
+	if ua, ok := local.(*net.UDPAddr); ok && !ua.IP.IsUnspecified() {
+		return local
+	}
+	probe, err := net.DialUDP("udp4", nil, net.UDPAddrFromAddrPort(from))
+	if err != nil {
+		return local
+	}
+	defer probe.Close()
+	return probe.LocalAddr()
 }

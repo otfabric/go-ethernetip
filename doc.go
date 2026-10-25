@@ -42,5 +42,6 @@
 package ethernetip
 
 // The catalog of CIP codes, cip/catalog.json, generates cip/catalog_gen.go
-// and CATALOG.md.
+// and CATALOG.md; the sample EDS generates eds/internal/sampledevice.
 //go:generate go run ./internal/cmd/gencatalog
+//go:generate go run ./internal/cmd/gensample

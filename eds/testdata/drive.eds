@@ -1,0 +1,126 @@
+$ SPDX-License-Identifier: MIT
+$ A variable frequency drive, written for the tests of the eds package: a
+$ parameter of every numeric data type, enumerations, struct assemblies,
+$ an assembly with bit members, Class 0 and Class 1 connections and a
+$ connection without an assembly path.
+
+[File]
+        DescText = "Test drive";
+        CreateDate = 01-31-2025;
+        CreateTime = 08:30:00;
+        ModDate = 02-28-2025;
+        ModTime = 17:45:59;
+        Revision = 2.1;
+
+[Device]
+        VendCode = 1;
+        VendName = "Test vendor";
+        ProdType = 0x02;
+        ProdTypeStr = "AC Drive";
+        ProdCode = 0x1234;
+        MajRev = 1;
+        MinRev = 12;
+        ProdName = "Test drive 2000";
+        Catalog = "TD-2000";
+
+[Device Classification]
+        Class1 = EtherNetIP;
+
+[Params]
+        Param1 = 0, ,, 0x0000, 0xC8, 4, "RPI", "us", "Requested packet interval",
+                2000, 1000000, 0x4E20, ,,,, ,,,, ;
+        Param2 = 0, ,, 0x0000, 0xC1, 1, "Run", "", "Run command",
+                0, 1, 0, ,,,, ,,,, ;
+        Enum2 = 0, "Stop", 1, "Run";
+        Param3 = 0, ,, 0x0000, 0xC2, 1, "Direction", "", "",
+                -1, 1, 1, ,,,, ,,,, ;
+        Enum3 = -1, "Reverse", 0, "Hold", 1, "Forward";
+        Param4 = 0, ,, 0x0000, 0xC3, 2, "Speed reference", "rpm", "",
+                -3600, 3600, 0, ,,,, ,,,, ;
+        Param5 = 0, 6, "20 2A 24 01 30 03", 0x0000, 0xC4, 4, "Position", "counts", "",
+                0x80000000, 0x7FFFFFFF, 0, ,,,, ,,,, ;
+        Param6 = 0, ,, 0x0000, 0xC5, 8, "Energy", "Wh", "",
+                -1000000000000, 1000000000000, 0, ,,,, ,,,, ;
+        Param7 = 0, ,, 0x0000, 0xC6, 1, "Fault code", "", "",
+                0, 255, 0, ,,,, ,,,, ;
+        Enum7 = 0, "None", 1, "Overcurrent", 2, "Overvoltage", 3, "Overtemperature";
+        Param8 = 0, ,, 0x0000, 0xC7, 2, "Status word", "", "",
+                0, 0xFFFF, 0, ,,,, ,,,, ;
+        Param9 = 0, ,, 0x0000, 0xC9, 8, "Run time", "s", "",
+                0, 0xFFFFFFFFFFFFFFFF, 0, ,,,, ,,,, ;
+        Param10 = 0, ,, 0x0000, 0xCA, 4, "Output current", "A", "Motor current",
+                0, 100.5, 0, ,,,, ,,,, ;
+        Param11 = 0, ,, 0x0000, 0xCB, 8, "Bus voltage", "V", "",
+                -0.5, 1e3, 3.25e2, ,,,, ,,,, ;
+        Param12 = 0, ,, 0x0000, 0xD1, 1, "Digital inputs", "", "",
+                ,, ,,,, ,,,, ;
+        Param13 = 0, ,, 0x0000, 0xD2, 2, "Control word", "", "",
+                ,, ,,,, ,,,, ;
+        Param14 = 0, ,, 0x0000, 0xD3, 4, "Alarm mask", "", "",
+                ,, ,,,, ,,,, ;
+        Param15 = 0, ,, 0x0000, 0xD4, 8, "Option mask", "", "",
+                ,, ,,,, ,,,, ;
+        Param16 = 0, ,, 0x0000, 0xDA, 0, "Drive name", "", "",
+                ,,, ,,,, ,,,, ;
+        Param17 = 0, ,, 0x0000, 0xC3, 2, "Acceleration", "rpm/s", "",
+                0xFF9C, 0x0064, 0xFFFF, ,,,, ,,,, ;
+
+[Assembly]
+        Assem1 = "Control", "20 04 24 01", 8, 0x0000, ,,
+                8, Param2,
+                8, Param3,
+                16, Param4,
+                16, Param13,
+                16, ;
+        Assem2 = "Status", "20 04 24 02", 48, 0x0000, ,,
+                8, Param7,
+                8, Param12,
+                16, Param8,
+                32, Param5,
+                64, Param6,
+                64, Param9,
+                32, Param10,
+                64, Param11,
+                32, Param14,
+                64, Param15;
+        Assem3 = "Bits", "20 04 24 03", 1, 0x0000, ,,
+                1, Param2,
+                7, ;
+        Assem4 = "Named", "20 04 24 04", 0, 0x0000, ,,
+                64, Param16;
+        Assem5 = "Nested", "20 04 24 05", 10, 0x0000, ,,
+                64, Assem1,
+                16, Param4;
+        Assem6 = "Config", "20 04 24 06", 0, 0x0000, ,,
+                16, Param17,
+                16, ;
+
+[Connection Manager]
+        Connection1 =
+                0x04010002, 0x44640405,
+                Param1, Assem1, Assem1,
+                Param1, 48, Assem2,
+                ,, ,,
+                "Exclusive owner", "Control and status",
+                "20 04 24 06 2C 01 2C 02";
+        Connection2 =
+                0x04010001, 0x44640405,
+                10000, , Assem1,
+                10000, Assem2, Assem2,
+                ,, ,,
+                "Class zero", "",
+                "20 04 2C 01 2C 02";
+        Connection3 =
+                0x04010002, 0x44640405,
+                Param1, 8, Assem1,
+                Param1, 48, Assem2,
+                ,, ,,
+                "Explicit", "",
+                "20 02 24 01";
+        Connection4 =
+                0x04010008, 0x44640405,
+                Param1, 8, Assem1,
+                Param1, 48, Assem2,
+                ,, ,,
+                "Class three", "",
+                "20 04 2C 01 2C 02";

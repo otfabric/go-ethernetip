@@ -139,9 +139,51 @@ func (ts *TagServer) AddTemplate(t Template) error {
 			return fmt.Errorf("%w: template handle 0x%04X in use", ethernetip.ErrInvalidOption, t.Handle)
 		}
 	}
+	for _, m := range t.Members {
+		n, err := ts.memberSize(m)
+		if err != nil {
+			return fmt.Errorf("%w: template %q member %q: %w", ethernetip.ErrInvalidOption, t.Name, m.Name, err)
+		}
+		if uint64(m.Offset)+uint64(n) > uint64(t.Size) {
+			return fmt.Errorf("%w: template %q member %q beyond its size %d", ethernetip.ErrInvalidOption, t.Name, m.Name, t.Size)
+		}
+	}
 	t.Members = append([]Member(nil), t.Members...)
 	ts.templates[t.ID] = &t
 	return nil
+}
+
+// memberSize returns the octets a member occupies, as resolve addresses
+// it; structure members need their template added first. ts.mu is held.
+func (ts *TagServer) memberSize(m Member) (int, error) {
+	count := 1
+	if m.Type.Dims() > 0 {
+		count = int(m.Info)
+	}
+	switch {
+	case m.Type.IsStruct():
+		sub := ts.templates[m.Type.Template()]
+		if sub == nil {
+			return 0, fmt.Errorf("no template %d", m.Type.Template())
+		}
+		if m.Info > 0 {
+			count = int(m.Info)
+		}
+		return int(sub.Size) * count, nil
+	case m.Type.Atomic() == cip.TypeBOOL:
+		if m.Type.Dims() == 0 && m.Info < 8 {
+			return 1, nil
+		}
+		return (int(m.Info) + 31) / 32 * 4, nil
+	}
+	size := m.Type.Atomic().Size()
+	if !m.Type.Atomic().Known() || size == 0 {
+		return 0, fmt.Errorf("type %s", m.Type)
+	}
+	if m.Info > 0 {
+		count = int(m.Info)
+	}
+	return size * count, nil
 }
 
 func splitProgram(name string) (program, tag string, err error) {
@@ -292,6 +334,9 @@ var (
 func (ts *TagServer) resolve(e *tagEntry, path cip.Path) (target, *cip.Response) {
 	i := 0
 	if e == nil {
+		if len(path) == 0 {
+			return target{}, &errBadPath
+		}
 		program := ""
 		sym, ok := path[0].(cip.SymbolSegment)
 		if !ok {
@@ -492,6 +537,14 @@ func (ts *TagServer) read(t target, r *server.Request) cip.Response {
 	room := ts.limit(r) - len(head)
 	st := cip.StatusSuccess
 	if len(data) > room {
+		// A partial transfer ends on an element boundary, as Logix and
+		// cpppo's server send it; cpppo's client cannot parse half an
+		// element.
+		if n := max(t.elemSize, 1); room >= n {
+			room -= room % n
+		} else {
+			return cip.Response{Status: cip.StatusReplyDataTooLarge}
+		}
 		data, st = data[:room], cip.StatusPartialTransfer
 	}
 	return cip.Response{Status: st, Data: append(head, data...)}
@@ -527,11 +580,17 @@ func (ts *TagServer) write(t target, r *server.Request) cip.Response {
 		return cip.Response{}
 	}
 	total := count * t.elemSize
+	if r.Service == cip.ServiceWriteTag {
+		if len(data) < total {
+			return cip.Response{Status: cip.StatusNotEnoughData}
+		}
+		// Octets after the elements are ignored, as Logix controllers do:
+		// pycomm3 1.2.16 sends each Write Tag request twice in one message,
+		// and controllers accept it.
+		data = data[:total]
+	}
 	if offset < 0 || offset+len(data) > total {
 		return cip.Response{Status: cip.StatusTooMuchData}
-	}
-	if r.Service == cip.ServiceWriteTag && len(data) < total {
-		return cip.Response{Status: cip.StatusNotEnoughData}
 	}
 	copy(t.e.data[t.off+offset:], data)
 	return cip.Response{}

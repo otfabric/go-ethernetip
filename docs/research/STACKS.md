@@ -151,3 +151,23 @@ server's tolerance rules and the interop adapters in
   @cls/ins/att`; `python -m cpppo.server.enip.get_attribute '@1/1/7'
   '@4/100/3=(SINT)1,2'`; importable as a Python API (`client.connector`), the
   basis of our cpppo client adapter.
+
+## Findings of the first interop runs (2026-10-25)
+
+- go-ethernetip scanner ↔ OpENer: ListIdentity TCP/UDP, Class 3, Class 1
+  exclusive owner with echo: pass.
+- EIPScanner ↔ go-ethernetip adapter: ListIdentity (UDP), GAS, GAA, SAS,
+  hand-built Multiple Service Packet, Class 1 I/O: pass.
+- **Defect fixed in go-ethernetip**: UDP ListIdentity of a server bound to
+  0.0.0.0 reported 0.0.0.0; it now reports the address of the interface that
+  routes to the requester.
+- **pycomm3 1.2.16 sends Write Tag twice in one Connected Data item** (the
+  sequence count and the request repeated). Logix tolerates it, so the
+  TagServer ignores octets after count × element size in Write Tag.
+- **cpppo's client cannot parse a partial transfer that ends mid-element**:
+  TagServer partial replies now end on element boundaries (cpppo's server does
+  the same).
+- cpppo's proxy sends `@c/i/a=(T)v` as Write Tag unless the operation carries
+  a type, which selects Set_Attribute_Single (adapter detail).
+- cpppo's ListIdentity reports sin_addr 0.0.0.0 with `--no-config` (its
+  configured address otherwise); state 255.

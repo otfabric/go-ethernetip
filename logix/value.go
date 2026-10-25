@@ -32,12 +32,14 @@ var ErrType = errors.New("logix: wrong type")
 // services: 0x02A0.
 const StructTypeCode uint16 = 0x02A0
 
-// String is the predefined Logix STRING structure: a DINT length and 82
-// SINT characters, 88 octets with padding.
+// StringHandle is the structure handle of the predefined Logix STRING
+// structure: a DINT length and 82 SINT characters, 88 octets with padding.
+const StringHandle uint16 = 0x0FCE
+
+// The capacity and size of a Logix STRING.
 const (
-	StringHandle   uint16 = 0x0FCE
-	StringCapacity        = 82
-	StringSize            = 88
+	StringCapacity = 82
+	StringSize     = 88
 )
 
 // Value is the value of a tag or of part of one: Count elements of an
@@ -178,6 +180,9 @@ func (v Value) Float(i int) (float64, error) {
 // arrays are DWORDs in Logix).
 func (v Value) Bool(i int) (bool, error) {
 	if v.Type == cip.TypeDWORD {
+		if i < 0 {
+			return false, fmt.Errorf("%w: bit %d of %s", ErrType, i, v)
+		}
 		w, err := v.elem(i / 32)
 		if err != nil {
 			return false, err
@@ -244,15 +249,16 @@ func Ints(t cip.DataType, vs ...int64) (Value, error) {
 
 // Floats returns a REAL or LREAL value with the elements vs.
 func Floats(t cip.DataType, vs ...float64) (Value, error) {
+	if t != cip.TypeREAL && t != cip.TypeLREAL {
+		return Value{}, fmt.Errorf("%w: %s is not REAL or LREAL", ErrType, t)
+	}
 	data := make([]byte, 0, 8*len(vs))
 	for _, x := range vs {
 		switch t {
 		case cip.TypeREAL:
 			data = cip.AppendFloat32(data, float32(x))
-		case cip.TypeLREAL:
-			data = cip.AppendFloat64(data, x)
 		default:
-			return Value{}, fmt.Errorf("%w: %s is not REAL or LREAL", ErrType, t)
+			data = cip.AppendFloat64(data, x)
 		}
 	}
 	return Value{Type: t, Count: len(vs), Data: data}, nil
