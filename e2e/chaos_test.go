@@ -228,15 +228,20 @@ func TestChaosExplicit(t *testing.T) {
 		t.Fatalf("%d kills, %d answers", p.kills.Load(), ok)
 	}
 	p.enabled.Store(false)
+	// The client reconnects in the background, with backoff: poll until it
+	// answers, rather than a few back-to-back attempts (which a slow runner
+	// can spend before the reconnection is done).
 	ctx := ctxT(t)
 	var err error
-	for i := 0; i < 5; i++ {
-		if _, err = c.Identity(ctx); err == nil {
+	until := time.Now().Add(5 * time.Second)
+	for {
+		if _, err = c.Identity(ctx); err == nil || time.Now().After(until) {
 			break
 		}
+		time.Sleep(20 * time.Millisecond)
 	}
 	if err != nil {
-		t.Fatalf("no recovery: %v", err)
+		t.Fatalf("no recovery within 5 s: %v", err)
 	}
 	t.Logf("%d answers, %d failures, %d connections killed", ok, failed, p.kills.Load())
 }
