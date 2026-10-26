@@ -168,15 +168,10 @@ func (s *Server) Listen(addr string) error {
 	if s.opts.tls != nil {
 		l = tls.NewListener(l, s.opts.tls)
 	}
-	ioAddr := s.opts.ioAddr
-	if ioAddr == "" {
-		ioAddr = net.JoinHostPort(host, strconv.Itoa(encap.IOPort))
-	}
-	ep, err := implicit.Listen(ioAddr, implicit.WithLogger(s.opts.logger), implicit.WithMetrics(s.opts.metrics))
-	if err != nil {
-		_ = l.Close()
-		return fmt.Errorf("I/O endpoint: %w", err)
-	}
+	// The UDP socket of the explicit port first, then the I/O endpoint: an
+	// I/O endpoint on an ephemeral port could otherwise take the explicit
+	// port's number (Windows hands out the same numbers for TCP and UDP),
+	// and ListIdentity over UDP would be off for no visible reason.
 	_, tcpPort, _ := net.SplitHostPort(l.Addr().String())
 	var udp *net.UDPConn
 	if ua, err := net.ResolveUDPAddr("udp4", net.JoinHostPort(host, tcpPort)); err == nil {
@@ -184,6 +179,18 @@ func (s *Server) Listen(addr string) error {
 			s.log.Warn("UDP explicit port not available: ListIdentity over UDP disabled", "error", err)
 			udp = nil
 		}
+	}
+	ioAddr := s.opts.ioAddr
+	if ioAddr == "" {
+		ioAddr = net.JoinHostPort(host, strconv.Itoa(encap.IOPort))
+	}
+	ep, err := implicit.Listen(ioAddr, implicit.WithLogger(s.opts.logger), implicit.WithMetrics(s.opts.metrics))
+	if err != nil {
+		_ = l.Close()
+		if udp != nil {
+			_ = udp.Close()
+		}
+		return fmt.Errorf("I/O endpoint: %w", err)
 	}
 	return s.serveOn(l, udp, ep, true)
 }

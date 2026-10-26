@@ -48,21 +48,27 @@ func monkeyError(err error) bool {
 		errors.Is(err, ethernetip.ErrClosed)
 }
 
-// monkeyTag tracks a tag only one worker writes: the value it last saw
-// confirmed and the values it attempted since (a write whose reply was lost
-// may still have been applied).
+// monkeyTag tracks a tag only one worker writes. A write whose reply was
+// lost may still be applied, even after later writes (its request can sit
+// in a dying connection and arrive late): its value stays possible for
+// good, and so do the bits of unconfirmed bit writes.
 type monkeyTag struct {
-	name    string
-	ok      int64
-	pending []int64
+	name        string
+	ok          int64   // the value last seen confirmed
+	unconfirmed []int64 // values of writes never confirmed
+	lateBits    int64   // bits of bit writes never confirmed
 }
 
-func (m *monkeyTag) possible(v int64) bool {
-	if v == m.ok {
+// possible reports whether the tag can hold v given that its last
+// confirmed value is ok: ok or an unconfirmed write, with any of the late
+// bits set.
+func (m *monkeyTag) possible(ok, v int64) bool {
+	mask := ^m.lateBits
+	if v&mask == ok&mask {
 		return true
 	}
-	for _, p := range m.pending {
-		if v == p {
+	for _, u := range m.unconfirmed {
+		if v&mask == u&mask {
 			return true
 		}
 	}
@@ -124,7 +130,7 @@ func TestChaosMonkey(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if x, _ := v.Int(0); !tg.possible(x) {
+		if x, _ := v.Int(0); !tg.possible(tg.ok, x) {
 			t.Fatalf("%s = %d, not a value its worker wrote (last confirmed %d)", tg.name, x, tg.ok)
 		}
 	}
@@ -211,15 +217,18 @@ func monkeyWorker(rng *rand.Rand, p *chaosProxy, tag *monkeyTag, name string, en
 		case 3, 4:
 			what = "Logix write and read"
 			v := rng.Int63n(1<<31) - 1<<30
-			tag.pending = append(tag.pending, v)
 			val, _ := logix.Ints(cip.TypeDINT, v)
 			lc := logix.NewClient(c)
-			if err = lc.Write(ctx, tag.name, val); err == nil {
-				tag.ok, tag.pending = v, nil
+			if err = lc.Write(ctx, tag.name, val); err != nil {
+				tag.unconfirmed = append(tag.unconfirmed, v)
+			} else {
+				tag.ok = v
 				var got logix.Value
 				if got, err = lc.Read(ctx, tag.name, 1); err == nil {
-					if x, _ := got.Int(0); x != v {
+					if x, _ := got.Int(0); !tag.possible(v, x) {
 						err = fmt.Errorf("%s = %d after writing %d", tag.name, x, v)
+					} else {
+						tag.ok = x
 					}
 				}
 			}
@@ -227,22 +236,18 @@ func monkeyWorker(rng *rand.Rand, p *chaosProxy, tag *monkeyTag, name string, en
 			what = "Logix bit write"
 			bit := rng.Intn(32)
 			lc := logix.NewClient(c)
-			// If it lands unconfirmed, the tag is any value it could have
-			// held, with the bit.
-			for _, v := range append([]int64{tag.ok}, tag.pending...) {
-				tag.pending = append(tag.pending, int64(int32(v|1<<bit)))
-			}
-			if err = lc.WriteBit(ctx, fmt.Sprintf("%s.%d", tag.name, bit), 4, true); err == nil {
-				// The bit write applies to the tag's current value, which
-				// is the last confirmed one unless an unconfirmed write
-				// landed: then the result is that value with the bit.
+			if err = lc.WriteBit(ctx, fmt.Sprintf("%s.%d", tag.name, bit), 4, true); err != nil {
+				tag.lateBits |= 1 << bit
+			} else {
+				// The bit is set, unless an unconfirmed write landed after
+				// it.
 				var got logix.Value
 				if got, err = lc.Read(ctx, tag.name, 1); err == nil {
 					x, _ := got.Int(0)
-					if x&(1<<bit) == 0 {
+					if x&(1<<bit) == 0 && !tag.possible(int64(int32(tag.ok|1<<bit)), x) {
 						err = fmt.Errorf("%s = %#x: bit %d not set", tag.name, x, bit)
 					}
-					tag.ok, tag.pending = x, nil
+					tag.ok = x
 				}
 			}
 		case 6:

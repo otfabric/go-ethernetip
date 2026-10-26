@@ -279,6 +279,9 @@ func TestExchangeAndAPI(t *testing.T) {
 	inputs := make(chan []byte, 64)
 	cfg := owner(5 * time.Millisecond)
 	cfg.ConfigData = []byte{1, 2, 3, 4}
+	// 320 ms: this test is about the API, not timeouts, and a loaded
+	// runner (macOS on Intel) can stall longer than 16 RPIs.
+	cfg.TimeoutMultiplier = 4
 	cfg.OnState = st.on
 	cfg.OnInput = func(d []byte, _ bool) {
 		select {
@@ -313,10 +316,13 @@ func TestExchangeAndAPI(t *testing.T) {
 	if err := a.in.SetData(want); err != nil {
 		t.Fatal(err)
 	}
-	eventually(t, 3*time.Second, "input from the target", func() bool {
+	if !waitUntil(3*time.Second, func() bool {
 		in, _, at := io.Input()
 		return bytes.Equal(in, want) && !at.IsZero()
-	})
+	}) {
+		in, _, at := io.Input()
+		t.Fatalf("no input from the target: state %v, err %v, input %x at %v", io.State(), io.Err(), in, at)
+	}
 	got := false
 	for !got {
 		select {
@@ -748,4 +754,17 @@ func TestSharedEndpoint(t *testing.T) {
 		t.Fatalf("shared endpoint closed by the scanner: %v", err)
 	}
 	cn.Close()
+}
+
+// waitUntil polls cond until it holds or d passes, and reports whether it
+// held.
+func waitUntil(d time.Duration, cond func() bool) bool {
+	deadline := time.Now().Add(d)
+	for !cond() {
+		if time.Now().After(deadline) {
+			return false
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+	return true
 }
