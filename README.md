@@ -71,71 +71,95 @@ The library provides:
 
 ## go-ethernetip vs the reference stacks
 
-go-ethernetip is tested against eleven implementations (see
-[Interop tests](#interop-tests)). Each suits different needs; the table
-shows where they differ, from their public sources and the
-[ethernetip-interop capability records](https://github.com/otfabric/ethernetip-interop/blob/main/docs/CAPABILITIES.md),
-so you can pick the right one for your project.
+go-ethernetip is tested against eleven independent implementations (see
+[Interop tests](#interop-tests)). Each suits different needs; this table
+shows where they differ, from their public sources, the
+[ethernetip-interop capability records](https://github.com/otfabric/ethernetip-interop/blob/main/docs/CAPABILITIES.md)
+and the interop runs, so you can pick the right one for your project, and
+see where more interop or more features would help.
 
-| Capability | otfabric/go-ethernetip | OpENer | EIPScanner | pycomm3 | cpppo |
-|---|:---:|:---:|:---:|:---:|:---:|
-| Language | Go | C | C++ | Python | Python |
-| Licence | MIT | adapted BSD | MIT | MIT | GPL-3.0 (copyleft) |
-| Version compared | this module | master d8820ef (v2.3+) | 1.3.0+33 (12c89a5) | 1.2.16 | 5.2.5 |
-| Originator (scanner, client) | ✅ | — | ✅ | ✅ | ✅ |
-| Target (adapter, server) | ✅ | ✅ | — | — | ✅ Logix simulator |
-| ListIdentity (TCP, UDP), discovery | ✅ both roles | ✅ | UDP | ✅ | ✅ both roles |
-| Get/Set_Attribute_Single, Get_Attributes_All | ✅ both roles | ✅ | ✅ | ✅ | ✅ both roles |
-| Multiple Service Packet | ✅ both roles | — | request encoder only | Logix reads | ✅ both roles |
-| Unconnected_Send routing | ✅ both roles | — | — | ✅ | ✅ both roles |
-| Class 3 connected explicit messaging | ✅ both roles | ✅ | — | ✅ | target |
-| Large_Forward_Open | ✅ both roles | ✅ | ✅ | ✅ | target |
-| Class 1 I/O (Class 0 too) | ✅ both roles | ✅ | ✅ | — | — |
-| T->O multicast, listen-only | ✅ both roles | ✅ | — | — | — |
-| Input-only, configuration data | ✅ both roles | ✅ | ✅ | — | — |
-| Logix tags: read, write, fragmented | ✅ client and emulation | — | — | ✅ | ✅ both roles |
-| Logix tag list, structures (templates), STRING, bit writes | ✅ client and emulation | — | — | ✅ | — |
-| EDS files: parse, validate, write, generate Go code | ✅ | — | — | — | — |
-| EtherNet/IP over TLS (port 2221) | ✅ explicit messaging | — | — | — | — |
-| Cancellation and deadlines per call | ✅ `context.Context` | — | — | socket timeout | — |
-| Structured logging, metrics | ✅ `Logger` (slog adapter), `Metrics` callbacks | own logger | own logger | `logging` | `logging` |
-| Dependencies | none (standard library) | none | none | none | greenery (and crypto_licensing, declared) |
-| Tested against other stacks in CI | ✅ these four and seven more, both directions: 173 cases pass, 0 fail, 129 N/A ([matrix](INTEROPERABILITY.md#interop-matrix)) | not documented | not documented | not documented | not documented |
-| ODVA conformance tested | no, and no claim | not documented | not documented | not documented | not documented |
+| Capability | go-ethernetip | OpENer | EIPScanner | pycomm3 | cpppo | libplctag | gologix | pylogix | etherip | eip-rs | node-ethernet-ip | EEIP.NET |
+|---|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
+| **Project** | | | | | | | | | | | | |
+| Language | Go | C | C++ | Python | Python | C | Go | Python | Java | Rust | TypeScript | C# |
+| Licence | MIT | adapted BSD | MIT | MIT | GPL-3.0 | MPL-2.0 or LGPL-2.0+ | MIT | Apache-2.0 | EPL-1.0 | MIT | MIT | MIT |
+| Version compared | this module | master d8820ef | 1.3.0+33 | 1.2.16 | 5.2.5 | 2.7.2 | 0.44.0-beta | 1.1.6 | main ce0688a | main 16e2236 | 2.0.0 | master 58b91a0 |
+| Originator (scanner, client) | ✅ | — | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Target (adapter, server) | ✅ | ✅ | — | — | Logix simulator | ab_server simulator | Logix tags, Class 1 I/O | — | — | — | — | — |
+| Dependencies | none (standard library) | none | none | none | greenery | none | crc16 | none | none (JRE) | tokio and others | none (Node.js) | none (.NET) |
+| **Discovery and encapsulation** | | | | | | | | | | | | |
+| ListIdentity over TCP | C, T | ✅ | — | ✅ | C, T | — | C, T | — | ✅ | ✅ | ✅ | — |
+| ListIdentity over UDP, discovery | C, T; broadcast | ✅ | ✅ | ✅ | C, T | — | — | broadcast only | ✅ | ✅ | ✅ | unicast ¹ |
+| ListServices | C, T | ✅ | — | — | C, T | — | C ² | — | ✅ | TCP | — | — |
+| ListInterfaces | C, T | ✅ | — | — | T | — | — | — | — | — | — | — |
+| EtherNet/IP over TLS (port 2221) | explicit messaging | — | — | — | — | — | — | — | — | — | — | — |
+| CIP Security beyond TLS (DTLS, security objects) | — (open issue) | — | — | — | — | — | — | — | — | — | — | — |
+| **Explicit messaging** | | | | | | | | | | | | |
+| Get_Attribute_Single | C, T | ✅ | ✅ | ✅ | C, T | C ³ | C ² | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Set_Attribute_Single | C, T | ✅ | ✅ | ✅ | C, T | C ³ | C ² | ✅ | — | ✅ | ✅ | ✅ |
+| Get_Attributes_All | C, T | ✅ | ✅ | ✅ | C, T | C ³ | C; T (Identity) | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Get_Attribute_List | C, T | ✅ | — | — | T | — | — | — | — | — | — | — |
+| Multiple Service Packet | C, T | — | C (adapter-built) | Logix reads | C, T | C: tag reads; T | C; T: Class 3 tag services | tag reads | tag reads | ✅ | ✅ | — |
+| Unconnected_Send routing | C, T | — | — | ✅ | C, T | T ³ | T | ✅ | ✅ | ✅ | — | — |
+| Class 3 connected explicit messaging | C, T | ✅ | — | ✅ | T | C, T | C (always), T | Logix only | — | ✅ | ✅ | — |
+| Large_Forward_Open | C, T | ✅ | ✅ | ✅ | T | C, T | C, T | ✅ | — | — | ✅ | ✅ |
+| Identity and Assembly objects (target) | ✅ | ✅ | n/a | n/a | Identity; assemblies as attributes | — | Identity only | n/a | n/a | n/a | n/a | n/a |
+| TCP/IP Interface, Ethernet Link objects (target) | ✅ | ✅ | n/a | n/a | — | — | — | n/a | n/a | n/a | n/a | n/a |
+| **Implicit (Class 0/1) I/O** | | | | | | | | | | | | |
+| Class 1 exclusive owner | C, T | T | C | — | — | — | T | — | — | — | — | C |
+| Class 0 | C, T | not tested | not tested | — | — | — | not tested | — | — | — | — | not tested |
+| Input-only (heartbeat) | C, T | T | C | — | — | — | T | — | — | — | — | C |
+| Listen-only | C, T | T ⁴ | — | — | — | — | — | — | — | — | — | C |
+| T->O multicast | C, T | T | — | — | — | — | — | — | — | — | — | C |
+| Configuration data in the Forward_Open | C, T | T | C | — | — | — | T: ignored | — | — | — | — | — |
+| Large_Forward_Open for I/O | C, T | T | C | — | — | — | T: no data | — | — | — | — | C |
+| **Rockwell Logix (vendor specific)** | | | | | | | | | | | | |
+| Read Tag, Write Tag | client and emulation | — | — | ✅ | C, T | C, T | C, T | ✅ | ✅ | ✅ | ✅ | — |
+| Read Tag Fragmented | client and emulation | — | — | ✅ | C, T | C, T | partial | ✅ | — | ✅ | — | — |
+| Write Tag Fragmented | client and emulation | — | — | ✅ | T | T; C above 4000 octets | — | above 3.9 kB | — | ✅ | — | — |
+| Several tags in one Multiple Service Packet | client and emulation | — | — | ✅ | T | C, T | C, T | ✅ | ✅ | ✅ | ✅ | — |
+| LINT, LREAL | client and emulation | — | — | ✅ | T | C, T | C, T | ✅ | — | ✅ | ✅ | — |
+| Tag list (0x55) | client and emulation | — | — | ✅ | — | C | C ⁵ | ✅ | — | ✅ | ✅ | — |
+| STRING | client and emulation | — | — | ✅ | not tested | C, T | C | ✅ | ✅ | ✅ | ✅ | — |
+| Structures (templates): read | client and emulation | — | — | ✅ | — | raw octets | raw octets | raw octets | — | ✅ | ✅ | — |
+| Structures: write | client and emulation | — | — | ✅ | — | members only | members only | members only | — | ✅ | members only ⁶ | — |
+| Bit writes on integers (Read-Modify-Write) | client and emulation | — | — | ✅ | — | C | — | ✅ | — | ✅ | ✅ | — |
+| BOOL array elements | client and emulation | — | — | ✅ | not tested | own form ⁷ | — | ✅ | — | ✅ | — | — |
+| **Tooling and API** | | | | | | | | | | | | |
+| EDS files: parse, validate, write, generate Go code | ✅ | — | — | — | — | — | — | — | — | — | — | — |
+| Cancellation and deadlines per call | `context.Context` | — | — | socket timeout | — | timeout per call | not tested | socket timeout | timeouts | async (tokio) | promises | — |
+| Structured logging, metrics | `Logger` (slog), `Metrics` | own logger | own logger | `logging` | `logging` | debug levels | `log/slog` | `print` | Java logging | not tested | not tested | console |
+| **Testing** | | | | | | | | | | | | |
+| Tested against go-ethernetip ([matrix](INTEROPERABILITY.md#interop-matrix)) | — | 17 pass | 11 pass | 18 pass | 17 pass | 17 pass | 19 pass | 14 pass | 9 pass | 21 pass | 19 pass | 11 pass |
+| Tested against other stacks in CI | ✅ all eleven, both directions | not tested | not tested | not tested | not tested | not tested | not tested | not tested | not tested | not tested | not tested | not tested |
+| ODVA conformance tested | no, and no claim | not tested | not tested | not tested | not tested | not tested | not tested | not tested | not tested | not tested | not tested | not tested |
 
-And against the seven other stacks it is tested against:
+✅ = available in the roles the stack has · C = as originator (client,
+scanner) · T = as target (adapter, server) · — = not available · n/a = the
+stack has no target role · not tested = neither documented nor exercised by
+the interop suite. For the versions go-ethernetip is tested against, as of
+October 2026.
 
-| Capability | go-ethernetip | libplctag | gologix | pylogix | etherip | eip-rs | node-ethernet-ip | EEIP.NET |
-|---|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
-| Language | Go | C | Go | Python | Java | Rust | TypeScript | C# |
-| Licence | MIT | MPL-2.0 or LGPL-2.0+ | MIT | Apache-2.0 | EPL-1.0 | MIT | MIT | MIT |
-| Version compared | this module | 2.7.2 | 0.44.0-beta | 1.1.6 | main ce0688a | main 16e2236 | 2.0.0 | master 58b91a0 |
-| Originator (scanner, client) | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| Target (adapter, server) | ✅ | ab_server simulator (Logix tags only) | ✅ Logix tags and Class 1 I/O | — | — | — | — | — |
-| ListIdentity | ✅ TCP, UDP, both roles | — | TCP | UDP (broadcast) | TCP, UDP | TCP, UDP | TCP, UDP | UDP |
-| Get/Set_Attribute_Single, Get_Attributes_All | ✅ both roles | ✅ (over Class 3 ¹) | ✅ | ✅ | Get only | ✅ | ✅ | ✅ |
-| Multiple Service Packet | ✅ both roles | tag reads | ✅ | tag reads | tag reads | ✅ | ✅ | — |
-| Unconnected_Send routing | ✅ both roles | target ¹ | target | ✅ | ✅ | ✅ | — | — |
-| Class 3 connected explicit messaging | ✅ both roles | ✅ | ✅ (always) | Logix only | — | ✅ | ✅ | — |
-| Large_Forward_Open | ✅ both roles | ✅ | ✅ | ✅ | — | — | ✅ | ✅ |
-| Class 1 I/O | ✅ both roles | — | target | — | — | — | — | ✅ |
-| T->O multicast, listen-only | ✅ both roles | — | — | — | — | — | — | ✅ |
-| Input-only, configuration data | ✅ both roles | — | input-only target | — | — | — | — | input-only |
-| Logix tags: read, write, fragmented | ✅ client and emulation | ✅ | ✅ (no fragments) | ✅ | ✅ (no fragments, no 64-bit) | ✅ | ✅ (no fragments) | — |
-| Logix tag list, structures, STRING, bit writes | ✅ client and emulation | tag list, STRING, bits | tag list, STRING | tag list, STRING, bits | STRING | ✅ | tag list, STRING, bits, structure reads | — |
-| EDS files | ✅ | — | — | — | — | — | — | — |
-| EtherNet/IP over TLS | ✅ explicit messaging | — | — | — | — | — | — | — |
-| Dependencies | none | none | crc16 | none | none (JRE) | tokio and others | none (Node.js) | none (.NET) |
+¹ EEIP.NET's own ListIdentity broadcasts without SO_BROADCAST and fails on
+Linux; the adapter sends one unicast datagram built and parsed by EEIP.NET.
+² gologix's target answers ListServices with the wrong command and
+Get_Attribute_Single with malformed replies; Set_Attribute_Single only on
+its own class 0xC8.
+³ libplctag 2.7.2 builds unconnected requests without their route path, so
+its attribute requests work over Class 3 only; ab_server has no attributes.
+⁴ OpENer stops the shared production and drops the owner when a
+listen-only connection closes first.
+⁵ gologix's target answers the tag list without the requested attributes.
+⁶ node-ethernet-ip writes a whole structure with the template instance ID
+instead of the structure handle (refused 0x2107).
+⁷ libplctag writes a BOOL array element as `Bits[1].5` (DWORD, bit), not
+`Bits[37]`.
 
-¹ libplctag 2.7.2 builds unconnected requests without their route path, so
-its attribute requests are tested over a Class 3 connection.
-
-✅ = available · — = not available. For the versions go-ethernetip is
-tested against, from their sources and documentation and the capability
-documents of their interop images, as of October 2026. "Both roles" means
-as originator and as target. If you spot an inaccuracy, please
-[open an issue](https://github.com/otfabric/go-ethernetip/issues) and we will
-correct it.
+The interop counts are the cases each stack passes against go-ethernetip,
+in both directions where it has a target, of those it declares; every
+documented limit is listed with its reason in the matrix. If you spot an
+inaccuracy, please [open an issue](https://github.com/otfabric/go-ethernetip/issues)
+and we will correct it.
 
 ## Install
 
