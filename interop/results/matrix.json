@@ -1,0 +1,457 @@
+{
+  "generated": "2026-10-26T00:03:28Z",
+  "images": {
+    "cpppo": "{\"adapter\": \"cpppo\", \"adapterVersion\": \"v0.1.0\", \"contract\": \"1.0\", \"upstream\": \"cpppo\", \"upstreamRevision\": \"f7c224bbb2389bd26d0088eeb1a93db3a5c4858f\", \"upstreamVersion\": \"5.2.5\"}",
+    "eipscanner": "{\"adapter\":\"eipscanner\",\"adapterVersion\":\"v0.1.0\",\"upstream\":\"EIPScanner\",\"upstreamVersion\":\"1.3.0-33\",\"upstreamRevision\":\"12c89a57ec2e7449efb1348be52af10be9ef9701\",\"contract\":\"1.0\"}",
+    "opener": "{\"adapter\":\"opener\",\"adapterVersion\":\"v0.1.0\",\"upstream\":\"OpENer\",\"upstreamVersion\":\"2.3-588\",\"upstreamRevision\":\"d8820ef41ce30dda06d213438ba81c81de33ffe2\",\"contract\":\"1.0\"}",
+    "pycomm3": "{\"adapter\": \"pycomm3\", \"adapterVersion\": \"v0.1.0\", \"contract\": \"1.0\", \"upstream\": \"pycomm3\", \"upstreamRevision\": \"36aeb19b5cb47495df9fd1caa38ce9d2f6d12ea3\", \"upstreamVersion\": \"1.2.16\"}"
+  },
+  "interopRelease": "v0.1.0",
+  "rows": [
+    {
+      "feature": "Class 1 I/O, exclusive owner, point-to-point",
+      "direction": "go-\u003eref",
+      "reference": "cpppo",
+      "status": "n/a",
+      "test": "",
+      "note": "cpppo has no implicit messaging"
+    },
+    {
+      "feature": "Class 3 connected explicit messaging",
+      "direction": "go-\u003eref",
+      "reference": "cpppo",
+      "status": "pass",
+      "test": "TestGoClientCpppo/ReadTags-connected",
+      "note": "connected"
+    },
+    {
+      "feature": "Get_Attribute_Single",
+      "direction": "go-\u003eref",
+      "reference": "cpppo",
+      "status": "pass",
+      "test": "TestGoClientCpppo/GetAttribute"
+    },
+    {
+      "feature": "ListIdentity (TCP)",
+      "direction": "go-\u003eref",
+      "reference": "cpppo",
+      "status": "pass",
+      "test": "TestGoClientCpppo/ListIdentity"
+    },
+    {
+      "feature": "ListIdentity (UDP)",
+      "direction": "go-\u003eref",
+      "reference": "cpppo",
+      "status": "pass",
+      "test": "TestGoClientCpppo/ListIdentityUDP"
+    },
+    {
+      "feature": "Logix Read Tag (atomic types)",
+      "direction": "go-\u003eref",
+      "reference": "cpppo",
+      "status": "pass",
+      "test": "TestGoClientCpppo/ReadTags-routed",
+      "note": "routed"
+    },
+    {
+      "feature": "Logix Read Tag Fragmented (1200 octets)",
+      "direction": "go-\u003eref",
+      "reference": "cpppo",
+      "status": "pass",
+      "test": "TestGoClientCpppo/Fragmented-routed",
+      "note": "routed"
+    },
+    {
+      "feature": "Logix Read Tag Fragmented (1200 octets)",
+      "direction": "go-\u003eref",
+      "reference": "cpppo",
+      "status": "pass",
+      "test": "TestGoClientCpppo/Fragmented-connected",
+      "note": "connected"
+    },
+    {
+      "feature": "Logix Write Tag",
+      "direction": "go-\u003eref",
+      "reference": "cpppo",
+      "status": "pass",
+      "test": "TestGoClientCpppo/WriteReadBack"
+    },
+    {
+      "feature": "Logix tag list (0x55) and LogixDriver open",
+      "direction": "go-\u003eref",
+      "reference": "cpppo",
+      "status": "n/a",
+      "test": "",
+      "note": "cpppo has no Symbol object tag list"
+    },
+    {
+      "feature": "Multiple Service Packet",
+      "direction": "go-\u003eref",
+      "reference": "cpppo",
+      "status": "pass",
+      "test": "TestGoClientCpppo/MultipleService"
+    },
+    {
+      "feature": "Class 1 I/O, exclusive owner, point-to-point",
+      "direction": "ref-\u003ego",
+      "reference": "cpppo",
+      "status": "n/a",
+      "test": "",
+      "note": "cpppo has no implicit messaging"
+    },
+    {
+      "feature": "Get_Attribute_Single",
+      "direction": "ref-\u003ego",
+      "reference": "cpppo",
+      "status": "pass",
+      "test": "TestCpppoToGo/Attributes"
+    },
+    {
+      "feature": "ListIdentity (TCP)",
+      "direction": "ref-\u003ego",
+      "reference": "cpppo",
+      "status": "pass",
+      "test": "TestCpppoToGo/ListIdentityTCP"
+    },
+    {
+      "feature": "ListIdentity (UDP)",
+      "direction": "ref-\u003ego",
+      "reference": "cpppo",
+      "status": "pass",
+      "test": "TestCpppoToGo/ListIdentityUDP"
+    },
+    {
+      "feature": "Logix Read Tag (atomic types)",
+      "direction": "ref-\u003ego",
+      "reference": "cpppo",
+      "status": "pass",
+      "test": "TestCpppoToGo/LogixReadWrite",
+      "note": "through Unconnected_Send to slot 0"
+    },
+    {
+      "feature": "Logix Read Tag Fragmented (1200 octets)",
+      "direction": "ref-\u003ego",
+      "reference": "cpppo",
+      "status": "pass",
+      "test": "TestCpppoToGo/LogixFragmented",
+      "note": "Read Tag Fragmented with byte offsets, continued by the adapter while the target answers 0x06"
+    },
+    {
+      "feature": "Logix Write Tag",
+      "direction": "ref-\u003ego",
+      "reference": "cpppo",
+      "status": "pass",
+      "test": "TestCpppoToGo/LogixWrite"
+    },
+    {
+      "feature": "Multiple Service Packet",
+      "direction": "ref-\u003ego",
+      "reference": "cpppo",
+      "status": "pass",
+      "test": "TestCpppoToGo/MultipleService"
+    },
+    {
+      "feature": "Set_Attribute_Single (assembly)",
+      "direction": "ref-\u003ego",
+      "reference": "cpppo",
+      "status": "pass",
+      "test": "TestCpppoToGo/SetAttributeEcho"
+    },
+    {
+      "feature": "Class 1 I/O, T-\u003eO multicast",
+      "direction": "ref-\u003ego",
+      "reference": "eipscanner",
+      "status": "n/a",
+      "test": "",
+      "note": "EIPScanner does not join multicast groups"
+    },
+    {
+      "feature": "Class 1 I/O, exclusive owner, point-to-point",
+      "direction": "ref-\u003ego",
+      "reference": "eipscanner",
+      "status": "pass",
+      "test": "TestEIPScannerToGoAdapter/Class1ExclusiveOwner"
+    },
+    {
+      "feature": "Class 1 I/O, input only (heartbeat O-\u003eT)",
+      "direction": "ref-\u003ego",
+      "reference": "eipscanner",
+      "status": "pass",
+      "test": "TestEIPScannerToGoAdapter/Class1InputOnly"
+    },
+    {
+      "feature": "Class 3 connected explicit messaging",
+      "direction": "ref-\u003ego",
+      "reference": "eipscanner",
+      "status": "n/a",
+      "test": "",
+      "note": "EIPScanner has no SendUnitData sender"
+    },
+    {
+      "feature": "Forward_Open refusal (connection size)",
+      "direction": "ref-\u003ego",
+      "reference": "eipscanner",
+      "status": "pass",
+      "test": "TestEIPScannerToGoAdapter/Class1WrongSize",
+      "note": "EIPScanner logs the refusal; the adapter reports refused"
+    },
+    {
+      "feature": "Get_Attribute_Single (16-bit logical segments)",
+      "direction": "ref-\u003ego",
+      "reference": "eipscanner",
+      "status": "pass",
+      "test": "TestEIPScannerToGoAdapter/GetAttributeSingle",
+      "note": "EIPScanner packs 16-bit class/instance/attribute segments"
+    },
+    {
+      "feature": "Get_Attributes_All (Identity)",
+      "direction": "ref-\u003ego",
+      "reference": "eipscanner",
+      "status": "pass",
+      "test": "TestEIPScannerToGoAdapter/GetAttributesAll"
+    },
+    {
+      "feature": "Large_Forward_Open",
+      "direction": "ref-\u003ego",
+      "reference": "eipscanner",
+      "status": "pass",
+      "test": "TestEIPScannerToGoAdapter/Class1Large"
+    },
+    {
+      "feature": "ListIdentity (UDP)",
+      "direction": "ref-\u003ego",
+      "reference": "eipscanner",
+      "status": "pass",
+      "test": "TestEIPScannerToGoAdapter/ListIdentityUDP"
+    },
+    {
+      "feature": "Logix tag services",
+      "direction": "ref-\u003ego",
+      "reference": "eipscanner",
+      "status": "n/a",
+      "test": "",
+      "note": "EIPScanner has no symbolic segments"
+    },
+    {
+      "feature": "Multiple Service Packet",
+      "direction": "ref-\u003ego",
+      "reference": "eipscanner",
+      "status": "pass",
+      "test": "TestEIPScannerToGoAdapter/MultipleService",
+      "note": "built by the adapter with EIPScanner's MessageRouterRequest"
+    },
+    {
+      "feature": "Set_Attribute_Single (assembly)",
+      "direction": "ref-\u003ego",
+      "reference": "eipscanner",
+      "status": "pass",
+      "test": "TestEIPScannerToGoAdapter/SetAttributeEcho"
+    },
+    {
+      "feature": "Class 1 I/O, T-\u003eO multicast",
+      "direction": "go-\u003eref",
+      "reference": "opener",
+      "status": "pass",
+      "test": "TestGoScannerOpENer/Class1Multicast"
+    },
+    {
+      "feature": "Class 1 I/O, exclusive owner, point-to-point",
+      "direction": "go-\u003eref",
+      "reference": "opener",
+      "status": "pass",
+      "test": "TestGoScannerOpENer/Class1ExclusiveOwner",
+      "note": "output 150 echoed to input 100 by the sample application"
+    },
+    {
+      "feature": "Class 1 I/O, input only (heartbeat O-\u003eT)",
+      "direction": "go-\u003eref",
+      "reference": "opener",
+      "status": "pass",
+      "test": "TestGoScannerOpENer/Class1InputOnly"
+    },
+    {
+      "feature": "Class 3 connected explicit messaging",
+      "direction": "go-\u003eref",
+      "reference": "opener",
+      "status": "pass",
+      "test": "TestGoScannerOpENer/Class3"
+    },
+    {
+      "feature": "Error responses (unknown class, attribute)",
+      "direction": "go-\u003eref",
+      "reference": "opener",
+      "status": "pass",
+      "test": "TestGoScannerOpENer/ErrorStatuses",
+      "note": "OpENer answers 0x05 for an unknown class or instance, 0x14 for an attribute"
+    },
+    {
+      "feature": "Forward_Open refusal (connection size)",
+      "direction": "go-\u003eref",
+      "reference": "opener",
+      "status": "pass",
+      "test": "TestGoScannerOpENer/Class1WrongSize"
+    },
+    {
+      "feature": "Get_Attribute_Single",
+      "direction": "go-\u003eref",
+      "reference": "opener",
+      "status": "pass",
+      "test": "TestGoScannerOpENer/GetAttributeSingle"
+    },
+    {
+      "feature": "Get_Attributes_All (Identity)",
+      "direction": "go-\u003eref",
+      "reference": "opener",
+      "status": "pass",
+      "test": "TestGoScannerOpENer/GetAttributesAllIdentity"
+    },
+    {
+      "feature": "Large_Forward_Open",
+      "direction": "go-\u003eref",
+      "reference": "opener",
+      "status": "pass",
+      "test": "TestGoScannerOpENer/Class1LargeForwardOpen"
+    },
+    {
+      "feature": "ListIdentity (TCP)",
+      "direction": "go-\u003eref",
+      "reference": "opener",
+      "status": "pass",
+      "test": "TestGoScannerOpENer/ListIdentityTCP"
+    },
+    {
+      "feature": "ListIdentity (UDP)",
+      "direction": "go-\u003eref",
+      "reference": "opener",
+      "status": "pass",
+      "test": "TestGoScannerOpENer/ListIdentityUDP"
+    },
+    {
+      "feature": "ListServices",
+      "direction": "go-\u003eref",
+      "reference": "opener",
+      "status": "pass",
+      "test": "TestGoScannerOpENer/ListServices"
+    },
+    {
+      "feature": "Logix tag services",
+      "direction": "go-\u003eref",
+      "reference": "opener",
+      "status": "n/a",
+      "test": "",
+      "note": "not a Logix controller"
+    },
+    {
+      "feature": "Multiple Service Packet",
+      "direction": "go-\u003eref",
+      "reference": "opener",
+      "status": "n/a",
+      "test": "",
+      "note": "OpENer answers 0x08: not implemented"
+    },
+    {
+      "feature": "Set_Attribute_Single (assembly)",
+      "direction": "go-\u003eref",
+      "reference": "opener",
+      "status": "pass",
+      "test": "TestGoScannerOpENer/SetAttributeAssemblyEcho"
+    },
+    {
+      "feature": "Unconnected_Send routing",
+      "direction": "go-\u003eref",
+      "reference": "opener",
+      "status": "n/a",
+      "test": "",
+      "note": "OpENer answers 0x08: not implemented"
+    },
+    {
+      "feature": "Class 1 I/O, exclusive owner, point-to-point",
+      "direction": "ref-\u003ego",
+      "reference": "pycomm3",
+      "status": "n/a",
+      "test": "",
+      "note": "pycomm3 has no implicit messaging"
+    },
+    {
+      "feature": "Class 3 connected explicit messaging (Large_Forward_Open)",
+      "direction": "ref-\u003ego",
+      "reference": "pycomm3",
+      "status": "pass",
+      "test": "TestPycomm3ToGoAdapter/GetAttributeConnected"
+    },
+    {
+      "feature": "Error responses (unknown class, attribute)",
+      "direction": "ref-\u003ego",
+      "reference": "pycomm3",
+      "status": "pass",
+      "test": "TestPycomm3ToGoAdapter/AttributeNotSupported"
+    },
+    {
+      "feature": "Get_Attribute_Single",
+      "direction": "ref-\u003ego",
+      "reference": "pycomm3",
+      "status": "pass",
+      "test": "TestPycomm3ToGoAdapter/GetAttributeUnconnected"
+    },
+    {
+      "feature": "ListIdentity (TCP)",
+      "direction": "ref-\u003ego",
+      "reference": "pycomm3",
+      "status": "pass",
+      "test": "TestPycomm3ToGoAdapter/ListIdentityTCP"
+    },
+    {
+      "feature": "ListIdentity (UDP)",
+      "direction": "ref-\u003ego",
+      "reference": "pycomm3",
+      "status": "pass",
+      "test": "TestPycomm3ToGoAdapter/ListIdentityUDP",
+      "note": "pycomm3 discover() to the adapter's address"
+    },
+    {
+      "feature": "Logix Read Tag (atomic types)",
+      "direction": "ref-\u003ego",
+      "reference": "pycomm3",
+      "status": "pass",
+      "test": "TestPycomm3ToGoLogix/ReadAtomic"
+    },
+    {
+      "feature": "Logix Read Tag Fragmented (1200 octets)",
+      "direction": "ref-\u003ego",
+      "reference": "pycomm3",
+      "status": "pass",
+      "test": "TestPycomm3ToGoLogix/ReadFragmented"
+    },
+    {
+      "feature": "Logix Write Tag",
+      "direction": "ref-\u003ego",
+      "reference": "pycomm3",
+      "status": "pass",
+      "test": "TestPycomm3ToGoLogix/WriteReadBack",
+      "note": "pycomm3 1.2.16 repeats the request in the message; the emulation ignores the extra octets, as Logix does"
+    },
+    {
+      "feature": "Logix tag list (0x55) and LogixDriver open",
+      "direction": "ref-\u003ego",
+      "reference": "pycomm3",
+      "status": "pass",
+      "test": "TestPycomm3ToGoLogix/TagList",
+      "note": "pycomm3 uploads the tag list on open: Unconnected_Send, Large_Forward_Open, program name, 0x55 with continuation"
+    },
+    {
+      "feature": "Set_Attribute_Single (assembly)",
+      "direction": "ref-\u003ego",
+      "reference": "pycomm3",
+      "status": "pass",
+      "test": "TestPycomm3ToGoAdapter/SetAttributeEcho"
+    },
+    {
+      "feature": "Unconnected_Send routing (backplane slot 0)",
+      "direction": "ref-\u003ego",
+      "reference": "pycomm3",
+      "status": "pass",
+      "test": "TestPycomm3ToGoAdapter/UnconnectedSendModuleInfo",
+      "note": "pycomm3 get_module_info(0)"
+    }
+  ]
+}

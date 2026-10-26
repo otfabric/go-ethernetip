@@ -1,0 +1,19 @@
+# Codecov configuration for go-ethernetip.
+# CI uploads coverage for the library packages; examples/, the generated
+# sample package, the interop suite and the tools under internal/cmd are
+# not library code.
+coverage:
+  status:
+    project:
+      default:
+        target: 90%
+        threshold: 1%
+    patch:
+      default:
+        target: 80%
+
+ignore:
+  - "examples/**"
+  - "interop/**"
+  - "internal/cmd/**"
+  - "eds/internal/sampledevice/**"

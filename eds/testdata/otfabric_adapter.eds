@@ -1,0 +1,105 @@
+$ EDS of the OT Fabric demonstration adapter (examples/adapter and the
+$ test adapter of the e2e suite). Written for go-ethernetip; MIT licensed.
+
+[File]
+        DescText = "OT Fabric EtherNet/IP demonstration adapter";
+        CreateDate = 10-25-2026;
+        CreateTime = 12:00:00;
+        ModDate = 10-25-2026;
+        ModTime = 12:00:00;
+        Revision = 1.0;
+        HomeURL = "https://github.com/otfabric/go-ethernetip";
+
+[Device]
+        VendCode = 65535;
+        VendName = "OT Fabric";
+        ProdType = 12;
+        ProdTypeStr = "Communications Adapter";
+        ProdCode = 42;
+        MajRev = 3;
+        MinRev = 7;
+        ProdName = "e2e adapter";
+        Catalog = "OTF-EIP-1";
+
+[Device Classification]
+        Class1 = EtherNetIP;
+
+[Params]
+        Param1 =
+                0,                      $ reserved
+                ,,                      $ link path size, link path
+                0x0000,                 $ descriptor
+                0xC8,                   $ UDINT
+                4,                      $ data size
+                "RPI",                  $ name
+                "us",                   $ units
+                "Requested packet interval",
+                1000, 3600000000, 10000, $ min, max, default
+                ,,,,                    $ scaling
+                ,,,,                    $ links
+                ;                       $ decimal places
+        Param2 =
+                0, ,, 0x0000, 0xC7, 2,
+                "Speed setpoint", "rpm", "",
+                0, 3000, 1500,
+                ,,,, ,,,, ;
+        Param3 =
+                0, ,, 0x0000, 0xC2, 1,
+                "Mode", "", "Operating mode",
+                0, 2, 0,
+                ,,,, ,,,, ;
+        Enum3 = 0, "Stopped", 1, "Running", 2, "Faulted";
+        Param4 =
+                0, ,, 0x0000, 0xCA, 4,
+                "Temperature", "degC", "",
+                -40, 125, 20,
+                ,,,, ,,,, ;
+        Param5 =
+                0, ,, 0x0000, 0xC6, 1,
+                "Padding", "", "",
+                0, 0, 0,
+                ,,,, ,,,, ;
+
+[Assembly]
+        Revision = 2;
+        Assem100 = "Input", "20 04 24 64", 32, 0x0000, ,,
+                256, ;
+        Assem150 = "Output", "20 04 24 96", 32, 0x0000, ,,
+                256, ;
+        Assem151 = "Configuration", "20 04 24 97", 10, 0x0000, ,,
+                16, Param2,
+                8, Param3,
+                8, Param5,
+                32, Param4,
+                16, ;
+        Assem152 = "Input only heartbeat", "20 04 24 98", 0, 0x0000, ,;
+        Assem153 = "Listen only heartbeat", "20 04 24 99", 0, 0x0000, ,;
+
+[Connection Manager]
+        Connection1 =
+                0x04010002,             $ class 1, cyclic, exclusive owner
+                0x44640405,             $ connection parameters
+                Param1, 32, Assem150,   $ O->T RPI, size, format
+                Param1, 32, Assem100,   $ T->O RPI, size, format
+                ,,                      $ proxy config
+                10, Assem151,           $ target config
+                "Exclusive owner",
+                "",
+                "20 04 24 97 2C 96 2C 64";
+        Connection2 =
+                0x02010002, 0x44640305,
+                Param1, 0, Assem152,
+                Param1, 32, Assem100,
+                ,, ,,
+                "Input only", "",
+                "20 04 24 97 2C 98 2C 64";
+        Connection3 =
+                0x01010002, 0x44240305,
+                Param1, 0, Assem153,
+                Param1, 32, Assem100,
+                ,, ,,
+                "Listen only", "",
+                "20 04 24 97 2C 99 2C 64";
+
+[Port]
+        Port1 = TCP, "Ethernet", "20 F5 24 01", 2;

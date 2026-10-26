@@ -1,0 +1,3 @@
+# Generated files, golden files and EDS fixtures are compared byte for byte:
+# keep LF endings on every platform.
+* text=auto eol=lf

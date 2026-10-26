@@ -1,0 +1,121 @@
+name: CI
+run-name: "CI (${{ github.event_name }}) on ${{ github.ref_name }} by @${{ github.actor }}"
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: ["**"]
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  ci:
+    uses: otfabric/.github/.github/workflows/go-ci.yml@v2
+    with:
+      codecov-name: go-ethernetip
+      # Coverage across the library packages, as make coverage measures it:
+      # the e2e suite and the client and server tests exercise each other's
+      # packages. make coverpkg-check keeps it equal to COVER_PKGS.
+      coverpkg: >-
+        github.com/otfabric/go-ethernetip,github.com/otfabric/go-ethernetip/cip,github.com/otfabric/go-ethernetip/client,github.com/otfabric/go-ethernetip/eds,github.com/otfabric/go-ethernetip/encap,github.com/otfabric/go-ethernetip/implicit,github.com/otfabric/go-ethernetip/internal/logx,github.com/otfabric/go-ethernetip/logix,github.com/otfabric/go-ethernetip/scanner,github.com/otfabric/go-ethernetip/server
+      go-versions: '["1.23", "1.24", "1.25", "1.26"]'
+      # The race and e2e suites need more than the default 15 minutes on
+      # loaded runners.
+      timeout-minutes: 25
+    secrets: inherit
+
+  # The shared workflow reports coverage; this job enforces the 90% gate.
+  coverage-gate:
+    name: Coverage gate (90%)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+      - run: make coverage-check
+
+  # The generated catalog and sample EDS package follow their sources.
+  generate:
+    name: Generated code
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version: "1.23.x"
+      - run: make generate-check coverpkg-check
+
+  # The self-contained examples keep running as they are.
+  examples:
+    name: Examples
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version: "1.23.x"
+      - run: make build examples
+
+  # Native test runs on every platform the library supports; arm64
+  # runners where GitHub provides them, no emulation.
+  platforms:
+    name: Test (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, ubuntu-24.04-arm, macos-15-intel, macos-15, windows-2025, windows-11-arm]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+      - name: Test
+        shell: bash
+        # The race detector does not support windows/arm64: the tests run
+        # without it there.
+        run: |
+          race=-race
+          if [ "$RUNNER_OS" = Windows ] && [ "$RUNNER_ARCH" = ARM64 ]; then
+            echo "::notice::race detector not supported on windows/arm64"
+            race=
+          fi
+          go test -count=1 $race $(go list ./... | grep -v /examples | grep -v /interop)
+      - name: Cross-compile every target
+        if: matrix.os == 'ubuntu-24.04'
+        run: make cross
+
+  # The fuzz targets, briefly, on every push; longer in fuzz.yml.
+  fuzz:
+    name: Fuzz
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version: "1.23.x"
+      - run: make fuzz FUZZTIME=15s
+      - name: Upload the failing inputs
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: fuzz-failures
+          path: "**/testdata/fuzz/"
+          if-no-files-found: warn
+
+  # The chaos and stress suites, repeated.
+  chaos:
+    name: Chaos and stress
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+      - run: make chaos stress
