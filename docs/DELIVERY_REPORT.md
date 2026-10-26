@@ -197,5 +197,5 @@ unauthenticated.
 
 1. Done in v0.2.0: interop cases for listen-only, configuration data,
    Read-Modify-Write, structures and STRING (fixture `logix-structures`).
-2. CIP Security beyond TLS if ODVA Volume 8 and a DTLS dependency are
-   accepted; consider a hardware validation against a real ControlLogix.
+2. CIP Security beyond TLS and hardware validation: owner decisions,
+   recorded in [PROGRESS.md](../PROGRESS.md#open-issues-owner-decisions).
