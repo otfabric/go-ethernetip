@@ -148,7 +148,7 @@ func TestGoScannerOpENer(t *testing.T) {
 		}
 	})
 	t.Run("Class1ListenOnly", func(t *testing.T) {
-		record(t, "Class 1 I/O, listen-only (multicast, next to its owner)", dir, name, "listen-only connection point 153 opened while the exclusive owner's multicast production runs; both consume it on one endpoint")
+		record(t, "Class 1 I/O, listen-only (multicast, next to its owner)", dir, name, "listen-only connection point 153 opened while the exclusive owner's multicast production runs; both consume it on one endpoint. Closed after the owner: OpENer stops the production and drops the owner when a listen-only connection closes first")
 		out := strings.Repeat("b2", 32)
 		r := nodeClient(t, "io", "--host", host, "--config", "151", "--output", "150", "--input", "100",
 			"--output-size", "32", "--input-size", "32", "--rpi-ms", "10", "--duration-ms", "1500", "--output-data", out,
@@ -161,6 +161,13 @@ func TestGoScannerOpENer(t *testing.T) {
 		}
 		if lo.num("received") < 10 || lo.str("lastInput") != out {
 			t.Fatalf("listen-only data: %v", lo)
+		}
+		// Closed after its owner: closed with it, or still there.
+		if fc := lo.obj("forwardClose"); fc.num("status") != 0 {
+			ext, _ := fc["extendedStatus"].([]any)
+			if fc.num("status") != 1 || len(ext) == 0 || ext[0].(float64) != 0x0107 {
+				t.Fatalf("listen-only Forward_Close: %v", fc)
+			}
 		}
 	})
 	t.Run("Class1ListenOnlyWithoutOwner", func(t *testing.T) {

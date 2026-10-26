@@ -655,17 +655,7 @@ func ioOp(ctx context.Context, c *client.Client, res result, write func(int) int
 	case <-time.After(dur):
 	case <-io.Done():
 	}
-	if lio != nil {
-		last, _, _ := lio.Input()
-		lr := res["listenOnly"].(map[string]any)
-		lr["received"], lr["lastInput"] = lreceived.Load(), hex.EncodeToString(last)
-		lr["timedOut"] = lio.State() == ethernetip.StateTimedOut
-		fc := map[string]any{"status": 0}
-		if err := lio.Close(ctx); err != nil {
-			fc["error"] = err.Error()
-		}
-		lr["forwardClose"] = fc
-	}
+
 	st := io.Stats()
 	last, _, _ := io.Input()
 	res["sent"], res["received"] = st.Sent, received
@@ -675,12 +665,40 @@ func ioOp(ctx context.Context, c *client.Client, res result, write func(int) int
 	if err := io.Close(ctx); err != nil {
 		var ce *ethernetip.CIPError
 		if errors.As(err, &ce) {
-			fc["status"] = int(ce.Status)
+			ext := []int{}
+			for _, x := range ce.Extended {
+				ext = append(ext, int(x))
+			}
+			fc["status"], fc["extendedStatus"] = int(ce.Status), ext
 		} else {
 			fc["error"] = err.Error()
 		}
 	}
 	res["forwardClose"], res["ok"] = fc, true
+	if lio != nil {
+		// Closed after its owner: the target closes listen-only connections
+		// with their owner, so this Forward_Close may find none (0x0107).
+		// (OpENer drops the owner when one of its listen-only connections
+		// closes first.)
+		last, _, _ := lio.Input()
+		lr := res["listenOnly"].(map[string]any)
+		lr["received"], lr["lastInput"] = lreceived.Load(), hex.EncodeToString(last)
+		lr["timedOut"] = lio.State() == ethernetip.StateTimedOut
+		lfc := map[string]any{"status": 0}
+		if err := lio.Close(ctx); err != nil {
+			var ce *ethernetip.CIPError
+			if errors.As(err, &ce) {
+				ext := []int{}
+				for _, x := range ce.Extended {
+					ext = append(ext, int(x))
+				}
+				lfc["status"], lfc["extendedStatus"] = int(ce.Status), ext
+			} else {
+				lfc["error"] = err.Error()
+			}
+		}
+		lr["forwardClose"] = lfc
+	}
 	return write(0)
 }
 

@@ -248,6 +248,20 @@ func TestIOListenOnly(t *testing.T) {
 		t.Fatalf("%d connections on the server", n)
 	}
 
+	// Closing the listen-only connection leaves its owner running.
+	if err := lio.Close(ctx); err != nil {
+		t.Fatal(err)
+	}
+	before := oio.Stats().Received
+	eventually(t, 3*time.Second, "owner receives after the listen-only closed", func() bool { return oio.Stats().Received > before+5 })
+	if n := len(a.srv.Connections()); n != 1 {
+		t.Fatalf("%d connections on the server after closing the listen-only one", n)
+	}
+	lio, err = s.Open(ctx, lcfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	// Closing the owner closes the listen-only connection on the target;
 	// the scanner sees its data stop.
 	if err := oio.Close(ctx); err != nil {
