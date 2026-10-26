@@ -73,6 +73,12 @@ func TestDefinitionRoundTrip(t *testing.T) {
 	if err != nil || name != "Outer" || !reflect.DeepEqual(ms, outer.Members) {
 		t.Fatalf("parse %q %+v %v", name, ms, err)
 	}
+	// A BOOL member's type is plain BOOL on the wire, its bit in the info
+	// word, as Logix sends it.
+	in := Template{Name: "Bits", Members: []Member{{Name: "B", Type: NewAtomicType(cip.TypeBOOL, 0, 5), Info: 5}}}
+	if typ := binary.LittleEndian.Uint16(in.definition()[2:]); typ != uint16(cip.TypeBOOL) {
+		t.Fatalf("BOOL member: type 0x%04X on the wire", typ)
+	}
 	// Padding after the names, as Read_Template returns it, is ignored.
 	name, ms, err = parseDefinition(append(def, 0, 0, 0), len(outer.Members))
 	if err != nil || name != "Outer" || len(ms) != 6 {

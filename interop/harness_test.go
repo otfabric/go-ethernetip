@@ -31,7 +31,7 @@ import (
 )
 
 // The reference images this version is qualified against:
-// otfabric/ethernetip-interop v0.1.0 (OpENer d8820ef, cpppo 5.2.5,
+// otfabric/ethernetip-interop v0.2.0 (OpENer d8820ef, cpppo 5.2.5,
 // EIPScanner 12c89a5, pycomm3 1.2.16), pinned by multi-arch index digest so
 // that a run is reproducible. Override per image to try another build, for
 // example the images "make images" builds in ethernetip-interop:
@@ -40,13 +40,13 @@ import (
 //	ETHERNETIP_INTEROP_EIPSCANNER_IMAGE, ETHERNETIP_INTEROP_PYCOMM3_IMAGE
 //
 // or ETHERNETIP_INTEROP_VERSION=dev (a tag) for all of them.
-const interopRelease = "v0.1.0"
+const interopRelease = "v0.2.0"
 
 var pinned = map[string]string{
-	"opener":     "sha256:e0c3e33f46cb36be219b239ed4bd1e6687ee63eaf0a59ae2bf1319a646ff7e31",
-	"cpppo":      "sha256:27bf4fc7c4efd8d5264e1c2c3eab29bf7b2a3968a251d90143255e64395943dd",
-	"eipscanner": "sha256:9bf924ef16bb8cbfaea3ef491b93b78514baa589cb0e3a23dbe3793f1b0ef78c",
-	"pycomm3":    "sha256:8b4bdade49f70b612dc7cff831b40b726b2c358b68f07393f3f5bf4d93f3821e",
+	"opener":     "sha256:ce88eea719dd9d9798508b0e7f582e116b2b2b7799754646c4a8597f42682cd6",
+	"cpppo":      "sha256:3fc676dc880253de09b685a0e97802a936408c914ac966fcaf5d890119cfab07",
+	"eipscanner": "sha256:e0e5ea6e3f28368c5eb8b905768a74cea068f1e2b78c5057d1f932afbbb0be15",
+	"pycomm3":    "sha256:f6e869bd169aa5caf04b3261241a7620be8c179a2325bdf7e294ad7680cc3532",
 }
 
 func image(name string) string {

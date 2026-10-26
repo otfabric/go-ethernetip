@@ -79,8 +79,9 @@ func WithDialer(d Dialer) Option {
 }
 
 // WithTLS runs the session over TLS: EtherNet/IP over TLS as CIP Security
-// defines the transport (port 2221 by default). The configuration is used
-// as given; set ServerName or RootCAs to verify the target.
+// defines the transport (port 2221 by default). The certificate is
+// verified against ServerName or, when it is empty, the host dialed (as
+// tls.Dial does), with RootCAs or the system's roots.
 func WithTLS(cfg *tls.Config) Option {
 	return func(o *options) error {
 		if cfg == nil {

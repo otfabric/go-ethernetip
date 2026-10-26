@@ -200,7 +200,14 @@ func (c *Client) dial(ctx context.Context) (*session, error) {
 		return nil, fmt.Errorf("%w: %w", ethernetip.ErrConnectFailed, err)
 	}
 	if c.opts.tls != nil {
-		tc := tls.Client(conn, c.opts.tls)
+		cfg := c.opts.tls
+		if cfg.ServerName == "" && !cfg.InsecureSkipVerify {
+			// As tls.Dial does: verify the certificate against the host
+			// dialed.
+			cfg = cfg.Clone()
+			cfg.ServerName, _, _ = net.SplitHostPort(c.addr)
+		}
+		tc := tls.Client(conn, cfg)
 		if err := tc.HandshakeContext(ctx); err != nil {
 			_ = conn.Close()
 			return nil, fmt.Errorf("%w: TLS handshake: %w", ethernetip.ErrConnectFailed, err)

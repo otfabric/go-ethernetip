@@ -32,7 +32,18 @@ with `OutputFormat` / `InputFormat`. An O->T size of 0 means a heartbeat
 | Listen only | the listen-only heartbeat point, `Multicast: true` | needs an existing multicast connection to the same input (0x0119) |
 
 `Multicast: true` asks for the inputs by multicast; the scanner joins the
-group the target returns in its Sockaddr Info item.
+group the target returns in its Sockaddr Info item (`IO.Info().Group`). An
+owner and its listen-only connections may run on one scanner (one
+endpoint): they share the production's connection ID and each receives
+every datagram. OpENer wants the listen-only path to name the owner's
+configuration point too.
+
+Multicast is received by an endpoint bound to the wildcard address (the
+default, `:2222`); an endpoint bound to a unicast address receives no
+multicast on most systems. Groups are joined on the interface of
+`scanner.WithMulticastInterface` (or `implicit.WithMulticastInterface`),
+else on the bound address's interface, else on the system's choice (the
+default route's).
 
 ## Timeouts and recovery
 

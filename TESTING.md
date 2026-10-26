@@ -6,8 +6,8 @@ other over loopback TCP and UDP; no mocks stand in for the network.
 | Suite | Where | What it shows | Run |
 |---|---|---|---|
 | Unit | each package | codecs with known vectors and round trips, every error path, option validation, object behaviour, scripted peers for protocol violations | `make test` |
-| End to end | `e2e/` | client, scanner and server against each other: identity, attributes, errors, Multiple Service Packet, routing, Class 3, Class 1 exchange, refusals, timeouts and recovery, Logix tags through the emulation | `make test` |
-| Chaos | `e2e/chaos_test.go`, `implicit/chaos_test.go` | TCP proxy that splits, delays, corrupts and kills connections; UDP faults (drop, duplicate, reorder, blackout) injected at the I/O endpoint; forged and replayed I/O datagrams | `make chaos` |
+| End to end | `e2e/` | client, scanner and server against each other: identity, discovery, attributes, errors, Multiple Service Packet, routing, Class 3, TLS, Class 0 and Class 1 exchange, configuration data, multicast with a listen-only connection, several adapters on one scanner endpoint, refusals, timeouts and recovery, Logix tags, structures and bits through the emulation | `make test` |
+| Chaos | `e2e/chaos_test.go`, `e2e/monkey_test.go`, `implicit/chaos_test.go` | TCP proxy that splits, delays, corrupts and kills connections; UDP faults (drop, duplicate, reorder, blackout) injected at the I/O endpoint; forged and replayed I/O datagrams; a chaos monkey: workers mixing explicit, Class 3, Logix and Class 1 operations and client churn at random through the faulty proxy, checking every answer and the state afterwards (`ETHERNETIP_MONKEY_DURATION`, default 3 s) | `make chaos` |
 | Stress and parallel | `e2e/stress_test.go` and the packages | many clients, shared sessions with requests in flight, session and connection limits under contention, concurrent Forward_Open/Close, reconnection storms, shutdown under load, random cancellation | `make stress` |
 | Leaks | `e2e/main_test.go` | after the whole e2e suite: no goroutine and no file descriptor left | `make test` |
 | Fuzz | `*_fuzz_test.go` | every decoder (encapsulation, CPF, CIP requests and responses, EPATH, Multiple Service Packet, Forward_Open, Unconnected_Send, identity, I/O datagrams, EDS) and the server's Logix dispatch: no panic, bounded allocation, round trips | `make fuzz` (CI: 15 s each per push, 10 min each nightly) |
@@ -20,7 +20,10 @@ other over loopback TCP and UDP; no mocks stand in for the network.
 - A test that waits polls a condition with a deadline; it does not sleep a
   fixed time for something to happen.
 - Chaos tests use seeded randomness and print the seed on failure;
-  `ETHERNETIP_CHAOS_SEED=<seed> make chaos` repeats a run.
+  `ETHERNETIP_CHAOS_SEED=<seed> make chaos` repeats a run;
+  `ETHERNETIP_MONKEY_DURATION=10m` soaks the chaos monkey.
+- Multicast tests over loopback skip, saying so, where the system does not
+  deliver multicast on the loopback interface.
 - Coverage is measured across the library packages together (`make
   coverage`: `-coverpkg` over every library package, so that the e2e suite
   counts for the packages it exercises) and must be at least 90%

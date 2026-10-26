@@ -191,12 +191,11 @@ of Usage; no conformance claim ([STANDARDS.md](STANDARDS.md)).
 and the security objects **blocked**: no ODVA Volume 8, no DTLS in the
 standard library, no reference peer); behaviour that only the ODVA
 specifications define and no reference exercises may deviate; I/O is
-unauthenticated; one scanner
-endpoint cannot consume one multicast production twice.
+unauthenticated.
 
 ## 20. Next steps
 
-1. Add interop cases for listen-only, configuration data, Read-Modify-Write
-   and templates (needs a structure in the logix fixture).
+1. Done in v0.2.0: interop cases for listen-only, configuration data,
+   Read-Modify-Write, structures and STRING (fixture `logix-structures`).
 2. CIP Security beyond TLS if ODVA Volume 8 and a DTLS dependency are
    accepted; consider a hardware validation against a real ControlLogix.

@@ -29,3 +29,19 @@ func membership(c *net.UDPConn, group, ifaddr netip.Addr, join bool) error {
 	}
 	return serr
 }
+
+// multicastInterface makes c send multicast datagrams from the interface
+// of ifaddr.
+func multicastInterface(c *net.UDPConn, ifaddr netip.Addr) error {
+	rc, err := c.SyscallConn()
+	if err != nil {
+		return err
+	}
+	var serr error
+	if err := rc.Control(func(fd uintptr) {
+		serr = syscall.SetsockoptInet4Addr(syscall.Handle(fd), syscall.IPPROTO_IP, syscall.IP_MULTICAST_IF, ifaddr.As4())
+	}); err != nil {
+		return err
+	}
+	return serr
+}

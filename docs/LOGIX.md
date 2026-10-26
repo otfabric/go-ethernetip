@@ -26,7 +26,10 @@ Tag names: `Tag`, `Program:Main.Tag`, `Tag[3]`, `Tag[1,2]`,
 `Tag.Member[2].Sub`, and `Tag.5` for bit 5 (`WriteBit`). Values:
 `logix.Ints(cip.TypeDINT, 1, 2)`, `logix.Floats(cip.TypeREAL, 1.5)`,
 `logix.Strings("text")` (the predefined STRING structure); read back with
-`Int`, `Uint`, `Float`, `Bool`, `Text`. BOOL arrays are DWORDs.
+`Int`, `Uint`, `Float`, `Bool`, `Text`. BOOL arrays are DWORDs, as in
+Logix: `Bits[1]` is the DWORD of bits 32 to 63 (the index counts DWORDs),
+and the tag list reports a BOOL array as a DWORD array whose dimension is
+the number of bits. `Bool(i)` of a DWORD value is bit i.
 
 ## Emulation
 

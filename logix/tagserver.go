@@ -388,6 +388,19 @@ func (ts *TagServer) resolve(e *tagEntry, path cip.Path) (target, *cip.Response)
 			if len(idx) != dims {
 				return t, &errBadPath
 			}
+			if bool32 {
+				// A BOOL array is addressed by its DWORDs: index i is bits
+				// 32i to 32i+31, as Logix does (and pycomm3 and libplctag
+				// expect).
+				words := (int(dimLen[0]) + 31) / 32
+				if dims != 1 || int(idx[0]) >= words {
+					return t, &errBeyond
+				}
+				t.off += int(idx[0]) * 4
+				t.avail = words - int(idx[0])
+				dims = 0
+				continue
+			}
 			flat := uint32(0)
 			for d := 0; d < dims; d++ {
 				if idx[d] >= dimLen[d] {
@@ -399,14 +412,8 @@ func (ts *TagServer) resolve(e *tagEntry, path cip.Path) (target, *cip.Response)
 			for d := 0; d < dims; d++ {
 				total *= int(dimLen[d])
 			}
-			if bool32 {
-				// A BOOL array element is read as its DWORD.
-				t.off += int(flat/32) * 4
-				t.avail = (total+31)/32 - int(flat/32)
-			} else {
-				t.off += int(flat) * t.elemSize
-				t.avail = total - int(flat)
-			}
+			t.off += int(flat) * t.elemSize
+			t.avail = total - int(flat)
 			dims = 0
 			continue
 		}
@@ -569,9 +576,13 @@ func (ts *TagServer) write(t target, r *server.Request) cip.Response {
 		return errBeyond
 	}
 	if t.bit >= 0 {
-		if count != 1 || offset != 0 || len(data) != 1 {
+		if count != 1 || offset != 0 {
 			return errBeyond
 		}
+		if len(data) < 1 {
+			return cip.Response{Status: cip.StatusNotEnoughData}
+		}
+		// Octets after the BOOL are ignored, as for the other types.
 		if data[0] != 0 {
 			t.e.data[t.off] |= 1 << t.bit
 		} else {
@@ -695,7 +706,13 @@ func (ts *TagServer) listTags(r *server.Request) cip.Response {
 	}
 	for _, e := range ts.tags {
 		if strings.EqualFold(e.program, program) {
-			syms = append(syms, sym{e.inst, e.name, e.typ, e.dims})
+			typ := e.typ
+			if e.tmpl == nil && typ.Atomic() == cip.TypeBOOL && typ.Dims() > 0 {
+				// Logix lists a BOOL array as a DWORD array, its
+				// dimension in bits.
+				typ = NewAtomicType(cip.TypeDWORD, typ.Dims(), 0)
+			}
+			syms = append(syms, sym{e.inst, e.name, typ, e.dims})
 		}
 	}
 	sort.Slice(syms, func(i, j int) bool { return syms[i].inst < syms[j].inst })

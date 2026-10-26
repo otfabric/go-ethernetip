@@ -55,6 +55,7 @@ type Option func(*options) error
 type options struct {
 	ep     *implicit.Endpoint
 	local  string
+	mcast  *net.Interface
 	logger ethernetip.Logger
 }
 
@@ -76,6 +77,13 @@ func WithLocalAddr(addr string) Option {
 	return func(o *options) error { o.local = addr; return nil }
 }
 
+// WithMulticastInterface sets the interface the scanner's own endpoint
+// joins multicast groups on (see [implicit.WithMulticastInterface]); by
+// default the system chooses.
+func WithMulticastInterface(ifi *net.Interface) Option {
+	return func(o *options) error { o.mcast = ifi; return nil }
+}
+
 // WithLogger sets the logger.
 func WithLogger(l ethernetip.Logger) Option {
 	return func(o *options) error { o.logger = l; return nil }
@@ -95,7 +103,11 @@ func New(c *client.Client, opts ...Option) (*Scanner, error) {
 	}
 	s := &Scanner{c: c, ep: o.ep, log: logx.New(o.logger, "scanner", "remote", c.Addr()), ios: map[*IO]bool{}}
 	if s.ep == nil {
-		ep, err := implicit.Listen(o.local, implicit.WithLogger(o.logger))
+		eo := []implicit.EndpointOption{implicit.WithLogger(o.logger)}
+		if o.mcast != nil {
+			eo = append(eo, implicit.WithMulticastInterface(o.mcast))
+		}
+		ep, err := implicit.Listen(o.local, eo...)
 		if err != nil {
 			return nil, fmt.Errorf("I/O endpoint: %w", err)
 		}
@@ -424,7 +436,7 @@ func (io *IO) open(ctx context.Context) error {
 		Class: class, OTConnID: reply.OTConnID, TOConnID: reply.TOConnID,
 		Serial: fo.Serial, VendorID: fo.VendorID, OriginatorSerial: fo.OriginatorSerial,
 		OTRPI: time.Duration(reply.OTAPI) * time.Microsecond, TORPI: time.Duration(reply.TOAPI) * time.Microsecond,
-		Path: path,
+		Path: path, Group: group,
 	}
 	io.mu.Unlock()
 	io.setState(ethernetip.StateConnected, nil)

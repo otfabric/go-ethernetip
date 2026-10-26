@@ -797,3 +797,48 @@ func TestMulticastJoinFailure(t *testing.T) {
 	}
 	open(t, e, Config{ConsumedID: 1})
 }
+
+func TestMulticastSharedConsumption(t *testing.T) {
+	e := listen(t)
+	group := netip.MustParseAddr("239.192.13.38")
+	var owner, listener dataLog
+	c1, err := e.Open(Config{Class: 1, ConsumedID: 7, Group: group, ConsumeSize: 2, OnData: owner.onData})
+	if err != nil {
+		t.Skipf("multicast not available: %v", err)
+	}
+	t.Cleanup(c1.Close)
+	// A second multicast consumer shares the ID (a listen-only connection
+	// next to its owner); a point-to-point one cannot.
+	c2 := open(t, e, Config{Class: 1, ConsumedID: 7, Group: group, ConsumeSize: 2, OnData: listener.onData})
+	if _, err := e.Open(Config{ConsumedID: 7}); !errors.Is(err, ethernetip.ErrInvalidOption) {
+		t.Errorf("point-to-point on a shared ID: %v", err)
+	}
+	if e.Connections() != 2 {
+		t.Errorf("Connections = %d", e.Connections())
+	}
+
+	// The datagram is delivered to both consumers.
+	p := newPeer(t, e.LocalAddr())
+	p.send(7, 1, []byte{1, 0, 0xAA, 0xBB})
+	waitFor(t, "both consumers", func() bool { return owner.n() == 1 && listener.n() == 1 })
+
+	// Closing one leaves the other consuming.
+	c2.Close()
+	p.send(7, 2, []byte{2, 0, 0xCC, 0xDD})
+	waitFor(t, "owner after listener closed", func() bool { return owner.n() == 2 })
+	if listener.n() != 1 {
+		t.Errorf("closed listener got %d datagrams", listener.n())
+	}
+	if d, _ := owner.last(); !bytes.Equal(d, []byte{0xCC, 0xDD}) {
+		t.Errorf("owner data = % X", d)
+	}
+	c1.Close()
+	if e.Connections() != 0 {
+		t.Errorf("Connections = %d", e.Connections())
+	}
+	// A point-to-point consumer takes the released ID.
+	open(t, e, Config{ConsumedID: 7})
+	if _, err := e.Open(Config{ConsumedID: 7, Group: group}); !errors.Is(err, ethernetip.ErrInvalidOption) {
+		t.Errorf("multicast on a point-to-point ID: %v", err)
+	}
+}

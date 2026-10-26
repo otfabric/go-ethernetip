@@ -126,6 +126,53 @@ func TestGoScannerOpENer(t *testing.T) {
 			t.Fatalf("%v", r)
 		}
 	})
+	t.Run("Class1ConfigData", func(t *testing.T) {
+		record(t, "Class 1 I/O, configuration data", dir, name, "a data segment of 10 octets for configuration assembly 151")
+		cfg := "0102030405060708090a"
+		out := strings.Repeat("c4", 32)
+		r := nodeClient(t, "io", "--host", host, "--config", "151", "--output", "150", "--input", "100",
+			"--output-size", "32", "--input-size", "32", "--rpi-ms", "10", "--duration-ms", "1000", "--output-data", out, "--config-data", cfg)
+		checkIO(t, r, out)
+		if r := nodeClient(t, "get-attribute", "--host", host, "--class", "4", "--instance", "151", "--attribute", "3"); r.str("data") != cfg {
+			t.Fatalf("configuration assembly after the Forward_Open: %v", r)
+		}
+	})
+	t.Run("Class1ConfigDataWrongSize", func(t *testing.T) {
+		record(t, "Forward_Open refusal (configuration size)", dir, name, "OpENer answers 0x0129 (invalid configuration application path) where go-ethernetip's target answers 0x0126 (invalid configuration size)")
+		r := nodeClient(t, "io", "--host", host, "--config", "151", "--output", "150", "--input", "100",
+			"--output-size", "32", "--input-size", "32", "--rpi-ms", "10", "--duration-ms", "100", "--config-data", "0102")
+		fo := r.obj("forwardOpen")
+		ext, _ := fo["extendedStatus"].([]any)
+		if fo.num("status") != 1 || len(ext) == 0 || ext[0].(float64) != 0x0129 {
+			t.Fatalf("%v", r)
+		}
+	})
+	t.Run("Class1ListenOnly", func(t *testing.T) {
+		record(t, "Class 1 I/O, listen-only (multicast, next to its owner)", dir, name, "listen-only connection point 153 opened while the exclusive owner's multicast production runs; both consume it on one endpoint")
+		out := strings.Repeat("b2", 32)
+		r := nodeClient(t, "io", "--host", host, "--config", "151", "--output", "150", "--input", "100",
+			"--output-size", "32", "--input-size", "32", "--rpi-ms", "10", "--duration-ms", "1500", "--output-data", out,
+			"--multicast", "--listen-only", "153")
+		checkIO(t, r, out)
+		lo := r.obj("listenOnly")
+		lfo, fo := lo.obj("forwardOpen"), r.obj("forwardOpen")
+		if lfo.num("status") != 0 || lfo.num("toConnectionId") != fo.num("toConnectionId") || lfo.str("multicastGroup") != fo.str("multicastGroup") {
+			t.Fatalf("listen-only Forward_Open: %v", r)
+		}
+		if lo.num("received") < 10 || lo.str("lastInput") != out {
+			t.Fatalf("listen-only data: %v", lo)
+		}
+	})
+	t.Run("Class1ListenOnlyWithoutOwner", func(t *testing.T) {
+		record(t, "Forward_Open refusal (listen-only without owner)", dir, name, "")
+		r := nodeClient(t, "io", "--host", host, "--config", "151", "--output", "153", "--input", "100",
+			"--output-size", "0", "--input-size", "32", "--rpi-ms", "10", "--duration-ms", "100", "--multicast")
+		fo := r.obj("forwardOpen")
+		ext, _ := fo["extendedStatus"].([]any)
+		if fo.num("status") != 1 || len(ext) == 0 || ext[0].(float64) != 0x0119 {
+			t.Fatalf("%v", r)
+		}
+	})
 	notApplicable("Multiple Service Packet", dir, name, "OpENer answers 0x08: not implemented")
 	notApplicable("Unconnected_Send routing", dir, name, "OpENer answers 0x08: not implemented")
 	notApplicable("Logix tag services", dir, name, "not a Logix controller")

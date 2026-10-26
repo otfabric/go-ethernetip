@@ -1,12 +1,12 @@
 {
-  "generated": "2026-10-26T00:03:28Z",
+  "generated": "2026-10-26T14:16:09Z",
   "images": {
-    "cpppo": "{\"adapter\": \"cpppo\", \"adapterVersion\": \"v0.1.0\", \"contract\": \"1.0\", \"upstream\": \"cpppo\", \"upstreamRevision\": \"f7c224bbb2389bd26d0088eeb1a93db3a5c4858f\", \"upstreamVersion\": \"5.2.5\"}",
-    "eipscanner": "{\"adapter\":\"eipscanner\",\"adapterVersion\":\"v0.1.0\",\"upstream\":\"EIPScanner\",\"upstreamVersion\":\"1.3.0-33\",\"upstreamRevision\":\"12c89a57ec2e7449efb1348be52af10be9ef9701\",\"contract\":\"1.0\"}",
-    "opener": "{\"adapter\":\"opener\",\"adapterVersion\":\"v0.1.0\",\"upstream\":\"OpENer\",\"upstreamVersion\":\"2.3-588\",\"upstreamRevision\":\"d8820ef41ce30dda06d213438ba81c81de33ffe2\",\"contract\":\"1.0\"}",
-    "pycomm3": "{\"adapter\": \"pycomm3\", \"adapterVersion\": \"v0.1.0\", \"contract\": \"1.0\", \"upstream\": \"pycomm3\", \"upstreamRevision\": \"36aeb19b5cb47495df9fd1caa38ce9d2f6d12ea3\", \"upstreamVersion\": \"1.2.16\"}"
+    "cpppo": "{\"adapter\": \"cpppo\", \"adapterVersion\": \"v0.2.0\", \"contract\": \"1.0\", \"upstream\": \"cpppo\", \"upstreamRevision\": \"f7c224bbb2389bd26d0088eeb1a93db3a5c4858f\", \"upstreamVersion\": \"5.2.5\"}",
+    "eipscanner": "{\"adapter\":\"eipscanner\",\"adapterVersion\":\"v0.2.0\",\"upstream\":\"EIPScanner\",\"upstreamVersion\":\"1.3.0-33\",\"upstreamRevision\":\"12c89a57ec2e7449efb1348be52af10be9ef9701\",\"contract\":\"1.0\"}",
+    "opener": "{\"adapter\":\"opener\",\"adapterVersion\":\"v0.2.0\",\"upstream\":\"OpENer\",\"upstreamVersion\":\"2.3-588\",\"upstreamRevision\":\"d8820ef41ce30dda06d213438ba81c81de33ffe2\",\"contract\":\"1.0\"}",
+    "pycomm3": "{\"adapter\": \"pycomm3\", \"adapterVersion\": \"v0.2.0\", \"contract\": \"1.0\", \"upstream\": \"pycomm3\", \"upstreamRevision\": \"36aeb19b5cb47495df9fd1caa38ce9d2f6d12ea3\", \"upstreamVersion\": \"1.2.16\"}"
   },
-  "interopRelease": "v0.1.0",
+  "interopRelease": "v0.2.0",
   "rows": [
     {
       "feature": "Class 1 I/O, exclusive owner, point-to-point",
@@ -75,6 +75,22 @@
       "reference": "cpppo",
       "status": "pass",
       "test": "TestGoClientCpppo/WriteReadBack"
+    },
+    {
+      "feature": "Logix bit write (Read Modify Write Tag)",
+      "direction": "go-\u003eref",
+      "reference": "cpppo",
+      "status": "n/a",
+      "test": "",
+      "note": "cpppo 5.2.5 rejects service 0x4E: it answers SendRRData with encapsulation status 0x0008"
+    },
+    {
+      "feature": "Logix structure read (UDT)",
+      "direction": "go-\u003eref",
+      "reference": "cpppo",
+      "status": "n/a",
+      "test": "",
+      "note": "cpppo's simulator has no structure templates"
     },
     {
       "feature": "Logix tag list (0x55) and LogixDriver open",
@@ -166,6 +182,14 @@
       "note": "EIPScanner does not join multicast groups"
     },
     {
+      "feature": "Class 1 I/O, configuration data",
+      "direction": "ref-\u003ego",
+      "reference": "eipscanner",
+      "status": "pass",
+      "test": "TestEIPScannerToGoAdapter/Class1ConfigData",
+      "note": "a data segment at the end of EIPScanner's connection path"
+    },
+    {
       "feature": "Class 1 I/O, exclusive owner, point-to-point",
       "direction": "ref-\u003ego",
       "reference": "eipscanner",
@@ -180,12 +204,28 @@
       "test": "TestEIPScannerToGoAdapter/Class1InputOnly"
     },
     {
+      "feature": "Class 1 I/O, listen-only (multicast, next to its owner)",
+      "direction": "ref-\u003ego",
+      "reference": "eipscanner",
+      "status": "n/a",
+      "test": "",
+      "note": "EIPScanner does not join multicast groups"
+    },
+    {
       "feature": "Class 3 connected explicit messaging",
       "direction": "ref-\u003ego",
       "reference": "eipscanner",
       "status": "n/a",
       "test": "",
       "note": "EIPScanner has no SendUnitData sender"
+    },
+    {
+      "feature": "Forward_Open refusal (configuration size)",
+      "direction": "ref-\u003ego",
+      "reference": "eipscanner",
+      "status": "pass",
+      "test": "TestEIPScannerToGoAdapter/Class1ConfigDataWrongSize",
+      "note": "EIPScanner logs the refusal; the adapter reports refused"
     },
     {
       "feature": "Forward_Open refusal (connection size)",
@@ -255,6 +295,14 @@
       "test": "TestGoScannerOpENer/Class1Multicast"
     },
     {
+      "feature": "Class 1 I/O, configuration data",
+      "direction": "go-\u003eref",
+      "reference": "opener",
+      "status": "pass",
+      "test": "TestGoScannerOpENer/Class1ConfigData",
+      "note": "a data segment of 10 octets for configuration assembly 151"
+    },
+    {
       "feature": "Class 1 I/O, exclusive owner, point-to-point",
       "direction": "go-\u003eref",
       "reference": "opener",
@@ -268,6 +316,14 @@
       "reference": "opener",
       "status": "pass",
       "test": "TestGoScannerOpENer/Class1InputOnly"
+    },
+    {
+      "feature": "Class 1 I/O, listen-only (multicast, next to its owner)",
+      "direction": "go-\u003eref",
+      "reference": "opener",
+      "status": "pass",
+      "test": "TestGoScannerOpENer/Class1ListenOnly",
+      "note": "listen-only connection point 153 opened while the exclusive owner's multicast production runs; both consume it on one endpoint"
     },
     {
       "feature": "Class 3 connected explicit messaging",
@@ -285,11 +341,26 @@
       "note": "OpENer answers 0x05 for an unknown class or instance, 0x14 for an attribute"
     },
     {
+      "feature": "Forward_Open refusal (configuration size)",
+      "direction": "go-\u003eref",
+      "reference": "opener",
+      "status": "pass",
+      "test": "TestGoScannerOpENer/Class1ConfigDataWrongSize",
+      "note": "OpENer answers 0x0129 (invalid configuration application path) where go-ethernetip's target answers 0x0126 (invalid configuration size)"
+    },
+    {
       "feature": "Forward_Open refusal (connection size)",
       "direction": "go-\u003eref",
       "reference": "opener",
       "status": "pass",
       "test": "TestGoScannerOpENer/Class1WrongSize"
+    },
+    {
+      "feature": "Forward_Open refusal (listen-only without owner)",
+      "direction": "go-\u003eref",
+      "reference": "opener",
+      "status": "pass",
+      "test": "TestGoScannerOpENer/Class1ListenOnlyWithoutOwner"
     },
     {
       "feature": "Get_Attribute_Single",
@@ -409,6 +480,14 @@
       "note": "pycomm3 discover() to the adapter's address"
     },
     {
+      "feature": "Logix BOOL array element write",
+      "direction": "ref-\u003ego",
+      "reference": "pycomm3",
+      "status": "pass",
+      "test": "TestPycomm3ToGoStructures/BoolArrayBitWrite",
+      "note": "pycomm3 writes Bits[N] with Read Modify Write on the DWORD holding it"
+    },
+    {
       "feature": "Logix Read Tag (atomic types)",
       "direction": "ref-\u003ego",
       "reference": "pycomm3",
@@ -423,6 +502,13 @@
       "test": "TestPycomm3ToGoLogix/ReadFragmented"
     },
     {
+      "feature": "Logix STRING read and write",
+      "direction": "ref-\u003ego",
+      "reference": "pycomm3",
+      "status": "pass",
+      "test": "TestPycomm3ToGoStructures/String"
+    },
+    {
       "feature": "Logix Write Tag",
       "direction": "ref-\u003ego",
       "reference": "pycomm3",
@@ -431,12 +517,52 @@
       "note": "pycomm3 1.2.16 repeats the request in the message; the emulation ignores the extra octets, as Logix does"
     },
     {
+      "feature": "Logix Write Tag Fragmented (1200 octets)",
+      "direction": "ref-\u003ego",
+      "reference": "pycomm3",
+      "status": "pass",
+      "test": "TestPycomm3ToGoLogix/WriteFragmented",
+      "note": "pycomm3 splits a write larger than its connection size into Write Tag Fragmented (0x53)"
+    },
+    {
+      "feature": "Logix bit write (Read Modify Write Tag)",
+      "direction": "ref-\u003ego",
+      "reference": "pycomm3",
+      "status": "pass",
+      "test": "TestPycomm3ToGoStructures/BitWrite",
+      "note": "pycomm3 writes Flags.N with service 0x4E"
+    },
+    {
+      "feature": "Logix structure read (UDT)",
+      "direction": "ref-\u003ego",
+      "reference": "pycomm3",
+      "status": "pass",
+      "test": "TestPycomm3ToGoStructures/StructRead",
+      "note": "BOOL members in a hidden host SINT, an INT array and a nested STRING"
+    },
+    {
+      "feature": "Logix structure write (UDT)",
+      "direction": "ref-\u003ego",
+      "reference": "pycomm3",
+      "status": "pass",
+      "test": "TestPycomm3ToGoStructures/StructWrite",
+      "note": "a whole structure, then one member"
+    },
+    {
       "feature": "Logix tag list (0x55) and LogixDriver open",
       "direction": "ref-\u003ego",
       "reference": "pycomm3",
       "status": "pass",
       "test": "TestPycomm3ToGoLogix/TagList",
       "note": "pycomm3 uploads the tag list on open: Unconnected_Send, Large_Forward_Open, program name, 0x55 with continuation"
+    },
+    {
+      "feature": "Logix tag list with structure and STRING tags",
+      "direction": "ref-\u003ego",
+      "reference": "pycomm3",
+      "status": "pass",
+      "test": "TestPycomm3ToGoStructures/TagList",
+      "note": "pycomm3 uploads the Motor template (Get_Attribute_List and Read Template on class 0x6C) on open"
     },
     {
       "feature": "Set_Attribute_Single (assembly)",
