@@ -31,31 +31,32 @@ import (
 )
 
 // The reference images this version is qualified against:
-// otfabric/ethernetip-interop v0.3.0 (OpENer d8820ef, cpppo 5.2.5,
+// otfabric/ethernetip-interop v0.4.0 (OpENer d8820ef, cpppo 5.2.5,
 // EIPScanner 12c89a5, pycomm3 1.2.16, libplctag 2.7.2, gologix 0.44.0-beta,
 // pylogix 1.1.6, etherip ce0688a, eip-rs 16e2236, node-ethernet-ip 2.0.0,
-// EEIP.NET 58b91a0), pinned by multi-arch index digest so
+// EEIP.NET 58b91a0, go-ethernet-ip (loki-os) 535f797), pinned by multi-arch index digest so
 // that a run is reproducible. Override per image to try another build, for
 // example the images "make images" builds in ethernetip-interop:
 //
 //	ETHERNETIP_INTEROP_<ADAPTER>_IMAGE (OPENER, CPPPO, EIPSCANNER, PYCOMM3,
-//	LIBPLCTAG, GOLOGIX, PYLOGIX, ETHERIP, EIPRS, NODEEIP, EEIP)
+//	LIBPLCTAG, GOLOGIX, PYLOGIX, ETHERIP, EIPRS, NODEEIP, EEIP, LOKIEIP)
 //
 // or ETHERNETIP_INTEROP_VERSION=dev (a tag) for all of them.
-const interopRelease = "v0.3.0"
+const interopRelease = "v0.4.0"
 
 var pinned = map[string]string{
-	"opener":     "sha256:def0c4da1a424b366a2fa88b5d8a1a9c136db4e077136153f1f5ceee5ae23ccb",
-	"cpppo":      "sha256:49b00e00997a1db56f2e25f1677d9128b9c2608ede2b59ef1fbe0e48c67e13b3",
-	"eipscanner": "sha256:063e1e66cd191d1e2bb6f797e03732968fccd3908b409e43eba563d8c650662b",
-	"pycomm3":    "sha256:3187e22e3d3c930fad3f83b3062159f114b6deda904cd27943ec8e352847a800",
-	"libplctag":  "sha256:fff3e53de2d15a015d3f209e9be1dc01826eb52da4e8bc16c2fe961e5c64eff9",
-	"gologix":    "sha256:8918c921c0eaf0073e80ffb1f99c9a291ed57267763303f4f4ca5bc6271aef25",
-	"pylogix":    "sha256:af858781cc6b8dcdc2dd42522dab249dc837e96262103afa764a79bdb9b2debd",
-	"etherip":    "sha256:b31613d2ed7f5f28d6b499b7421dfdeac69588c6f759f3f200fde8fe67ba23d3",
-	"eiprs":      "sha256:120e2203bcf101cffb08f6ef5dfc6fa8bc27e4cebc11e4a09a470ff6397c2b90",
-	"nodeeip":    "sha256:4a25d4a8e430ce8eae50ac365c3a8d0e49e12936b9eed0dcbd35d5d6ae56dac3",
-	"eeip":       "sha256:6223c6ffe7a2a298c2ec40cfa2f90dd9d705492e21bbffef3e17d3e5481a302a",
+	"opener":     "sha256:553ba14c06afed0fcb943df0d2e018962ffacfa005202d170fdde1c45e004cc0",
+	"eipscanner": "sha256:90b2dcc334f28f4a089d745fc3ba2e4be57074784bbf19ce8fbac7320041a48c",
+	"cpppo":      "sha256:7a6a21379273c50723f0460f79a1d5bd5c55172b12482fee8e4918c585367fff",
+	"pycomm3":    "sha256:ab0f4c94371ee015fe6a8334ce97365c2a1ee5a58801d50575a6ea9dfce13c19",
+	"libplctag":  "sha256:9545f3769f9a208ad23287e524ae867bb9028006c5d95ba353c61632b59c9bb5",
+	"gologix":    "sha256:247df02e99413196e1e05f9d03b072c605b67bd319d00b12fdb8f91ae7b45d6f",
+	"pylogix":    "sha256:9f18bed8b840147a06189e46e70ef36c1ff1de2bca3ee1c03cbaf981fb6fc01f",
+	"etherip":    "sha256:0ec23abe6438033478c22f428a10970d69bcf180c9d4f7ce61f7a98b9837667b",
+	"eiprs":      "sha256:47da222e9c8189be948f3a0a69c6aaa2415384c1806c8ff89152ce76ee8d29fa",
+	"nodeeip":    "sha256:1e94e470e526730e699850a2b5f738b6ef3e45541134ed925ad1a140a1eb621c",
+	"eeip":       "sha256:b539af2d94988ee5fede9f8c8e750d11a4bde90cffce3af536948a415dfd7a4e",
+	"lokieip":    "sha256:c9dd85e74e4846494d1f8aa37989f1b078c8f984ef3dfd64b1c192c816b9b38b",
 }
 
 func image(name string) string {

@@ -43,9 +43,10 @@ The library provides:
   sentinel errors with the peer's general and extended status, structured
   logging, metrics hooks, bounded allocations on every decoder, connection
   and session limits
-- **Verified against eleven independent implementations**: OpENer,
+- **Verified against twelve independent implementations**: OpENer,
   EIPScanner, pycomm3, cpppo, libplctag, gologix, pylogix, etherip, eip-rs,
-  node-ethernet-ip and EEIP.NET, in both roles where they have them, in the
+  node-ethernet-ip, EEIP.NET and loki-os's go-ethernet-ip, in both roles
+  where they have them, in the
   containers of [otfabric/ethernetip-interop](https://github.com/otfabric/ethernetip-interop)
   (see [INTEROPERABILITY.md](INTEROPERABILITY.md))
 
@@ -71,68 +72,68 @@ The library provides:
 
 ## go-ethernetip vs the reference stacks
 
-go-ethernetip is tested against eleven independent implementations (see
+go-ethernetip is tested against twelve independent implementations (see
 [Interop tests](#interop-tests)). Each suits different needs; this table
 shows where they differ, from their public sources, the
 [ethernetip-interop capability records](https://github.com/otfabric/ethernetip-interop/blob/main/docs/CAPABILITIES.md)
 and the interop runs, so you can pick the right one for your project, and
 see where more interop or more features would help.
 
-| Capability | go-ethernetip | OpENer | EIPScanner | pycomm3 | cpppo | libplctag | gologix | pylogix | etherip | eip-rs | node-ethernet-ip | EEIP.NET |
-|---|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
-| **Project** | | | | | | | | | | | | |
-| Language | Go | C | C++ | Python | Python | C | Go | Python | Java | Rust | TypeScript | C# |
-| Licence | MIT | adapted BSD | MIT | MIT | GPL-3.0 | MPL-2.0 or LGPL-2.0+ | MIT | Apache-2.0 | EPL-1.0 | MIT | MIT | MIT |
-| Version compared | this module | master d8820ef | 1.3.0+33 | 1.2.16 | 5.2.5 | 2.7.2 | 0.44.0-beta | 1.1.6 | main ce0688a | main 16e2236 | 2.0.0 | master 58b91a0 |
-| Originator (scanner, client) | ✅ | — | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| Target (adapter, server) | ✅ | ✅ | — | — | Logix simulator | ab_server simulator | Logix tags, Class 1 I/O | — | — | — | — | — |
-| Dependencies | none (standard library) | none | none | none | greenery | none | crc16 | none | none (JRE) | tokio and others | none (Node.js) | none (.NET) |
-| **Discovery and encapsulation** | | | | | | | | | | | | |
-| ListIdentity over TCP | C, T | ✅ | — | ✅ | C, T | — | C, T | — | ✅ | ✅ | ✅ | — |
-| ListIdentity over UDP, discovery | C, T; broadcast | ✅ | ✅ | ✅ | C, T | — | — | broadcast only | ✅ | ✅ | ✅ | unicast ¹ |
-| ListServices | C, T | ✅ | — | — | C, T | — | C ² | — | ✅ | TCP | — | — |
-| ListInterfaces | C, T | ✅ | — | — | T | — | — | — | — | — | — | — |
-| EtherNet/IP over TLS (port 2221) | explicit messaging | — | — | — | — | — | — | — | — | — | — | — |
-| CIP Security beyond TLS (DTLS, security objects) | — (open issue) | — | — | — | — | — | — | — | — | — | — | — |
-| **Explicit messaging** | | | | | | | | | | | | |
-| Get_Attribute_Single | C, T | ✅ | ✅ | ✅ | C, T | C ³ | C ² | ✅ | ✅ | ✅ | ✅ | ✅ |
-| Set_Attribute_Single | C, T | ✅ | ✅ | ✅ | C, T | C ³ | C ² | ✅ | — | ✅ | ✅ | ✅ |
-| Get_Attributes_All | C, T | ✅ | ✅ | ✅ | C, T | C ³ | C; T (Identity) | ✅ | ✅ | ✅ | ✅ | ✅ |
-| Get_Attribute_List | C, T | ✅ | — | — | T | — | — | — | — | — | — | — |
-| Multiple Service Packet | C, T | — | C (adapter-built) | Logix reads | C, T | C: tag reads; T | C; T: Class 3 tag services | tag reads | tag reads | ✅ | ✅ | — |
-| Unconnected_Send routing | C, T | — | — | ✅ | C, T | T ³ | T | ✅ | ✅ | ✅ | — | — |
-| Class 3 connected explicit messaging | C, T | ✅ | — | ✅ | T | C, T | C (always), T | Logix only | — | ✅ | ✅ | — |
-| Large_Forward_Open | C, T | ✅ | ✅ | ✅ | T | C, T | C, T | ✅ | — | — | ✅ | ✅ |
-| Identity and Assembly objects (target) | ✅ | ✅ | n/a | n/a | Identity; assemblies as attributes | — | Identity only | n/a | n/a | n/a | n/a | n/a |
-| TCP/IP Interface, Ethernet Link objects (target) | ✅ | ✅ | n/a | n/a | — | — | — | n/a | n/a | n/a | n/a | n/a |
-| **Implicit (Class 0/1) I/O** | | | | | | | | | | | | |
-| Class 1 exclusive owner | C, T | T | C | — | — | — | T | — | — | — | — | C |
-| Class 0 | C, T | not tested | not tested | — | — | — | not tested | — | — | — | — | not tested |
-| Input-only (heartbeat) | C, T | T | C | — | — | — | T | — | — | — | — | C |
-| Listen-only | C, T | T ⁴ | — | — | — | — | — | — | — | — | — | C |
-| T->O multicast | C, T | T | — | — | — | — | — | — | — | — | — | C |
-| Configuration data in the Forward_Open | C, T | T | C | — | — | — | T: ignored | — | — | — | — | — |
-| Large_Forward_Open for I/O | C, T | T | C | — | — | — | T: no data | — | — | — | — | C |
-| **Rockwell Logix (vendor specific)** | | | | | | | | | | | | |
-| Read Tag, Write Tag | client and emulation | — | — | ✅ | C, T | C, T | C, T | ✅ | ✅ | ✅ | ✅ | — |
-| Read Tag Fragmented | client and emulation | — | — | ✅ | C, T | C, T | partial | ✅ | — | ✅ | — | — |
-| Write Tag Fragmented | client and emulation | — | — | ✅ | T | T; C above 4000 octets | — | above 3.9 kB | — | ✅ | — | — |
-| Several tags in one Multiple Service Packet | client and emulation | — | — | ✅ | T | C, T | C, T | ✅ | ✅ | ✅ | ✅ | — |
-| LINT, LREAL | client and emulation | — | — | ✅ | T | C, T | C, T | ✅ | — | ✅ | ✅ | — |
-| Tag list (0x55) | client and emulation | — | — | ✅ | — | C | C ⁵ | ✅ | — | ✅ | ✅ | — |
-| STRING | client and emulation | — | — | ✅ | not tested | C, T | C | ✅ | ✅ | ✅ | ✅ | — |
-| Structures (templates): read | client and emulation | — | — | ✅ | — | raw octets | raw octets | raw octets | — | ✅ | ✅ | — |
-| Structures: write | client and emulation | — | — | ✅ | — | members only | members only | members only | — | ✅ | members only ⁶ | — |
-| Bit writes on integers (Read-Modify-Write) | client and emulation | — | — | ✅ | — | C | — | ✅ | — | ✅ | ✅ | — |
-| BOOL array elements | client and emulation | — | — | ✅ | not tested | own form ⁷ | — | ✅ | — | ✅ | — | — |
-| **Tooling and API** | | | | | | | | | | | | |
-| EDS files: parse, validate, write, generate Go code | ✅ | — | — | — | — | — | — | — | — | — | — | — |
-| Cancellation and deadlines per call | `context.Context` | — | — | socket timeout | — | timeout per call | not tested | socket timeout | timeouts | async (tokio) | promises | — |
-| Structured logging, metrics | `Logger` (slog), `Metrics` | own logger | own logger | `logging` | `logging` | debug levels | `log/slog` | `print` | Java logging | not tested | not tested | console |
-| **Testing** | | | | | | | | | | | | |
-| Tested against go-ethernetip ([matrix](INTEROPERABILITY.md#interop-matrix)) | — | 17 pass | 11 pass | 18 pass | 17 pass | 17 pass | 19 pass | 14 pass | 9 pass | 21 pass | 19 pass | 11 pass |
-| Tested against other stacks in CI | ✅ all eleven, both directions | not tested | not tested | not tested | not tested | not tested | not tested | not tested | not tested | not tested | not tested | not tested |
-| ODVA conformance tested | no, and no claim | not tested | not tested | not tested | not tested | not tested | not tested | not tested | not tested | not tested | not tested | not tested |
+| Capability | go-ethernetip | OpENer | EIPScanner | pycomm3 | cpppo | libplctag | gologix | pylogix | etherip | eip-rs | node-ethernet-ip | EEIP.NET | go-ethernet-ip (loki-os) |
+|---|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
+| **Project** | | | | | | | | | | | | | |
+| Language | Go | C | C++ | Python | Python | C | Go | Python | Java | Rust | TypeScript | C# | Go |
+| Licence | MIT | adapted BSD | MIT | MIT | GPL-3.0 | MPL-2.0 or LGPL-2.0+ | MIT | Apache-2.0 | EPL-1.0 | MIT | MIT | MIT | WTFPL |
+| Version compared | this module | master d8820ef | 1.3.0+33 | 1.2.16 | 5.2.5 | 2.7.2 | 0.44.0-beta | 1.1.6 | main ce0688a | main 16e2236 | 2.0.0 | master 58b91a0 | master 535f797 |
+| Originator (scanner, client) | ✅ | — | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Target (adapter, server) | ✅ | ✅ | — | — | Logix simulator | ab_server simulator | Logix tags, Class 1 I/O | — | — | — | — | — | — |
+| Dependencies | none (standard library) | none | none | none | greenery | none | crc16 | none | none (JRE) | tokio and others | none (Node.js) | none (.NET) | none |
+| **Discovery and encapsulation** | | | | | | | | | | | | | |
+| ListIdentity over TCP | C, T | ✅ | — | ✅ | C, T | — | C, T | — | ✅ | ✅ | ✅ | — | ✅ |
+| ListIdentity over UDP, discovery | C, T; broadcast | ✅ | ✅ | ✅ | C, T | — | — | broadcast only | ✅ | ✅ | ✅ | unicast ¹ | — |
+| ListServices | C, T | ✅ | — | — | C, T | — | C ² | — | ✅ | TCP | — | — | ✅ |
+| ListInterfaces | C, T | ✅ | — | — | T | — | — | — | — | — | — | — | not tested |
+| EtherNet/IP over TLS (port 2221) | explicit messaging | — | — | — | — | — | — | — | — | — | — | — | — |
+| CIP Security beyond TLS (DTLS, security objects) | — (open issue) | — | — | — | — | — | — | — | — | — | — | — | — |
+| **Explicit messaging** | | | | | | | | | | | | | |
+| Get_Attribute_Single | C, T | ✅ | ✅ | ✅ | C, T | C ³ | C ² | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Set_Attribute_Single | C, T | ✅ | ✅ | ✅ | C, T | C ³ | C ² | ✅ | — | ✅ | ✅ | ✅ | ✅ |
+| Get_Attributes_All | C, T | ✅ | ✅ | ✅ | C, T | C ³ | C; T (Identity) | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Get_Attribute_List | C, T | ✅ | — | — | T | — | — | — | — | — | — | — | — |
+| Multiple Service Packet | C, T | — | C (adapter-built) | Logix reads | C, T | C: tag reads; T | C; T: Class 3 tag services | tag reads | tag reads | ✅ | ✅ | — | ✅ |
+| Unconnected_Send routing | C, T | — | — | ✅ | C, T | T ³ | T | ✅ | ✅ | ✅ | — | — | ✅ |
+| Class 3 connected explicit messaging | C, T | ✅ | — | ✅ | T | C, T | C (always), T | Logix only | — | ✅ | ✅ | — | ✅ |
+| Large_Forward_Open | C, T | ✅ | ✅ | ✅ | T | C, T | C, T | ✅ | — | — | ✅ | ✅ | not used |
+| Identity and Assembly objects (target) | ✅ | ✅ | n/a | n/a | Identity; assemblies as attributes | — | Identity only | n/a | n/a | n/a | n/a | n/a | n/a |
+| TCP/IP Interface, Ethernet Link objects (target) | ✅ | ✅ | n/a | n/a | — | — | — | n/a | n/a | n/a | n/a | n/a | n/a |
+| **Implicit (Class 0/1) I/O** | | | | | | | | | | | | | |
+| Class 1 exclusive owner | C, T | T | C | — | — | — | T | — | — | — | — | C | — |
+| Class 0 | C, T | not tested | not tested | — | — | — | not tested | — | — | — | — | not tested | — |
+| Input-only (heartbeat) | C, T | T | C | — | — | — | T | — | — | — | — | C | — |
+| Listen-only | C, T | T ⁴ | — | — | — | — | — | — | — | — | — | C | — |
+| T->O multicast | C, T | T | — | — | — | — | — | — | — | — | — | C | — |
+| Configuration data in the Forward_Open | C, T | T | C | — | — | — | T: ignored | — | — | — | — | — | — |
+| Large_Forward_Open for I/O | C, T | T | C | — | — | — | T: no data | — | — | — | — | C | — |
+| **Rockwell Logix (vendor specific)** | | | | | | | | | | | | | |
+| Read Tag, Write Tag | client and emulation | — | — | ✅ | C, T | C, T | C, T | ✅ | ✅ | ✅ | ✅ | — | reads; scalar writes ⁸ |
+| Read Tag Fragmented | client and emulation | — | — | ✅ | C, T | C, T | partial | ✅ | — | ✅ | — | — | — |
+| Write Tag Fragmented | client and emulation | — | — | ✅ | T | T; C above 4000 octets | — | above 3.9 kB | — | ✅ | — | — | — |
+| Several tags in one Multiple Service Packet | client and emulation | — | — | ✅ | T | C, T | C, T | ✅ | ✅ | ✅ | ✅ | — | ✅ |
+| LINT, LREAL | client and emulation | — | — | ✅ | T | C, T | C, T | ✅ | — | ✅ | ✅ | — | ✅ |
+| Tag list (0x55) | client and emulation | — | — | ✅ | — | C | C ⁵ | ✅ | — | ✅ | ✅ | — | ✅ |
+| STRING | client and emulation | — | — | ✅ | not tested | C, T | C | ✅ | ✅ | ✅ | ✅ | — | ✅ |
+| Structures (templates): read | client and emulation | — | — | ✅ | — | raw octets | raw octets | raw octets | — | ✅ | ✅ | — | raw octets |
+| Structures: write | client and emulation | — | — | ✅ | — | members only | members only | members only | — | ✅ | members only ⁶ | — | — |
+| Bit writes on integers (Read-Modify-Write) | client and emulation | — | — | ✅ | — | C | — | ✅ | — | ✅ | ✅ | — | — |
+| BOOL array elements | client and emulation | — | — | ✅ | not tested | own form ⁷ | — | ✅ | — | ✅ | — | — | — |
+| **Tooling and API** | | | | | | | | | | | | | |
+| EDS files: parse, validate, write, generate Go code | ✅ | — | — | — | — | — | — | — | — | — | — | — | — |
+| Cancellation and deadlines per call | `context.Context` | — | — | socket timeout | — | timeout per call | not tested | socket timeout | timeouts | async (tokio) | promises | — | — |
+| Structured logging, metrics | `Logger` (slog), `Metrics` | own logger | own logger | `logging` | `logging` | debug levels | `log/slog` | `print` | Java logging | not tested | not tested | console | not tested |
+| **Testing** | | | | | | | | | | | | | |
+| Tested against go-ethernetip ([matrix](INTEROPERABILITY.md#interop-matrix)) | — | 17 pass | 11 pass | 18 pass | 17 pass | 17 pass | 19 pass | 14 pass | 9 pass | 21 pass | 19 pass | 11 pass | 11 pass |
+| Tested against other stacks in CI | ✅ all twelve, both directions | not tested | not tested | not tested | not tested | not tested | not tested | not tested | not tested | not tested | not tested | not tested | not tested |
+| ODVA conformance tested | no, and no claim | not tested | not tested | not tested | not tested | not tested | not tested | not tested | not tested | not tested | not tested | not tested | not tested |
 
 ✅ = available in the roles the stack has · C = as originator (client,
 scanner) · T = as target (adapter, server) · — = not available · n/a = the
@@ -154,6 +155,8 @@ listen-only connection closes first.
 instead of the structure handle (refused 0x2107).
 ⁷ libplctag writes a BOOL array element as `Bits[1].5` (DWORD, bit), not
 `Bits[37]`.
+⁸ go-ethernet-ip writes a tag only whole (all elements, by instance), so
+scalar tags only; it does not check the reply of a write.
 
 The interop counts are the cases each stack passes against go-ethernetip,
 in both directions where it has a target, of those it declares; every
@@ -346,6 +349,7 @@ NAT).
 | [eip-rs (rseip)](https://github.com/Joylei/eip-rs) | main 16e2236 | MIT | originator (generic CIP and Logix) |
 | [node-ethernet-ip](https://github.com/cmseaton42/node-ethernet-ip) | 2.0.0 | MIT | originator (Logix, generic) |
 | [EEIP.NET](https://github.com/rossmann-engineering/EEIP.NET) | master 58b91a0 | MIT | originator (scanner: explicit, Class 1 I/O) |
+| [go-ethernet-ip (loki-os)](https://github.com/loki-os/go-ethernet-ip) | master 535f797 | WTFPL | originator (generic CIP and Logix) |
 
 The [coverage matrix](INTEROPERABILITY.md#interop-matrix) lists each
 feature per reference and direction, with the features a reference does
