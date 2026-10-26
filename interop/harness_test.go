@@ -30,25 +30,34 @@ import (
 	"time"
 )
 
-// The reference images this version is qualified against. The release tag
-// pins the set; override per image to try another build, for example the
-// images "make images" builds in ethernetip-interop:
+// The reference images this version is qualified against:
+// otfabric/ethernetip-interop v0.1.0 (OpENer d8820ef, cpppo 5.2.5,
+// EIPScanner 12c89a5, pycomm3 1.2.16), pinned by multi-arch index digest so
+// that a run is reproducible. Override per image to try another build, for
+// example the images "make images" builds in ethernetip-interop:
 //
 //	ETHERNETIP_INTEROP_OPENER_IMAGE, ETHERNETIP_INTEROP_CPPPO_IMAGE,
 //	ETHERNETIP_INTEROP_EIPSCANNER_IMAGE, ETHERNETIP_INTEROP_PYCOMM3_IMAGE
 //
-// or ETHERNETIP_INTEROP_VERSION=dev for all of them.
+// or ETHERNETIP_INTEROP_VERSION=dev (a tag) for all of them.
 const interopRelease = "v0.1.0"
+
+var pinned = map[string]string{
+	"opener":     "sha256:e0c3e33f46cb36be219b239ed4bd1e6687ee63eaf0a59ae2bf1319a646ff7e31",
+	"cpppo":      "sha256:27bf4fc7c4efd8d5264e1c2c3eab29bf7b2a3968a251d90143255e64395943dd",
+	"eipscanner": "sha256:9bf924ef16bb8cbfaea3ef491b93b78514baa589cb0e3a23dbe3793f1b0ef78c",
+	"pycomm3":    "sha256:8b4bdade49f70b612dc7cff831b40b726b2c358b68f07393f3f5bf4d93f3821e",
+}
 
 func image(name string) string {
 	if v := os.Getenv("ETHERNETIP_INTEROP_" + strings.ToUpper(name) + "_IMAGE"); v != "" {
 		return v
 	}
-	tag := interopRelease
+	repo := "ghcr.io/otfabric/ethernetip-interop-" + name
 	if v := os.Getenv("ETHERNETIP_INTEROP_VERSION"); v != "" {
-		tag = v
+		return repo + ":" + v
 	}
-	return "ghcr.io/otfabric/ethernetip-interop-" + name + ":" + tag
+	return repo + "@" + pinned[name]
 }
 
 var (

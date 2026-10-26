@@ -1,10 +1,10 @@
 {
-  "generated": "2026-10-25T23:19:32Z",
+  "generated": "2026-10-26T00:03:28Z",
   "images": {
-    "cpppo": "{\"adapter\": \"cpppo\", \"adapterVersion\": \"dev\", \"contract\": \"1.0\", \"upstream\": \"cpppo\", \"upstreamRevision\": \"f7c224bbb2389bd26d0088eeb1a93db3a5c4858f\", \"upstreamVersion\": \"5.2.5\"}",
-    "eipscanner": "{\"adapter\":\"eipscanner\",\"adapterVersion\":\"dev\",\"upstream\":\"EIPScanner\",\"upstreamVersion\":\"1.3.0-33\",\"upstreamRevision\":\"12c89a57ec2e7449efb1348be52af10be9ef9701\",\"contract\":\"1.0\"}",
-    "opener": "{\"adapter\":\"opener\",\"adapterVersion\":\"dev\",\"upstream\":\"OpENer\",\"upstreamVersion\":\"2.3-588\",\"upstreamRevision\":\"d8820ef41ce30dda06d213438ba81c81de33ffe2\",\"contract\":\"1.0\"}",
-    "pycomm3": "{\"adapter\": \"pycomm3\", \"adapterVersion\": \"dev\", \"contract\": \"1.0\", \"upstream\": \"pycomm3\", \"upstreamRevision\": \"36aeb19b5cb47495df9fd1caa38ce9d2f6d12ea3\", \"upstreamVersion\": \"1.2.16\"}"
+    "cpppo": "{\"adapter\": \"cpppo\", \"adapterVersion\": \"v0.1.0\", \"contract\": \"1.0\", \"upstream\": \"cpppo\", \"upstreamRevision\": \"f7c224bbb2389bd26d0088eeb1a93db3a5c4858f\", \"upstreamVersion\": \"5.2.5\"}",
+    "eipscanner": "{\"adapter\":\"eipscanner\",\"adapterVersion\":\"v0.1.0\",\"upstream\":\"EIPScanner\",\"upstreamVersion\":\"1.3.0-33\",\"upstreamRevision\":\"12c89a57ec2e7449efb1348be52af10be9ef9701\",\"contract\":\"1.0\"}",
+    "opener": "{\"adapter\":\"opener\",\"adapterVersion\":\"v0.1.0\",\"upstream\":\"OpENer\",\"upstreamVersion\":\"2.3-588\",\"upstreamRevision\":\"d8820ef41ce30dda06d213438ba81c81de33ffe2\",\"contract\":\"1.0\"}",
+    "pycomm3": "{\"adapter\": \"pycomm3\", \"adapterVersion\": \"v0.1.0\", \"contract\": \"1.0\", \"upstream\": \"pycomm3\", \"upstreamRevision\": \"36aeb19b5cb47495df9fd1caa38ce9d2f6d12ea3\", \"upstreamVersion\": \"1.2.16\"}"
   },
   "interopRelease": "v0.1.0",
   "rows": [
