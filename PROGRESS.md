@@ -40,16 +40,15 @@ ethernetipctl reusable CI and 32-bit typecheck.
 
 ## v0.2.0 (in progress)
 
-- Interop: 63 pass, 0 fail, 13 N/A against locally built images of
-  ethernetip-interop `feature/more-cases`; to be re-run against the
-  released v0.2.0 digests before go-ethernetip v0.2.0 is tagged.
+- Interop: 63 pass, 0 fail, 13 N/A against the released, digest-pinned
+  ethernetip-interop v0.2.0 images.
 - e2e: listen-only, Class 0, TLS, discovery, shared endpoint, chaos
   monkey; coverage 98.7%.
 - Docs: README comparison table; ethernetipctl docs/examples.md generated
   from real runs.
-- Open: merging and tagging (ethernetip-interop v0.2.0, then pinning its
-  digests here, go-ethernetip v0.2.0, ethernetipctl on it); CIP Security
-  beyond TLS waits for a decision (ODVA Volume 8, DTLS dependency).
+- ethernetip-interop v0.2.0 released 2026-10-26; go-ethernetip v0.2.0 and
+  ethernetipctl on it follow. CIP Security beyond TLS waits for a decision
+  (ODVA Volume 8, DTLS dependency).
 
 ## Next actions
 
