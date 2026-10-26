@@ -66,7 +66,7 @@ func TestDefinitionRoundTrip(t *testing.T) {
 	if !strings.Contains(string(def), "Outer;n\x00X\x00In\x00") {
 		t.Fatalf("definition %q", def)
 	}
-	if got := definitionWords(len(def)); int(got)*4-21 < len(def) || int(got)*4-21 > len(def)+3 {
+	if got := definitionWords(len(def)); definitionLen(got) < len(def) || definitionLen(got) > len(def)+3 {
 		t.Fatalf("definitionWords(%d) = %d", len(def), got)
 	}
 	name, ms, err := parseDefinition(def, len(outer.Members))

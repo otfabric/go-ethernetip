@@ -464,7 +464,7 @@ func templateAttrs(t *Template) cip.Response {
 func TestClientTemplate(t *testing.T) {
 	inner, outer := testTemplates()
 	def := outer.definition()
-	total := int(definitionWords(len(def)))*4 - 21
+	total := definitionLen(definitionWords(len(def)))
 	padded := append(append([]byte(nil), def...), make([]byte, total-len(def))...)
 	d := &fakeDoer{t: t, resps: []cip.Response{
 		templateAttrs(&outer),

@@ -100,8 +100,11 @@ func newMessageRouter(s *Server) *StandardObject {
 	return o
 }
 
-// maxEmbedded bounds the services of one Multiple Service Packet.
-const maxEmbedded = 200
+// maxEmbedded bounds the services of one Multiple Service Packet. The
+// packet's size is the real limit (a Large_Forward_Open connection of about
+// 4000 octets carries some 220 Read Tag requests, which node-ethernet-ip
+// sends in one packet); this only bounds the work of one request.
+const maxEmbedded = 1000
 
 func (s *Server) multipleService(ctx context.Context, r *Request) cip.Response {
 	parts, err := cip.SplitMultiple(r.Data)

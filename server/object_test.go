@@ -461,11 +461,16 @@ func TestMultipleServicePacket(t *testing.T) {
 	if r := msp(1, data); !r.OK() {
 		t.Errorf("all succeed: %s", r.Status)
 	}
+	// More services than the bound: larger than a packet, so the
+	// handler is called directly.
 	many := make([]cip.Request, maxEmbedded+1)
 	for i := range many {
 		many[i] = get
 	}
-	data, _ = cip.EncodeMultipleService(many)
+	big, _ := cip.EncodeMultipleService(many)
+	if r := s.multipleService(context.Background(), &Request{Request: cip.Request{Data: big}}); r.Status != cip.StatusResourceUnavailable {
+		t.Errorf("too many: %s", r.Status)
+	}
 	for _, tc := range []struct {
 		name string
 		inst uint32
@@ -473,7 +478,6 @@ func TestMultipleServicePacket(t *testing.T) {
 		want cip.GeneralStatus
 	}{
 		{"class", 0, data, cip.StatusServiceNotSupported},
-		{"too many", 1, data, cip.StatusResourceUnavailable},
 		{"empty", 1, []byte{0, 0}, cip.StatusNotEnoughData},
 		{"no count", 1, nil, cip.StatusNotEnoughData},
 		{"offset outside", 1, []byte{1, 0, 0x40, 0}, cip.StatusNotEnoughData},

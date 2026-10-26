@@ -363,7 +363,7 @@ func (c *Client) Template(ctx context.Context, id uint16) (*Template, error) {
 	if err := r.Err(); err != nil {
 		return nil, fmt.Errorf("%w: template attributes: %w", ethernetip.ErrProtocol, err)
 	}
-	total := int(attrs[4])*4 - 21
+	total := definitionLen(attrs[4])
 	if total <= 0 || total > 1<<20 {
 		return nil, fmt.Errorf("%w: template definition of %d words", ethernetip.ErrProtocol, attrs[4])
 	}

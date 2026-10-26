@@ -778,7 +778,7 @@ func TestTagServerTemplateObject(t *testing.T) {
 	read := func(off uint32, n uint16, connected bool) cip.Response {
 		return h.do(cip.Request{Service: cip.ServiceReadTemplate, Path: cip.ObjectPath(cip.ClassTemplate, 0x20), Data: cat(le32(off), le16(n))}, connected)
 	}
-	total := int(words)*4 - 21
+	total := definitionLen(words) // 1756-PM020: words×4 − 23
 	var got []byte
 	for {
 		r := read(uint32(len(got)), uint16(total-len(got)), true)
@@ -803,10 +803,13 @@ func TestTagServerTemplateObject(t *testing.T) {
 	if r := read(0, 0xFFFF, false); !r.OK() || len(r.Data) != total {
 		t.Fatalf("unconnected %d", len(r.Data))
 	}
-	if r := read(uint32(total), 10, false); !r.OK() || len(r.Data) != 0 {
-		t.Fatalf("at the end %+v", r)
-	}
+	// A read starting at the end is refused: a client looping until it
+	// has its computed size stops (pylogix asks for the size rounded up).
+	wantStatus(t, "at the end", read(uint32(total), 10, false), cip.StatusInvalidParameter)
 	wantStatus(t, "beyond", read(uint32(total)+1, 1, false), cip.StatusInvalidParameter)
+	if r := read(uint32(total-1), 10, false); !r.OK() || len(r.Data) != 1 {
+		t.Fatalf("the last octet, asking for more: %+v", r)
+	}
 	wantStatus(t, "short", h.do(cip.Request{Service: cip.ServiceReadTemplate, Path: cip.ObjectPath(cip.ClassTemplate, 0x20), Data: le32(0)}, false), cip.StatusNotEnoughData)
 }
 
@@ -928,5 +931,27 @@ func TestTagServerWriteTrailingData(t *testing.T) {
 	r.Service, r.Data = cip.ServiceWriteTagFragmented, frag
 	if resp := ts.ServeSymbol(context.Background(), r); resp.Status != cip.StatusTooMuchData {
 		t.Fatalf("fragmented status %s", resp.Status)
+	}
+}
+
+// TestTagServerConnectionSize checks that a connected reply fits the
+// connection's size: a Read Tag on a small connection is a partial
+// transfer within it.
+func TestTagServerConnectionSize(t *testing.T) {
+	ts := NewTagServer()
+	must(t, ts.AddTag("Big", cip.TypeINT, 1000))
+	req := func(maxReply int) cip.Response {
+		return ts.ServeSymbol(context.Background(), &server.Request{
+			Request:   cip.Request{Service: cip.ServiceReadTag, Path: cip.Path{cip.SymbolSegment{Name: "Big"}}, Data: le16(1000)},
+			Connected: true, MaxReply: maxReply})
+	}
+	r := req(504 - 6)
+	if r.Status != cip.StatusPartialTransfer || len(r.Data) > 504-6 {
+		t.Fatalf("on a 504-octet connection: status %v, %d octets", r.Status, len(r.Data))
+	}
+	// Without a connection size the server's own limit applies: the 2002
+	// octets fit it.
+	if r := req(0); !r.OK() || len(r.Data) != 2+2000 {
+		t.Fatalf("without a size: status %v, %d octets", r.Status, len(r.Data))
 	}
 }

@@ -460,6 +460,11 @@ func (ts *TagServer) resolve(e *tagEntry, path cip.Path) (target, *cip.Response)
 // limit returns the largest reply data of a request.
 func (ts *TagServer) limit(r *server.Request) int {
 	if r.Connected {
+		if r.MaxReply > 0 {
+			// Within the connection's size; the reply header of a Read
+			// Tag (the type) takes up to 4 octets of it.
+			return max(min(ts.maxReply, r.MaxReply-4), 4)
+		}
 		return ts.maxReply
 	}
 	return ts.maxUnconn
@@ -801,8 +806,12 @@ func (o *templateObject) ServeCIP(_ context.Context, r *server.Request) cip.Resp
 		if rd.Err() != nil {
 			return cip.Response{Status: cip.StatusNotEnoughData}
 		}
-		total := int(words)*4 - 21
-		if off > total {
+		// The definition is padded to words×4 − 23 octets. A request may
+		// ask for more than is left (it gets the rest); one starting at
+		// or beyond the end is refused, so that a client looping until
+		// it has its computed size stops.
+		total := definitionLen(words)
+		if off >= total {
 			return cip.Response{Status: cip.StatusInvalidParameter}
 		}
 		full := make([]byte, total)
