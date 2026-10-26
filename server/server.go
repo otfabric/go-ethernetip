@@ -224,6 +224,11 @@ func (s *Server) serveOn(l net.Listener, udp *net.UDPConn, ep *implicit.Endpoint
 func (s *Server) Serve() error {
 	s.mu.Lock()
 	l, udp := s.tcp, s.udp
+	if s.closed {
+		// Close may already be waiting for the goroutines: none may start.
+		s.mu.Unlock()
+		return ethernetip.ErrClosed
+	}
 	if !s.listening {
 		s.mu.Unlock()
 		return invalidOption("Serve before Listen")

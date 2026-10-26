@@ -378,3 +378,16 @@ type failConn struct {
 func (c *failConn) Write([]byte) (int, error)        { c.writes++; return 0, net.ErrClosed }
 func (c *failConn) SetWriteDeadline(time.Time) error { return nil }
 func (c *failConn) Close() error                     { c.closed = true; return nil }
+
+// TestServeAfterClose: Serve on a closed server returns ErrClosed without
+// starting anything (Close may be waiting for its goroutines).
+func TestServeAfterClose(t *testing.T) {
+	s, _ := New(WithIOAddress("127.0.0.1:0"))
+	if err := s.Listen("127.0.0.1:0"); err != nil {
+		t.Fatal(err)
+	}
+	_ = s.Close()
+	if err := s.Serve(); !errors.Is(err, ethernetip.ErrClosed) {
+		t.Fatalf("Serve after Close = %v", err)
+	}
+}

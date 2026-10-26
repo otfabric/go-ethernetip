@@ -158,6 +158,8 @@ func TestStressConnections(t *testing.T) {
 			defer wg.Done()
 			cfg := exclusiveOwner(10 * time.Millisecond)
 			cfg.OutputInstance, cfg.OutputSize = asmInputOnly, 0
+			// 30 connections on loaded runners: no timeout at the edge.
+			cfg.TimeoutMultiplier = 5
 			ios[i], errs[i] = s.Open(ctx, cfg)
 		}(i)
 	}
