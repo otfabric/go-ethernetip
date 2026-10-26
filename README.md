@@ -84,7 +84,7 @@ see where more interop or more features would help.
 | **Project** | | | | | | | | | | | | | |
 | Language | Go | C | C++ | Python | Python | C | Go | Python | Java | Rust | TypeScript | C# | Go |
 | Licence | MIT | adapted BSD | MIT | MIT | GPL-3.0 | MPL-2.0 or LGPL-2.0+ | MIT | Apache-2.0 | EPL-1.0 | MIT | MIT | MIT | WTFPL |
-| Version compared | this module | master d8820ef | 1.3.0+33 | 1.2.16 | 5.2.5 | 2.7.2 | 0.44.0-beta | 1.1.6 | main ce0688a | main 16e2236 | 2.0.0 | master 58b91a0 | master 535f797 |
+| Version compared | this module | master 0e1ab7e | 1.3.0+33 | 1.2.16 | 5.2.5 | 2.7.2 | 0.44.0-beta | 1.1.6 | main ce0688a | main 16e2236 | 2.0.0 | master 58b91a0 | master 535f797 |
 | Originator (scanner, client) | ✅ | — | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 | Target (adapter, server) | ✅ | ✅ | — | — | Logix simulator | ab_server simulator | Logix tags, Class 1 I/O | — | — | — | — | — | — |
 | Dependencies | none (standard library) | none | none | none | greenery | none | crc16 | none | none (JRE) | tokio and others | none (Node.js) | none (.NET) | none |
@@ -338,7 +338,7 @@ NAT).
 
 | Reference | Version | Licence | Roles tested |
 |-----------|---------|---------|--------------|
-| [OpENer](https://github.com/EIPStackGroup/OpENer) | master d8820ef (v2.3+) | adapted BSD | target (adapter) |
+| [OpENer](https://github.com/EIPStackGroup/OpENer) | master 0e1ab7e (v2.3+591) | adapted BSD | target (adapter) |
 | [EIPScanner](https://github.com/nimbuscontrols/EIPScanner) | 1.3.0+33 (12c89a5) | MIT | originator (scanner) |
 | [pycomm3](https://github.com/ottowayi/pycomm3) | 1.2.16 | MIT | originator (generic CIP and Logix) |
 | [cpppo](https://github.com/pjkundert/cpppo) | 5.2.5 | GPL-3.0 | target (Logix simulator) and originator |

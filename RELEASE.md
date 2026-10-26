@@ -1,5 +1,24 @@
 # go-ethernetip Releases
 
+## v0.3.2
+
+**Date:** 2026-10-26
+**Previous release:** v0.3.1
+
+## Summary
+
+Interop qualified against otfabric/ethernetip-interop v0.5.0, whose OpENer
+image follows OpENer's master (2.3-591, `0e1ab7e`; the new upstream commits
+only change OpENer's own CI). No change to the library's code.
+
+## Changes
+
+- **Interop**: the twelve reference images of ethernetip-interop v0.5.0,
+  pinned by digest; the matrix is unchanged.
+- **README**: the OpENer version compared.
+
+---
+
 ## v0.3.1
 
 **Date:** 2026-10-26
