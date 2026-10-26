@@ -126,8 +126,10 @@ func newScanner(t testing.TB, c *client.Client, opts ...Option) *Scanner {
 func owner(rpi time.Duration) IOConfig {
 	return IOConfig{ConfigInstance: asmConfig, OutputInstance: asmOutput, InputInstance: asmInput,
 		OutputSize: ioSize, InputSize: ioSize, RPI: rpi,
-		// 16 RPIs: short RPIs meet coarse timers on loaded CI runners.
-		TimeoutMultiplier: 2}
+		// 64 RPIs (320 ms at 5 ms): short RPIs meet coarse timers and
+		// stalls on loaded CI runners (macOS on Intel); the timeout tests
+		// wait seconds, so they still see the timeout.
+		TimeoutMultiplier: 4}
 }
 
 // stateRec records state changes.
@@ -279,9 +281,6 @@ func TestExchangeAndAPI(t *testing.T) {
 	inputs := make(chan []byte, 64)
 	cfg := owner(5 * time.Millisecond)
 	cfg.ConfigData = []byte{1, 2, 3, 4}
-	// 320 ms: this test is about the API, not timeouts, and a loaded
-	// runner (macOS on Intel) can stall longer than 16 RPIs.
-	cfg.TimeoutMultiplier = 4
 	cfg.OnState = st.on
 	cfg.OnInput = func(d []byte, _ bool) {
 		select {
