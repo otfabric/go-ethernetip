@@ -1,20 +1,20 @@
 {
-  "generated": "2026-10-26T20:38:29Z",
+  "generated": "2026-10-26T20:58:21Z",
   "images": {
-    "cpppo": "{\"adapter\": \"cpppo\", \"adapterVersion\": \"dev\", \"contract\": \"1.0\", \"upstream\": \"cpppo\", \"upstreamRevision\": \"f7c224bbb2389bd26d0088eeb1a93db3a5c4858f\", \"upstreamVersion\": \"5.2.5\"}",
-    "eeip": "{\"adapter\":\"eeip\",\"adapterVersion\":\"dev\",\"upstream\":\"EEIP.NET\",\"upstreamVersion\":\"1.6.0\",\"upstreamRevision\":\"58b91a0c8e30227b1b97a637635d147a2a9655dc\",\"contract\":\"1.0\"}",
-    "eiprs": "{\"adapter\":\"eiprs\",\"adapterVersion\":\"dev\",\"contract\":\"1.0\",\"upstream\":\"rseip\",\"upstreamRevision\":\"16e2236afb65acc9c82ebdcfbdcbba72e93b3887\",\"upstreamVersion\":\"0.3.1-2\"}",
-    "eipscanner": "{\"adapter\":\"eipscanner\",\"adapterVersion\":\"dev\",\"upstream\":\"EIPScanner\",\"upstreamVersion\":\"1.3.0-33\",\"upstreamRevision\":\"12c89a57ec2e7449efb1348be52af10be9ef9701\",\"contract\":\"1.0\"}",
-    "etherip": "{\"adapter\":\"etherip\",\"adapterVersion\":\"dev\",\"upstream\":\"etherip\",\"upstreamVersion\":\"1.0-67\",\"upstreamRevision\":\"ce0688ae51be5652ec200fbe389667b36a638323\",\"contract\":\"1.0\"}",
-    "gologix": "{\"adapter\":\"gologix\",\"adapterVersion\":\"dev\",\"contract\":\"1.0\",\"upstream\":\"gologix\",\"upstreamRevision\":\"647a0b87b756d42e37ac0f65c5762dc89036152c\",\"upstreamVersion\":\"0.44.0-beta\"}",
-    "libplctag": "{\"adapter\":\"libplctag\",\"adapterVersion\":\"dev\",\"upstream\":\"libplctag\",\"upstreamVersion\":\"2.7.2\",\"upstreamRevision\":\"7712ed7f1ee05ba0ebfca641b3f5c43da52a66ed\",\"contract\":\"1.0\"}",
-    "lokieip": "{\"adapter\":\"lokieip\",\"adapterVersion\":\"dev\",\"contract\":\"1.0\",\"upstream\":\"go-ethernet-ip\",\"upstreamRevision\":\"535f79752f63a4122c37c7f0f9b95ece01a8f7b4\",\"upstreamVersion\":\"0.0.0-20221229063210-535f797\"}",
-    "nodeeip": "{\"adapter\":\"nodeeip\",\"adapterVersion\":\"dev\",\"upstream\":\"node-ethernet-ip\",\"upstreamVersion\":\"2.0.0\",\"upstreamRevision\":\"4743b077abd3cc8826d511acde8f890372826e16\",\"contract\":\"1.0\"}",
-    "opener": "{\"adapter\":\"opener\",\"adapterVersion\":\"dev\",\"upstream\":\"OpENer\",\"upstreamVersion\":\"2.3-588\",\"upstreamRevision\":\"d8820ef41ce30dda06d213438ba81c81de33ffe2\",\"contract\":\"1.0\"}",
-    "pycomm3": "{\"adapter\": \"pycomm3\", \"adapterVersion\": \"dev\", \"contract\": \"1.0\", \"upstream\": \"pycomm3\", \"upstreamRevision\": \"36aeb19b5cb47495df9fd1caa38ce9d2f6d12ea3\", \"upstreamVersion\": \"1.2.16\"}",
-    "pylogix": "{\"adapter\": \"pylogix\", \"adapterVersion\": \"dev\", \"contract\": \"1.0\", \"upstream\": \"pylogix\", \"upstreamRevision\": \"193b6c7b0c601619223ee53587abd821d3b344c1\", \"upstreamVersion\": \"1.1.6\"}"
+    "cpppo": "{\"adapter\": \"cpppo\", \"adapterVersion\": \"v0.4.0\", \"contract\": \"1.0\", \"upstream\": \"cpppo\", \"upstreamRevision\": \"f7c224bbb2389bd26d0088eeb1a93db3a5c4858f\", \"upstreamVersion\": \"5.2.5\"}",
+    "eeip": "{\"adapter\":\"eeip\",\"adapterVersion\":\"v0.4.0\",\"upstream\":\"EEIP.NET\",\"upstreamVersion\":\"1.6.0\",\"upstreamRevision\":\"58b91a0c8e30227b1b97a637635d147a2a9655dc\",\"contract\":\"1.0\"}",
+    "eiprs": "{\"adapter\":\"eiprs\",\"adapterVersion\":\"v0.4.0\",\"contract\":\"1.0\",\"upstream\":\"rseip\",\"upstreamRevision\":\"16e2236afb65acc9c82ebdcfbdcbba72e93b3887\",\"upstreamVersion\":\"0.3.1-2\"}",
+    "eipscanner": "{\"adapter\":\"eipscanner\",\"adapterVersion\":\"v0.4.0\",\"upstream\":\"EIPScanner\",\"upstreamVersion\":\"1.3.0-33\",\"upstreamRevision\":\"12c89a57ec2e7449efb1348be52af10be9ef9701\",\"contract\":\"1.0\"}",
+    "etherip": "{\"adapter\":\"etherip\",\"adapterVersion\":\"v0.4.0\",\"upstream\":\"etherip\",\"upstreamVersion\":\"1.0-67\",\"upstreamRevision\":\"ce0688ae51be5652ec200fbe389667b36a638323\",\"contract\":\"1.0\"}",
+    "gologix": "{\"adapter\":\"gologix\",\"adapterVersion\":\"v0.4.0\",\"contract\":\"1.0\",\"upstream\":\"gologix\",\"upstreamRevision\":\"647a0b87b756d42e37ac0f65c5762dc89036152c\",\"upstreamVersion\":\"0.44.0-beta\"}",
+    "libplctag": "{\"adapter\":\"libplctag\",\"adapterVersion\":\"v0.4.0\",\"upstream\":\"libplctag\",\"upstreamVersion\":\"2.7.2\",\"upstreamRevision\":\"7712ed7f1ee05ba0ebfca641b3f5c43da52a66ed\",\"contract\":\"1.0\"}",
+    "lokieip": "{\"adapter\":\"lokieip\",\"adapterVersion\":\"v0.4.0\",\"contract\":\"1.0\",\"upstream\":\"go-ethernet-ip\",\"upstreamRevision\":\"535f79752f63a4122c37c7f0f9b95ece01a8f7b4\",\"upstreamVersion\":\"0.0.0-20221229063210-535f797\"}",
+    "nodeeip": "{\"adapter\":\"nodeeip\",\"adapterVersion\":\"v0.4.0\",\"upstream\":\"node-ethernet-ip\",\"upstreamVersion\":\"2.0.0\",\"upstreamRevision\":\"4743b077abd3cc8826d511acde8f890372826e16\",\"contract\":\"1.0\"}",
+    "opener": "{\"adapter\":\"opener\",\"adapterVersion\":\"v0.4.0\",\"upstream\":\"OpENer\",\"upstreamVersion\":\"2.3-588\",\"upstreamRevision\":\"d8820ef41ce30dda06d213438ba81c81de33ffe2\",\"contract\":\"1.0\"}",
+    "pycomm3": "{\"adapter\": \"pycomm3\", \"adapterVersion\": \"v0.4.0\", \"contract\": \"1.0\", \"upstream\": \"pycomm3\", \"upstreamRevision\": \"36aeb19b5cb47495df9fd1caa38ce9d2f6d12ea3\", \"upstreamVersion\": \"1.2.16\"}",
+    "pylogix": "{\"adapter\": \"pylogix\", \"adapterVersion\": \"v0.4.0\", \"contract\": \"1.0\", \"upstream\": \"pylogix\", \"upstreamRevision\": \"193b6c7b0c601619223ee53587abd821d3b344c1\", \"upstreamVersion\": \"1.1.6\"}"
   },
-  "interopRelease": "v0.3.0",
+  "interopRelease": "v0.4.0",
   "rows": [
     {
       "feature": "Class 1 I/O, exclusive owner, point-to-point",
