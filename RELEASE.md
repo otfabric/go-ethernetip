@@ -1,5 +1,50 @@
 # go-ethernetip Releases
 
+## v0.3.0
+
+**Date:** not yet tagged
+**Previous release:** v0.2.1
+
+## Summary
+
+Seven more independent stacks in the interop suite: libplctag, gologix,
+pylogix, etherip, eip-rs, node-ethernet-ip and EEIP.NET
+(otfabric/ethernetip-interop v0.3.0), in both directions where they have
+the role, with a capability-driven suite that runs every case a stack
+declares. The new peers found three defects in the server and the Logix
+emulation, fixed here.
+
+## Changes
+
+### Fixes
+
+- **logix**: Template attribute 4 is sized so that reading the definition
+  takes attribute 4 × 4 − 23 octets, as Rockwell's *Logix 5000 Controllers
+  Data Access* (1756-PM020) specifies; it was − 21, and pylogix,
+  node-ethernet-ip and libplctag read 2 octets short (the last member name
+  truncated). The client reads − 23 octets too. A Read Template starting at
+  or past the end is refused (pylogix looped forever on an empty success).
+- **server, logix**: a request on a Class 3 connection carries the
+  connection's reply budget (`server.Request.MaxReply`: its T->O size less
+  the sequence count and the reply header); Logix tag replies keep within it
+  with a partial transfer. Before, a 300-DINT read on a 504-octet connection
+  answered 1228 octets, which libplctag could not take.
+- **server**: a Multiple Service Packet may carry up to 1000 services (was
+  200, refused with 0x02); node-ethernet-ip sends about 220 Read Tag
+  requests in one Large_Forward_Open packet.
+
+### Tests
+
+- Interop: libplctag, gologix, pylogix, etherip, eip-rs, node-ethernet-ip
+  and EEIP.NET against the library's target (adapter, logix and
+  logix-structures fixtures), and the library's originator against
+  libplctag's ab_server and gologix. Cases run by the stacks' declared
+  capabilities; documented limits of a stack are recorded N/A with the
+  reason. The matrix covers eleven references.
+- README: the comparison covers the seven new stacks.
+
+---
+
 ## v0.2.1
 
 **Date:** 2026-10-26

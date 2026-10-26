@@ -1,10 +1,17 @@
 {
-  "generated": "2026-10-26T14:31:06Z",
+  "generated": "2026-10-26T17:58:51Z",
   "images": {
-    "cpppo": "{\"adapter\": \"cpppo\", \"adapterVersion\": \"v0.2.0\", \"contract\": \"1.0\", \"upstream\": \"cpppo\", \"upstreamRevision\": \"f7c224bbb2389bd26d0088eeb1a93db3a5c4858f\", \"upstreamVersion\": \"5.2.5\"}",
-    "eipscanner": "{\"adapter\":\"eipscanner\",\"adapterVersion\":\"v0.2.0\",\"upstream\":\"EIPScanner\",\"upstreamVersion\":\"1.3.0-33\",\"upstreamRevision\":\"12c89a57ec2e7449efb1348be52af10be9ef9701\",\"contract\":\"1.0\"}",
-    "opener": "{\"adapter\":\"opener\",\"adapterVersion\":\"v0.2.0\",\"upstream\":\"OpENer\",\"upstreamVersion\":\"2.3-588\",\"upstreamRevision\":\"d8820ef41ce30dda06d213438ba81c81de33ffe2\",\"contract\":\"1.0\"}",
-    "pycomm3": "{\"adapter\": \"pycomm3\", \"adapterVersion\": \"v0.2.0\", \"contract\": \"1.0\", \"upstream\": \"pycomm3\", \"upstreamRevision\": \"36aeb19b5cb47495df9fd1caa38ce9d2f6d12ea3\", \"upstreamVersion\": \"1.2.16\"}"
+    "cpppo": "{\"adapter\": \"cpppo\", \"adapterVersion\": \"dev\", \"contract\": \"1.0\", \"upstream\": \"cpppo\", \"upstreamRevision\": \"f7c224bbb2389bd26d0088eeb1a93db3a5c4858f\", \"upstreamVersion\": \"5.2.5\"}",
+    "eeip": "{\"adapter\":\"eeip\",\"adapterVersion\":\"dev\",\"upstream\":\"EEIP.NET\",\"upstreamVersion\":\"1.6.0\",\"upstreamRevision\":\"58b91a0c8e30227b1b97a637635d147a2a9655dc\",\"contract\":\"1.0\"}",
+    "eiprs": "{\"adapter\":\"eiprs\",\"adapterVersion\":\"dev\",\"contract\":\"1.0\",\"upstream\":\"rseip\",\"upstreamRevision\":\"16e2236afb65acc9c82ebdcfbdcbba72e93b3887\",\"upstreamVersion\":\"0.3.1-2\"}",
+    "eipscanner": "{\"adapter\":\"eipscanner\",\"adapterVersion\":\"dev\",\"upstream\":\"EIPScanner\",\"upstreamVersion\":\"1.3.0-33\",\"upstreamRevision\":\"12c89a57ec2e7449efb1348be52af10be9ef9701\",\"contract\":\"1.0\"}",
+    "etherip": "{\"adapter\":\"etherip\",\"adapterVersion\":\"dev\",\"upstream\":\"etherip\",\"upstreamVersion\":\"1.0-67\",\"upstreamRevision\":\"ce0688ae51be5652ec200fbe389667b36a638323\",\"contract\":\"1.0\"}",
+    "gologix": "{\"adapter\":\"gologix\",\"adapterVersion\":\"dev\",\"contract\":\"1.0\",\"upstream\":\"gologix\",\"upstreamRevision\":\"647a0b87b756d42e37ac0f65c5762dc89036152c\",\"upstreamVersion\":\"0.44.0-beta\"}",
+    "libplctag": "{\"adapter\":\"libplctag\",\"adapterVersion\":\"dev\",\"upstream\":\"libplctag\",\"upstreamVersion\":\"2.7.2\",\"upstreamRevision\":\"7712ed7f1ee05ba0ebfca641b3f5c43da52a66ed\",\"contract\":\"1.0\"}",
+    "nodeeip": "{\"adapter\":\"nodeeip\",\"adapterVersion\":\"dev\",\"upstream\":\"node-ethernet-ip\",\"upstreamVersion\":\"2.0.0\",\"upstreamRevision\":\"4743b077abd3cc8826d511acde8f890372826e16\",\"contract\":\"1.0\"}",
+    "opener": "{\"adapter\":\"opener\",\"adapterVersion\":\"dev\",\"upstream\":\"OpENer\",\"upstreamVersion\":\"2.3-588\",\"upstreamRevision\":\"d8820ef41ce30dda06d213438ba81c81de33ffe2\",\"contract\":\"1.0\"}",
+    "pycomm3": "{\"adapter\": \"pycomm3\", \"adapterVersion\": \"dev\", \"contract\": \"1.0\", \"upstream\": \"pycomm3\", \"upstreamRevision\": \"36aeb19b5cb47495df9fd1caa38ce9d2f6d12ea3\", \"upstreamVersion\": \"1.2.16\"}",
+    "pylogix": "{\"adapter\": \"pylogix\", \"adapterVersion\": \"dev\", \"contract\": \"1.0\", \"upstream\": \"pylogix\", \"upstreamRevision\": \"193b6c7b0c601619223ee53587abd821d3b344c1\", \"upstreamVersion\": \"1.1.6\"}"
   },
   "interopRelease": "v0.2.0",
   "rows": [
@@ -176,6 +183,422 @@
     {
       "feature": "Class 1 I/O, T-\u003eO multicast",
       "direction": "ref-\u003ego",
+      "reference": "eeip",
+      "status": "pass",
+      "test": "TestReferenceClientsToGo/eeip/Class_1_I/O,_T-\u003eO_multicast"
+    },
+    {
+      "feature": "Class 1 I/O, configuration data",
+      "direction": "ref-\u003ego",
+      "reference": "eeip",
+      "status": "n/a",
+      "test": "",
+      "note": "the adapter declares no client feature configData"
+    },
+    {
+      "feature": "Class 1 I/O, exclusive owner, point-to-point",
+      "direction": "ref-\u003ego",
+      "reference": "eeip",
+      "status": "pass",
+      "test": "TestReferenceClientsToGo/eeip/Class_1_I/O,_exclusive_owner,_point-to-point"
+    },
+    {
+      "feature": "Class 1 I/O, input only (heartbeat O-\u003eT)",
+      "direction": "ref-\u003ego",
+      "reference": "eeip",
+      "status": "pass",
+      "test": "TestReferenceClientsToGo/eeip/Class_1_I/O,_input_only_(heartbeat_O-\u003eT)"
+    },
+    {
+      "feature": "Class 3 connected explicit messaging",
+      "direction": "ref-\u003ego",
+      "reference": "eeip",
+      "status": "n/a",
+      "test": "",
+      "note": "the adapter declares no client feature class3"
+    },
+    {
+      "feature": "Error responses (unknown class, attribute)",
+      "direction": "ref-\u003ego",
+      "reference": "eeip",
+      "status": "pass",
+      "test": "TestReferenceClientsToGo/eeip/Error_responses_(unknown_class,_attribute)"
+    },
+    {
+      "feature": "Forward_Open refusal (connection size)",
+      "direction": "ref-\u003ego",
+      "reference": "eeip",
+      "status": "pass",
+      "test": "TestReferenceClientsToGo/eeip/Forward_Open_refusal_(connection_size)"
+    },
+    {
+      "feature": "Get_Attribute_Single",
+      "direction": "ref-\u003ego",
+      "reference": "eeip",
+      "status": "pass",
+      "test": "TestReferenceClientsToGo/eeip/Get_Attribute_Single"
+    },
+    {
+      "feature": "Get_Attributes_All (Identity)",
+      "direction": "ref-\u003ego",
+      "reference": "eeip",
+      "status": "pass",
+      "test": "TestReferenceClientsToGo/eeip/Get_Attributes_All_(Identity)"
+    },
+    {
+      "feature": "Identity object (identity operation)",
+      "direction": "ref-\u003ego",
+      "reference": "eeip",
+      "status": "pass",
+      "test": "TestReferenceClientsToGo/eeip/Identity_object_(identity_operation)"
+    },
+    {
+      "feature": "Large_Forward_Open",
+      "direction": "ref-\u003ego",
+      "reference": "eeip",
+      "status": "pass",
+      "test": "TestReferenceClientsToGo/eeip/Large_Forward_Open"
+    },
+    {
+      "feature": "ListIdentity (TCP)",
+      "direction": "ref-\u003ego",
+      "reference": "eeip",
+      "status": "n/a",
+      "test": "",
+      "note": "the adapter declares no client feature listIdentityTcp"
+    },
+    {
+      "feature": "ListIdentity (UDP)",
+      "direction": "ref-\u003ego",
+      "reference": "eeip",
+      "status": "pass",
+      "test": "TestReferenceClientsToGo/eeip/ListIdentity_(UDP)"
+    },
+    {
+      "feature": "Logix BOOL array element write",
+      "direction": "ref-\u003ego",
+      "reference": "eeip",
+      "status": "n/a",
+      "test": "",
+      "note": "the adapter has no write-tag operation"
+    },
+    {
+      "feature": "Logix Read Tag (64-bit types)",
+      "direction": "ref-\u003ego",
+      "reference": "eeip",
+      "status": "n/a",
+      "test": "",
+      "note": "the adapter has no read-tag operation"
+    },
+    {
+      "feature": "Logix Read Tag (atomic types)",
+      "direction": "ref-\u003ego",
+      "reference": "eeip",
+      "status": "n/a",
+      "test": "",
+      "note": "the adapter has no read-tag operation"
+    },
+    {
+      "feature": "Logix Read Tag Fragmented (1200 octets)",
+      "direction": "ref-\u003ego",
+      "reference": "eeip",
+      "status": "n/a",
+      "test": "",
+      "note": "the adapter has no read-tag operation"
+    },
+    {
+      "feature": "Logix STRING read and write",
+      "direction": "ref-\u003ego",
+      "reference": "eeip",
+      "status": "n/a",
+      "test": "",
+      "note": "the adapter has no write-tag operation"
+    },
+    {
+      "feature": "Logix Write Tag",
+      "direction": "ref-\u003ego",
+      "reference": "eeip",
+      "status": "n/a",
+      "test": "",
+      "note": "the adapter has no write-tag operation"
+    },
+    {
+      "feature": "Logix Write Tag Fragmented (1200 octets)",
+      "direction": "ref-\u003ego",
+      "reference": "eeip",
+      "status": "n/a",
+      "test": "",
+      "note": "the adapter has no write-tag operation"
+    },
+    {
+      "feature": "Logix bit write (Read Modify Write Tag)",
+      "direction": "ref-\u003ego",
+      "reference": "eeip",
+      "status": "n/a",
+      "test": "",
+      "note": "the adapter has no write-tag operation"
+    },
+    {
+      "feature": "Logix multiple tags in one request (read-tags)",
+      "direction": "ref-\u003ego",
+      "reference": "eeip",
+      "status": "n/a",
+      "test": "",
+      "note": "the adapter has no read-tags operation"
+    },
+    {
+      "feature": "Logix structure read (UDT)",
+      "direction": "ref-\u003ego",
+      "reference": "eeip",
+      "status": "n/a",
+      "test": "",
+      "note": "the adapter has no read-tag operation"
+    },
+    {
+      "feature": "Logix structure write (UDT)",
+      "direction": "ref-\u003ego",
+      "reference": "eeip",
+      "status": "n/a",
+      "test": "",
+      "note": "the adapter has no write-tag operation"
+    },
+    {
+      "feature": "Logix tag list (0x55)",
+      "direction": "ref-\u003ego",
+      "reference": "eeip",
+      "status": "n/a",
+      "test": "",
+      "note": "the adapter has no tag-list operation"
+    },
+    {
+      "feature": "Logix tag list with structure and STRING tags",
+      "direction": "ref-\u003ego",
+      "reference": "eeip",
+      "status": "n/a",
+      "test": "",
+      "note": "the adapter has no tag-list operation"
+    },
+    {
+      "feature": "Multiple Service Packet",
+      "direction": "ref-\u003ego",
+      "reference": "eeip",
+      "status": "n/a",
+      "test": "",
+      "note": "the adapter has no multiple-get operation"
+    },
+    {
+      "feature": "Set_Attribute_Single (assembly)",
+      "direction": "ref-\u003ego",
+      "reference": "eeip",
+      "status": "pass",
+      "test": "TestReferenceClientsToGo/eeip/Set_Attribute_Single_(assembly)"
+    },
+    {
+      "feature": "Class 1 I/O, T-\u003eO multicast",
+      "direction": "ref-\u003ego",
+      "reference": "eiprs",
+      "status": "n/a",
+      "test": "",
+      "note": "the adapter has no io operation"
+    },
+    {
+      "feature": "Class 1 I/O, configuration data",
+      "direction": "ref-\u003ego",
+      "reference": "eiprs",
+      "status": "n/a",
+      "test": "",
+      "note": "the adapter has no io operation"
+    },
+    {
+      "feature": "Class 1 I/O, exclusive owner, point-to-point",
+      "direction": "ref-\u003ego",
+      "reference": "eiprs",
+      "status": "n/a",
+      "test": "",
+      "note": "the adapter has no io operation"
+    },
+    {
+      "feature": "Class 1 I/O, input only (heartbeat O-\u003eT)",
+      "direction": "ref-\u003ego",
+      "reference": "eiprs",
+      "status": "n/a",
+      "test": "",
+      "note": "the adapter has no io operation"
+    },
+    {
+      "feature": "Class 3 connected explicit messaging",
+      "direction": "ref-\u003ego",
+      "reference": "eiprs",
+      "status": "pass",
+      "test": "TestReferenceClientsToGo/eiprs/Class_3_connected_explicit_messaging"
+    },
+    {
+      "feature": "Error responses (unknown class, attribute)",
+      "direction": "ref-\u003ego",
+      "reference": "eiprs",
+      "status": "pass",
+      "test": "TestReferenceClientsToGo/eiprs/Error_responses_(unknown_class,_attribute)"
+    },
+    {
+      "feature": "Forward_Open refusal (connection size)",
+      "direction": "ref-\u003ego",
+      "reference": "eiprs",
+      "status": "n/a",
+      "test": "",
+      "note": "the adapter has no io operation"
+    },
+    {
+      "feature": "Get_Attribute_Single",
+      "direction": "ref-\u003ego",
+      "reference": "eiprs",
+      "status": "pass",
+      "test": "TestReferenceClientsToGo/eiprs/Get_Attribute_Single"
+    },
+    {
+      "feature": "Get_Attributes_All (Identity)",
+      "direction": "ref-\u003ego",
+      "reference": "eiprs",
+      "status": "pass",
+      "test": "TestReferenceClientsToGo/eiprs/Get_Attributes_All_(Identity)"
+    },
+    {
+      "feature": "Identity object (identity operation)",
+      "direction": "ref-\u003ego",
+      "reference": "eiprs",
+      "status": "n/a",
+      "test": "",
+      "note": "the adapter has no identity operation"
+    },
+    {
+      "feature": "Large_Forward_Open",
+      "direction": "ref-\u003ego",
+      "reference": "eiprs",
+      "status": "n/a",
+      "test": "",
+      "note": "the adapter has no io operation"
+    },
+    {
+      "feature": "ListIdentity (TCP)",
+      "direction": "ref-\u003ego",
+      "reference": "eiprs",
+      "status": "pass",
+      "test": "TestReferenceClientsToGo/eiprs/ListIdentity_(TCP)"
+    },
+    {
+      "feature": "ListIdentity (UDP)",
+      "direction": "ref-\u003ego",
+      "reference": "eiprs",
+      "status": "pass",
+      "test": "TestReferenceClientsToGo/eiprs/ListIdentity_(UDP)"
+    },
+    {
+      "feature": "Logix BOOL array element write",
+      "direction": "ref-\u003ego",
+      "reference": "eiprs",
+      "status": "pass",
+      "test": "TestReferenceClientsToGo/eiprs/Logix_BOOL_array_element_write"
+    },
+    {
+      "feature": "Logix Read Tag (64-bit types)",
+      "direction": "ref-\u003ego",
+      "reference": "eiprs",
+      "status": "pass",
+      "test": "TestReferenceClientsToGo/eiprs/Logix_Read_Tag_(64-bit_types)"
+    },
+    {
+      "feature": "Logix Read Tag (atomic types)",
+      "direction": "ref-\u003ego",
+      "reference": "eiprs",
+      "status": "pass",
+      "test": "TestReferenceClientsToGo/eiprs/Logix_Read_Tag_(atomic_types)"
+    },
+    {
+      "feature": "Logix Read Tag Fragmented (1200 octets)",
+      "direction": "ref-\u003ego",
+      "reference": "eiprs",
+      "status": "pass",
+      "test": "TestReferenceClientsToGo/eiprs/Logix_Read_Tag_Fragmented_(1200_octets)"
+    },
+    {
+      "feature": "Logix STRING read and write",
+      "direction": "ref-\u003ego",
+      "reference": "eiprs",
+      "status": "pass",
+      "test": "TestReferenceClientsToGo/eiprs/Logix_STRING_read_and_write"
+    },
+    {
+      "feature": "Logix Write Tag",
+      "direction": "ref-\u003ego",
+      "reference": "eiprs",
+      "status": "pass",
+      "test": "TestReferenceClientsToGo/eiprs/Logix_Write_Tag"
+    },
+    {
+      "feature": "Logix Write Tag Fragmented (1200 octets)",
+      "direction": "ref-\u003ego",
+      "reference": "eiprs",
+      "status": "pass",
+      "test": "TestReferenceClientsToGo/eiprs/Logix_Write_Tag_Fragmented_(1200_octets)"
+    },
+    {
+      "feature": "Logix bit write (Read Modify Write Tag)",
+      "direction": "ref-\u003ego",
+      "reference": "eiprs",
+      "status": "pass",
+      "test": "TestReferenceClientsToGo/eiprs/Logix_bit_write_(Read_Modify_Write_Tag)"
+    },
+    {
+      "feature": "Logix multiple tags in one request (read-tags)",
+      "direction": "ref-\u003ego",
+      "reference": "eiprs",
+      "status": "pass",
+      "test": "TestReferenceClientsToGo/eiprs/Logix_multiple_tags_in_one_request_(read-tags)"
+    },
+    {
+      "feature": "Logix structure read (UDT)",
+      "direction": "ref-\u003ego",
+      "reference": "eiprs",
+      "status": "pass",
+      "test": "TestReferenceClientsToGo/eiprs/Logix_structure_read_(UDT)"
+    },
+    {
+      "feature": "Logix structure write (UDT)",
+      "direction": "ref-\u003ego",
+      "reference": "eiprs",
+      "status": "pass",
+      "test": "TestReferenceClientsToGo/eiprs/Logix_structure_write_(UDT)"
+    },
+    {
+      "feature": "Logix tag list (0x55)",
+      "direction": "ref-\u003ego",
+      "reference": "eiprs",
+      "status": "pass",
+      "test": "TestReferenceClientsToGo/eiprs/Logix_tag_list_(0x55)"
+    },
+    {
+      "feature": "Logix tag list with structure and STRING tags",
+      "direction": "ref-\u003ego",
+      "reference": "eiprs",
+      "status": "pass",
+      "test": "TestReferenceClientsToGo/eiprs/Logix_tag_list_with_structure_and_STRING_tags"
+    },
+    {
+      "feature": "Multiple Service Packet",
+      "direction": "ref-\u003ego",
+      "reference": "eiprs",
+      "status": "pass",
+      "test": "TestReferenceClientsToGo/eiprs/Multiple_Service_Packet"
+    },
+    {
+      "feature": "Set_Attribute_Single (assembly)",
+      "direction": "ref-\u003ego",
+      "reference": "eiprs",
+      "status": "pass",
+      "test": "TestReferenceClientsToGo/eiprs/Set_Attribute_Single_(assembly)"
+    },
+    {
+      "feature": "Class 1 I/O, T-\u003eO multicast",
+      "direction": "ref-\u003ego",
       "reference": "eipscanner",
       "status": "n/a",
       "test": "",
@@ -286,6 +709,1082 @@
       "reference": "eipscanner",
       "status": "pass",
       "test": "TestEIPScannerToGoAdapter/SetAttributeEcho"
+    },
+    {
+      "feature": "Class 1 I/O, T-\u003eO multicast",
+      "direction": "ref-\u003ego",
+      "reference": "etherip",
+      "status": "n/a",
+      "test": "",
+      "note": "the adapter has no io operation"
+    },
+    {
+      "feature": "Class 1 I/O, configuration data",
+      "direction": "ref-\u003ego",
+      "reference": "etherip",
+      "status": "n/a",
+      "test": "",
+      "note": "the adapter has no io operation"
+    },
+    {
+      "feature": "Class 1 I/O, exclusive owner, point-to-point",
+      "direction": "ref-\u003ego",
+      "reference": "etherip",
+      "status": "n/a",
+      "test": "",
+      "note": "the adapter has no io operation"
+    },
+    {
+      "feature": "Class 1 I/O, input only (heartbeat O-\u003eT)",
+      "direction": "ref-\u003ego",
+      "reference": "etherip",
+      "status": "n/a",
+      "test": "",
+      "note": "the adapter has no io operation"
+    },
+    {
+      "feature": "Class 3 connected explicit messaging",
+      "direction": "ref-\u003ego",
+      "reference": "etherip",
+      "status": "n/a",
+      "test": "",
+      "note": "the adapter declares no client feature class3"
+    },
+    {
+      "feature": "Error responses (unknown class, attribute)",
+      "direction": "ref-\u003ego",
+      "reference": "etherip",
+      "status": "pass",
+      "test": "TestReferenceClientsToGo/etherip/Error_responses_(unknown_class,_attribute)"
+    },
+    {
+      "feature": "Forward_Open refusal (connection size)",
+      "direction": "ref-\u003ego",
+      "reference": "etherip",
+      "status": "n/a",
+      "test": "",
+      "note": "the adapter has no io operation"
+    },
+    {
+      "feature": "Get_Attribute_Single",
+      "direction": "ref-\u003ego",
+      "reference": "etherip",
+      "status": "pass",
+      "test": "TestReferenceClientsToGo/etherip/Get_Attribute_Single"
+    },
+    {
+      "feature": "Get_Attributes_All (Identity)",
+      "direction": "ref-\u003ego",
+      "reference": "etherip",
+      "status": "pass",
+      "test": "TestReferenceClientsToGo/etherip/Get_Attributes_All_(Identity)"
+    },
+    {
+      "feature": "Identity object (identity operation)",
+      "direction": "ref-\u003ego",
+      "reference": "etherip",
+      "status": "pass",
+      "test": "TestReferenceClientsToGo/etherip/Identity_object_(identity_operation)"
+    },
+    {
+      "feature": "Large_Forward_Open",
+      "direction": "ref-\u003ego",
+      "reference": "etherip",
+      "status": "n/a",
+      "test": "",
+      "note": "the adapter has no io operation"
+    },
+    {
+      "feature": "ListIdentity (TCP)",
+      "direction": "ref-\u003ego",
+      "reference": "etherip",
+      "status": "pass",
+      "test": "TestReferenceClientsToGo/etherip/ListIdentity_(TCP)"
+    },
+    {
+      "feature": "ListIdentity (UDP)",
+      "direction": "ref-\u003ego",
+      "reference": "etherip",
+      "status": "pass",
+      "test": "TestReferenceClientsToGo/etherip/ListIdentity_(UDP)"
+    },
+    {
+      "feature": "Logix BOOL array element write",
+      "direction": "ref-\u003ego",
+      "reference": "etherip",
+      "status": "n/a",
+      "test": "",
+      "note": "the adapter declares no client feature readModifyWrite"
+    },
+    {
+      "feature": "Logix Read Tag (64-bit types)",
+      "direction": "ref-\u003ego",
+      "reference": "etherip",
+      "status": "n/a",
+      "test": "",
+      "note": "reference limitation: etherip knows no LINT or LREAL (its type lookup fails)"
+    },
+    {
+      "feature": "Logix Read Tag (atomic types)",
+      "direction": "ref-\u003ego",
+      "reference": "etherip",
+      "status": "pass",
+      "test": "TestReferenceClientsToGo/etherip/Logix_Read_Tag_(atomic_types)"
+    },
+    {
+      "feature": "Logix Read Tag Fragmented (1200 octets)",
+      "direction": "ref-\u003ego",
+      "reference": "etherip",
+      "status": "n/a",
+      "test": "",
+      "note": "the adapter declares no client feature readTagFragmented"
+    },
+    {
+      "feature": "Logix STRING read and write",
+      "direction": "ref-\u003ego",
+      "reference": "etherip",
+      "status": "n/a",
+      "test": "",
+      "note": "the adapter declares no client feature templates"
+    },
+    {
+      "feature": "Logix Write Tag",
+      "direction": "ref-\u003ego",
+      "reference": "etherip",
+      "status": "pass",
+      "test": "TestReferenceClientsToGo/etherip/Logix_Write_Tag"
+    },
+    {
+      "feature": "Logix Write Tag Fragmented (1200 octets)",
+      "direction": "ref-\u003ego",
+      "reference": "etherip",
+      "status": "n/a",
+      "test": "",
+      "note": "the adapter declares no client feature writeTagFragmented"
+    },
+    {
+      "feature": "Logix bit write (Read Modify Write Tag)",
+      "direction": "ref-\u003ego",
+      "reference": "etherip",
+      "status": "n/a",
+      "test": "",
+      "note": "the adapter declares no client feature readModifyWrite"
+    },
+    {
+      "feature": "Logix multiple tags in one request (read-tags)",
+      "direction": "ref-\u003ego",
+      "reference": "etherip",
+      "status": "pass",
+      "test": "TestReferenceClientsToGo/etherip/Logix_multiple_tags_in_one_request_(read-tags)"
+    },
+    {
+      "feature": "Logix structure read (UDT)",
+      "direction": "ref-\u003ego",
+      "reference": "etherip",
+      "status": "n/a",
+      "test": "",
+      "note": "the adapter declares no client feature templates"
+    },
+    {
+      "feature": "Logix structure write (UDT)",
+      "direction": "ref-\u003ego",
+      "reference": "etherip",
+      "status": "n/a",
+      "test": "",
+      "note": "the adapter declares no client feature templates"
+    },
+    {
+      "feature": "Logix tag list (0x55)",
+      "direction": "ref-\u003ego",
+      "reference": "etherip",
+      "status": "n/a",
+      "test": "",
+      "note": "the adapter has no tag-list operation"
+    },
+    {
+      "feature": "Logix tag list with structure and STRING tags",
+      "direction": "ref-\u003ego",
+      "reference": "etherip",
+      "status": "n/a",
+      "test": "",
+      "note": "the adapter has no tag-list operation"
+    },
+    {
+      "feature": "Multiple Service Packet",
+      "direction": "ref-\u003ego",
+      "reference": "etherip",
+      "status": "n/a",
+      "test": "",
+      "note": "the adapter has no multiple-get operation"
+    },
+    {
+      "feature": "Set_Attribute_Single (assembly)",
+      "direction": "ref-\u003ego",
+      "reference": "etherip",
+      "status": "n/a",
+      "test": "",
+      "note": "the adapter has no set-attribute operation"
+    },
+    {
+      "feature": "Class 3 connected explicit messaging",
+      "direction": "go-\u003eref",
+      "reference": "gologix",
+      "status": "n/a",
+      "test": "",
+      "note": "the server declares no getAttributeSingle"
+    },
+    {
+      "feature": "Class 3 connected explicit messaging",
+      "direction": "go-\u003eref",
+      "reference": "gologix",
+      "status": "n/a",
+      "test": "",
+      "note": "the server declares no getAttributeSingle"
+    },
+    {
+      "feature": "Get_Attribute_Single",
+      "direction": "go-\u003eref",
+      "reference": "gologix",
+      "status": "n/a",
+      "test": "",
+      "note": "the server declares no getAttributeSingle"
+    },
+    {
+      "feature": "Get_Attribute_Single",
+      "direction": "go-\u003eref",
+      "reference": "gologix",
+      "status": "n/a",
+      "test": "",
+      "note": "the server declares no getAttributeSingle"
+    },
+    {
+      "feature": "Get_Attributes_All (Identity)",
+      "direction": "go-\u003eref",
+      "reference": "gologix",
+      "status": "pass",
+      "test": "TestGoClientToReferenceServers/gologix/logix/Get_Attributes_All_(Identity)"
+    },
+    {
+      "feature": "Get_Attributes_All (Identity)",
+      "direction": "go-\u003eref",
+      "reference": "gologix",
+      "status": "pass",
+      "test": "TestGoClientToReferenceServers/gologix/adapter/Get_Attributes_All_(Identity)"
+    },
+    {
+      "feature": "ListIdentity (TCP)",
+      "direction": "go-\u003eref",
+      "reference": "gologix",
+      "status": "pass",
+      "test": "TestGoClientToReferenceServers/gologix/logix/ListIdentity_(TCP)"
+    },
+    {
+      "feature": "ListIdentity (TCP)",
+      "direction": "go-\u003eref",
+      "reference": "gologix",
+      "status": "pass",
+      "test": "TestGoClientToReferenceServers/gologix/adapter/ListIdentity_(TCP)"
+    },
+    {
+      "feature": "ListIdentity (UDP)",
+      "direction": "go-\u003eref",
+      "reference": "gologix",
+      "status": "n/a",
+      "test": "",
+      "note": "the server declares no listIdentityUdp"
+    },
+    {
+      "feature": "ListIdentity (UDP)",
+      "direction": "go-\u003eref",
+      "reference": "gologix",
+      "status": "n/a",
+      "test": "",
+      "note": "the server declares no listIdentityUdp"
+    },
+    {
+      "feature": "Logix Read Tag (atomic types)",
+      "direction": "go-\u003eref",
+      "reference": "gologix",
+      "status": "pass",
+      "test": "TestGoClientToReferenceServers/gologix/logix/Logix_Read_Tag_(atomic_types)"
+    },
+    {
+      "feature": "Logix Read Tag Fragmented (1200 octets)",
+      "direction": "go-\u003eref",
+      "reference": "gologix",
+      "status": "n/a",
+      "test": "",
+      "note": "the server declares no readTagFragmented"
+    },
+    {
+      "feature": "Logix Read Tag over Class 3",
+      "direction": "go-\u003eref",
+      "reference": "gologix",
+      "status": "pass",
+      "test": "TestGoClientToReferenceServers/gologix/logix/Logix_Read_Tag_over_Class_3"
+    },
+    {
+      "feature": "Logix Write Tag",
+      "direction": "go-\u003eref",
+      "reference": "gologix",
+      "status": "pass",
+      "test": "TestGoClientToReferenceServers/gologix/logix/Logix_Write_Tag"
+    },
+    {
+      "feature": "Logix bit write (Read Modify Write Tag)",
+      "direction": "go-\u003eref",
+      "reference": "gologix",
+      "status": "n/a",
+      "test": "",
+      "note": "the server declares no readModifyWrite"
+    },
+    {
+      "feature": "Logix tag list (0x55)",
+      "direction": "go-\u003eref",
+      "reference": "gologix",
+      "status": "n/a",
+      "test": "",
+      "note": "the server declares no tagList"
+    },
+    {
+      "feature": "Multiple Service Packet",
+      "direction": "go-\u003eref",
+      "reference": "gologix",
+      "status": "n/a",
+      "test": "",
+      "note": "the server declares no multipleService"
+    },
+    {
+      "feature": "Multiple Service Packet",
+      "direction": "go-\u003eref",
+      "reference": "gologix",
+      "status": "n/a",
+      "test": "",
+      "note": "the server declares no multipleService"
+    },
+    {
+      "feature": "Class 1 I/O, T-\u003eO multicast",
+      "direction": "ref-\u003ego",
+      "reference": "gologix",
+      "status": "n/a",
+      "test": "",
+      "note": "the adapter has no io operation"
+    },
+    {
+      "feature": "Class 1 I/O, configuration data",
+      "direction": "ref-\u003ego",
+      "reference": "gologix",
+      "status": "n/a",
+      "test": "",
+      "note": "the adapter has no io operation"
+    },
+    {
+      "feature": "Class 1 I/O, exclusive owner, point-to-point",
+      "direction": "ref-\u003ego",
+      "reference": "gologix",
+      "status": "n/a",
+      "test": "",
+      "note": "the adapter has no io operation"
+    },
+    {
+      "feature": "Class 1 I/O, input only (heartbeat O-\u003eT)",
+      "direction": "ref-\u003ego",
+      "reference": "gologix",
+      "status": "n/a",
+      "test": "",
+      "note": "the adapter has no io operation"
+    },
+    {
+      "feature": "Class 3 connected explicit messaging",
+      "direction": "ref-\u003ego",
+      "reference": "gologix",
+      "status": "pass",
+      "test": "TestReferenceClientsToGo/gologix/Class_3_connected_explicit_messaging"
+    },
+    {
+      "feature": "Error responses (unknown class, attribute)",
+      "direction": "ref-\u003ego",
+      "reference": "gologix",
+      "status": "pass",
+      "test": "TestReferenceClientsToGo/gologix/Error_responses_(unknown_class,_attribute)"
+    },
+    {
+      "feature": "Forward_Open refusal (connection size)",
+      "direction": "ref-\u003ego",
+      "reference": "gologix",
+      "status": "n/a",
+      "test": "",
+      "note": "the adapter has no io operation"
+    },
+    {
+      "feature": "Get_Attribute_Single",
+      "direction": "ref-\u003ego",
+      "reference": "gologix",
+      "status": "pass",
+      "test": "TestReferenceClientsToGo/gologix/Get_Attribute_Single"
+    },
+    {
+      "feature": "Get_Attributes_All (Identity)",
+      "direction": "ref-\u003ego",
+      "reference": "gologix",
+      "status": "pass",
+      "test": "TestReferenceClientsToGo/gologix/Get_Attributes_All_(Identity)"
+    },
+    {
+      "feature": "Identity object (identity operation)",
+      "direction": "ref-\u003ego",
+      "reference": "gologix",
+      "status": "n/a",
+      "test": "",
+      "note": "the adapter has no identity operation"
+    },
+    {
+      "feature": "Large_Forward_Open",
+      "direction": "ref-\u003ego",
+      "reference": "gologix",
+      "status": "n/a",
+      "test": "",
+      "note": "the adapter has no io operation"
+    },
+    {
+      "feature": "ListIdentity (TCP)",
+      "direction": "ref-\u003ego",
+      "reference": "gologix",
+      "status": "pass",
+      "test": "TestReferenceClientsToGo/gologix/ListIdentity_(TCP)"
+    },
+    {
+      "feature": "ListIdentity (UDP)",
+      "direction": "ref-\u003ego",
+      "reference": "gologix",
+      "status": "n/a",
+      "test": "",
+      "note": "the adapter declares no client feature listIdentityUdp"
+    },
+    {
+      "feature": "Logix BOOL array element write",
+      "direction": "ref-\u003ego",
+      "reference": "gologix",
+      "status": "n/a",
+      "test": "",
+      "note": "the adapter declares no client feature readModifyWrite"
+    },
+    {
+      "feature": "Logix Read Tag (64-bit types)",
+      "direction": "ref-\u003ego",
+      "reference": "gologix",
+      "status": "pass",
+      "test": "TestReferenceClientsToGo/gologix/Logix_Read_Tag_(64-bit_types)"
+    },
+    {
+      "feature": "Logix Read Tag (atomic types)",
+      "direction": "ref-\u003ego",
+      "reference": "gologix",
+      "status": "pass",
+      "test": "TestReferenceClientsToGo/gologix/Logix_Read_Tag_(atomic_types)"
+    },
+    {
+      "feature": "Logix Read Tag Fragmented (1200 octets)",
+      "direction": "ref-\u003ego",
+      "reference": "gologix",
+      "status": "n/a",
+      "test": "",
+      "note": "the adapter declares no client feature readTagFragmented"
+    },
+    {
+      "feature": "Logix STRING read and write",
+      "direction": "ref-\u003ego",
+      "reference": "gologix",
+      "status": "n/a",
+      "test": "",
+      "note": "the adapter declares no client feature templates"
+    },
+    {
+      "feature": "Logix Write Tag",
+      "direction": "ref-\u003ego",
+      "reference": "gologix",
+      "status": "pass",
+      "test": "TestReferenceClientsToGo/gologix/Logix_Write_Tag"
+    },
+    {
+      "feature": "Logix Write Tag Fragmented (1200 octets)",
+      "direction": "ref-\u003ego",
+      "reference": "gologix",
+      "status": "n/a",
+      "test": "",
+      "note": "the adapter declares no client feature writeTagFragmented"
+    },
+    {
+      "feature": "Logix bit write (Read Modify Write Tag)",
+      "direction": "ref-\u003ego",
+      "reference": "gologix",
+      "status": "n/a",
+      "test": "",
+      "note": "the adapter declares no client feature readModifyWrite"
+    },
+    {
+      "feature": "Logix multiple tags in one request (read-tags)",
+      "direction": "ref-\u003ego",
+      "reference": "gologix",
+      "status": "pass",
+      "test": "TestReferenceClientsToGo/gologix/Logix_multiple_tags_in_one_request_(read-tags)"
+    },
+    {
+      "feature": "Logix structure read (UDT)",
+      "direction": "ref-\u003ego",
+      "reference": "gologix",
+      "status": "n/a",
+      "test": "",
+      "note": "the adapter declares no client feature templates"
+    },
+    {
+      "feature": "Logix structure write (UDT)",
+      "direction": "ref-\u003ego",
+      "reference": "gologix",
+      "status": "n/a",
+      "test": "",
+      "note": "the adapter declares no client feature templates"
+    },
+    {
+      "feature": "Logix tag list (0x55)",
+      "direction": "ref-\u003ego",
+      "reference": "gologix",
+      "status": "pass",
+      "test": "TestReferenceClientsToGo/gologix/Logix_tag_list_(0x55)"
+    },
+    {
+      "feature": "Logix tag list with structure and STRING tags",
+      "direction": "ref-\u003ego",
+      "reference": "gologix",
+      "status": "n/a",
+      "test": "",
+      "note": "the adapter declares no client feature templates"
+    },
+    {
+      "feature": "Multiple Service Packet",
+      "direction": "ref-\u003ego",
+      "reference": "gologix",
+      "status": "pass",
+      "test": "TestReferenceClientsToGo/gologix/Multiple_Service_Packet"
+    },
+    {
+      "feature": "Set_Attribute_Single (assembly)",
+      "direction": "ref-\u003ego",
+      "reference": "gologix",
+      "status": "pass",
+      "test": "TestReferenceClientsToGo/gologix/Set_Attribute_Single_(assembly)"
+    },
+    {
+      "feature": "Class 3 connected explicit messaging",
+      "direction": "go-\u003eref",
+      "reference": "libplctag",
+      "status": "n/a",
+      "test": "",
+      "note": "the server declares no getAttributeSingle"
+    },
+    {
+      "feature": "Get_Attribute_Single",
+      "direction": "go-\u003eref",
+      "reference": "libplctag",
+      "status": "n/a",
+      "test": "",
+      "note": "the server declares no getAttributeSingle"
+    },
+    {
+      "feature": "Get_Attributes_All (Identity)",
+      "direction": "go-\u003eref",
+      "reference": "libplctag",
+      "status": "n/a",
+      "test": "",
+      "note": "the server declares no getAttributesAll"
+    },
+    {
+      "feature": "ListIdentity (TCP)",
+      "direction": "go-\u003eref",
+      "reference": "libplctag",
+      "status": "n/a",
+      "test": "",
+      "note": "the server declares no listIdentityTcp"
+    },
+    {
+      "feature": "ListIdentity (UDP)",
+      "direction": "go-\u003eref",
+      "reference": "libplctag",
+      "status": "n/a",
+      "test": "",
+      "note": "the server declares no listIdentityUdp"
+    },
+    {
+      "feature": "Logix Read Tag (atomic types)",
+      "direction": "go-\u003eref",
+      "reference": "libplctag",
+      "status": "pass",
+      "test": "TestGoClientToReferenceServers/libplctag/logix/Logix_Read_Tag_(atomic_types)"
+    },
+    {
+      "feature": "Logix Read Tag Fragmented (1200 octets)",
+      "direction": "go-\u003eref",
+      "reference": "libplctag",
+      "status": "pass",
+      "test": "TestGoClientToReferenceServers/libplctag/logix/Logix_Read_Tag_Fragmented_(1200_octets)"
+    },
+    {
+      "feature": "Logix Read Tag over Class 3",
+      "direction": "go-\u003eref",
+      "reference": "libplctag",
+      "status": "pass",
+      "test": "TestGoClientToReferenceServers/libplctag/logix/Logix_Read_Tag_over_Class_3"
+    },
+    {
+      "feature": "Logix Write Tag",
+      "direction": "go-\u003eref",
+      "reference": "libplctag",
+      "status": "pass",
+      "test": "TestGoClientToReferenceServers/libplctag/logix/Logix_Write_Tag"
+    },
+    {
+      "feature": "Logix bit write (Read Modify Write Tag)",
+      "direction": "go-\u003eref",
+      "reference": "libplctag",
+      "status": "n/a",
+      "test": "",
+      "note": "the server declares no readModifyWrite"
+    },
+    {
+      "feature": "Logix tag list (0x55)",
+      "direction": "go-\u003eref",
+      "reference": "libplctag",
+      "status": "n/a",
+      "test": "",
+      "note": "the server declares no tagList"
+    },
+    {
+      "feature": "Multiple Service Packet",
+      "direction": "go-\u003eref",
+      "reference": "libplctag",
+      "status": "n/a",
+      "test": "",
+      "note": "the server declares no getAttributeSingle"
+    },
+    {
+      "feature": "Class 1 I/O, T-\u003eO multicast",
+      "direction": "ref-\u003ego",
+      "reference": "libplctag",
+      "status": "n/a",
+      "test": "",
+      "note": "the adapter has no io operation"
+    },
+    {
+      "feature": "Class 1 I/O, configuration data",
+      "direction": "ref-\u003ego",
+      "reference": "libplctag",
+      "status": "n/a",
+      "test": "",
+      "note": "the adapter has no io operation"
+    },
+    {
+      "feature": "Class 1 I/O, exclusive owner, point-to-point",
+      "direction": "ref-\u003ego",
+      "reference": "libplctag",
+      "status": "n/a",
+      "test": "",
+      "note": "the adapter has no io operation"
+    },
+    {
+      "feature": "Class 1 I/O, input only (heartbeat O-\u003eT)",
+      "direction": "ref-\u003ego",
+      "reference": "libplctag",
+      "status": "n/a",
+      "test": "",
+      "note": "the adapter has no io operation"
+    },
+    {
+      "feature": "Class 3 connected explicit messaging",
+      "direction": "ref-\u003ego",
+      "reference": "libplctag",
+      "status": "pass",
+      "test": "TestReferenceClientsToGo/libplctag/Class_3_connected_explicit_messaging"
+    },
+    {
+      "feature": "Error responses (unknown class, attribute)",
+      "direction": "ref-\u003ego",
+      "reference": "libplctag",
+      "status": "pass",
+      "test": "TestReferenceClientsToGo/libplctag/Error_responses_(unknown_class,_attribute)",
+      "note": "over Class 3: libplctag 2.7.2 builds unconnected requests without their route path"
+    },
+    {
+      "feature": "Forward_Open refusal (connection size)",
+      "direction": "ref-\u003ego",
+      "reference": "libplctag",
+      "status": "n/a",
+      "test": "",
+      "note": "the adapter has no io operation"
+    },
+    {
+      "feature": "Get_Attribute_Single",
+      "direction": "ref-\u003ego",
+      "reference": "libplctag",
+      "status": "pass",
+      "test": "TestReferenceClientsToGo/libplctag/Get_Attribute_Single",
+      "note": "over Class 3: libplctag 2.7.2 builds unconnected requests without their route path"
+    },
+    {
+      "feature": "Get_Attributes_All (Identity)",
+      "direction": "ref-\u003ego",
+      "reference": "libplctag",
+      "status": "pass",
+      "test": "TestReferenceClientsToGo/libplctag/Get_Attributes_All_(Identity)",
+      "note": "over Class 3: libplctag 2.7.2 builds unconnected requests without their route path"
+    },
+    {
+      "feature": "Identity object (identity operation)",
+      "direction": "ref-\u003ego",
+      "reference": "libplctag",
+      "status": "pass",
+      "test": "TestReferenceClientsToGo/libplctag/Identity_object_(identity_operation)"
+    },
+    {
+      "feature": "Large_Forward_Open",
+      "direction": "ref-\u003ego",
+      "reference": "libplctag",
+      "status": "n/a",
+      "test": "",
+      "note": "the adapter has no io operation"
+    },
+    {
+      "feature": "ListIdentity (TCP)",
+      "direction": "ref-\u003ego",
+      "reference": "libplctag",
+      "status": "n/a",
+      "test": "",
+      "note": "the adapter has no list-identity operation"
+    },
+    {
+      "feature": "ListIdentity (UDP)",
+      "direction": "ref-\u003ego",
+      "reference": "libplctag",
+      "status": "n/a",
+      "test": "",
+      "note": "the adapter has no list-identity operation"
+    },
+    {
+      "feature": "Logix BOOL array element write",
+      "direction": "ref-\u003ego",
+      "reference": "libplctag",
+      "status": "n/a",
+      "test": "",
+      "note": "reference limitation: libplctag sends Bits[37] as element 37 of the DWORD array; its own form is Bits[1].5"
+    },
+    {
+      "feature": "Logix Read Tag (64-bit types)",
+      "direction": "ref-\u003ego",
+      "reference": "libplctag",
+      "status": "pass",
+      "test": "TestReferenceClientsToGo/libplctag/Logix_Read_Tag_(64-bit_types)"
+    },
+    {
+      "feature": "Logix Read Tag (atomic types)",
+      "direction": "ref-\u003ego",
+      "reference": "libplctag",
+      "status": "pass",
+      "test": "TestReferenceClientsToGo/libplctag/Logix_Read_Tag_(atomic_types)"
+    },
+    {
+      "feature": "Logix Read Tag Fragmented (1200 octets)",
+      "direction": "ref-\u003ego",
+      "reference": "libplctag",
+      "status": "pass",
+      "test": "TestReferenceClientsToGo/libplctag/Logix_Read_Tag_Fragmented_(1200_octets)"
+    },
+    {
+      "feature": "Logix STRING read and write",
+      "direction": "ref-\u003ego",
+      "reference": "libplctag",
+      "status": "n/a",
+      "test": "",
+      "note": "the adapter declares no client feature templates"
+    },
+    {
+      "feature": "Logix Write Tag",
+      "direction": "ref-\u003ego",
+      "reference": "libplctag",
+      "status": "pass",
+      "test": "TestReferenceClientsToGo/libplctag/Logix_Write_Tag"
+    },
+    {
+      "feature": "Logix Write Tag Fragmented (1200 octets)",
+      "direction": "ref-\u003ego",
+      "reference": "libplctag",
+      "status": "n/a",
+      "test": "",
+      "note": "the adapter declares no client feature writeTagFragmented"
+    },
+    {
+      "feature": "Logix bit write (Read Modify Write Tag)",
+      "direction": "ref-\u003ego",
+      "reference": "libplctag",
+      "status": "pass",
+      "test": "TestReferenceClientsToGo/libplctag/Logix_bit_write_(Read_Modify_Write_Tag)"
+    },
+    {
+      "feature": "Logix multiple tags in one request (read-tags)",
+      "direction": "ref-\u003ego",
+      "reference": "libplctag",
+      "status": "pass",
+      "test": "TestReferenceClientsToGo/libplctag/Logix_multiple_tags_in_one_request_(read-tags)"
+    },
+    {
+      "feature": "Logix structure read (UDT)",
+      "direction": "ref-\u003ego",
+      "reference": "libplctag",
+      "status": "n/a",
+      "test": "",
+      "note": "the adapter declares no client feature templates"
+    },
+    {
+      "feature": "Logix structure write (UDT)",
+      "direction": "ref-\u003ego",
+      "reference": "libplctag",
+      "status": "n/a",
+      "test": "",
+      "note": "the adapter declares no client feature templates"
+    },
+    {
+      "feature": "Logix tag list (0x55)",
+      "direction": "ref-\u003ego",
+      "reference": "libplctag",
+      "status": "pass",
+      "test": "TestReferenceClientsToGo/libplctag/Logix_tag_list_(0x55)"
+    },
+    {
+      "feature": "Logix tag list with structure and STRING tags",
+      "direction": "ref-\u003ego",
+      "reference": "libplctag",
+      "status": "n/a",
+      "test": "",
+      "note": "the adapter declares no client feature templates"
+    },
+    {
+      "feature": "Multiple Service Packet",
+      "direction": "ref-\u003ego",
+      "reference": "libplctag",
+      "status": "n/a",
+      "test": "",
+      "note": "the adapter has no multiple-get operation"
+    },
+    {
+      "feature": "Set_Attribute_Single (assembly)",
+      "direction": "ref-\u003ego",
+      "reference": "libplctag",
+      "status": "pass",
+      "test": "TestReferenceClientsToGo/libplctag/Set_Attribute_Single_(assembly)",
+      "note": "over Class 3: libplctag 2.7.2 builds unconnected requests without their route path"
+    },
+    {
+      "feature": "Class 1 I/O, T-\u003eO multicast",
+      "direction": "ref-\u003ego",
+      "reference": "nodeeip",
+      "status": "n/a",
+      "test": "",
+      "note": "the adapter has no io operation"
+    },
+    {
+      "feature": "Class 1 I/O, configuration data",
+      "direction": "ref-\u003ego",
+      "reference": "nodeeip",
+      "status": "n/a",
+      "test": "",
+      "note": "the adapter has no io operation"
+    },
+    {
+      "feature": "Class 1 I/O, exclusive owner, point-to-point",
+      "direction": "ref-\u003ego",
+      "reference": "nodeeip",
+      "status": "n/a",
+      "test": "",
+      "note": "the adapter has no io operation"
+    },
+    {
+      "feature": "Class 1 I/O, input only (heartbeat O-\u003eT)",
+      "direction": "ref-\u003ego",
+      "reference": "nodeeip",
+      "status": "n/a",
+      "test": "",
+      "note": "the adapter has no io operation"
+    },
+    {
+      "feature": "Class 3 connected explicit messaging",
+      "direction": "ref-\u003ego",
+      "reference": "nodeeip",
+      "status": "pass",
+      "test": "TestReferenceClientsToGo/nodeeip/Class_3_connected_explicit_messaging"
+    },
+    {
+      "feature": "Error responses (unknown class, attribute)",
+      "direction": "ref-\u003ego",
+      "reference": "nodeeip",
+      "status": "pass",
+      "test": "TestReferenceClientsToGo/nodeeip/Error_responses_(unknown_class,_attribute)"
+    },
+    {
+      "feature": "Forward_Open refusal (connection size)",
+      "direction": "ref-\u003ego",
+      "reference": "nodeeip",
+      "status": "n/a",
+      "test": "",
+      "note": "the adapter has no io operation"
+    },
+    {
+      "feature": "Get_Attribute_Single",
+      "direction": "ref-\u003ego",
+      "reference": "nodeeip",
+      "status": "pass",
+      "test": "TestReferenceClientsToGo/nodeeip/Get_Attribute_Single"
+    },
+    {
+      "feature": "Get_Attributes_All (Identity)",
+      "direction": "ref-\u003ego",
+      "reference": "nodeeip",
+      "status": "pass",
+      "test": "TestReferenceClientsToGo/nodeeip/Get_Attributes_All_(Identity)"
+    },
+    {
+      "feature": "Identity object (identity operation)",
+      "direction": "ref-\u003ego",
+      "reference": "nodeeip",
+      "status": "pass",
+      "test": "TestReferenceClientsToGo/nodeeip/Identity_object_(identity_operation)"
+    },
+    {
+      "feature": "Large_Forward_Open",
+      "direction": "ref-\u003ego",
+      "reference": "nodeeip",
+      "status": "n/a",
+      "test": "",
+      "note": "the adapter has no io operation"
+    },
+    {
+      "feature": "ListIdentity (TCP)",
+      "direction": "ref-\u003ego",
+      "reference": "nodeeip",
+      "status": "pass",
+      "test": "TestReferenceClientsToGo/nodeeip/ListIdentity_(TCP)"
+    },
+    {
+      "feature": "ListIdentity (UDP)",
+      "direction": "ref-\u003ego",
+      "reference": "nodeeip",
+      "status": "pass",
+      "test": "TestReferenceClientsToGo/nodeeip/ListIdentity_(UDP)"
+    },
+    {
+      "feature": "Logix BOOL array element write",
+      "direction": "ref-\u003ego",
+      "reference": "nodeeip",
+      "status": "n/a",
+      "test": "",
+      "note": "reference limitation: node-ethernet-ip sends Bits[37] as element 37 of the DWORD array"
+    },
+    {
+      "feature": "Logix Read Tag (64-bit types)",
+      "direction": "ref-\u003ego",
+      "reference": "nodeeip",
+      "status": "pass",
+      "test": "TestReferenceClientsToGo/nodeeip/Logix_Read_Tag_(64-bit_types)"
+    },
+    {
+      "feature": "Logix Read Tag (atomic types)",
+      "direction": "ref-\u003ego",
+      "reference": "nodeeip",
+      "status": "pass",
+      "test": "TestReferenceClientsToGo/nodeeip/Logix_Read_Tag_(atomic_types)"
+    },
+    {
+      "feature": "Logix Read Tag Fragmented (1200 octets)",
+      "direction": "ref-\u003ego",
+      "reference": "nodeeip",
+      "status": "n/a",
+      "test": "",
+      "note": "the adapter declares no client feature readTagFragmented"
+    },
+    {
+      "feature": "Logix STRING read and write",
+      "direction": "ref-\u003ego",
+      "reference": "nodeeip",
+      "status": "pass",
+      "test": "TestReferenceClientsToGo/nodeeip/Logix_STRING_read_and_write"
+    },
+    {
+      "feature": "Logix Write Tag",
+      "direction": "ref-\u003ego",
+      "reference": "nodeeip",
+      "status": "pass",
+      "test": "TestReferenceClientsToGo/nodeeip/Logix_Write_Tag"
+    },
+    {
+      "feature": "Logix Write Tag Fragmented (1200 octets)",
+      "direction": "ref-\u003ego",
+      "reference": "nodeeip",
+      "status": "n/a",
+      "test": "",
+      "note": "the adapter declares no client feature writeTagFragmented"
+    },
+    {
+      "feature": "Logix bit write (Read Modify Write Tag)",
+      "direction": "ref-\u003ego",
+      "reference": "nodeeip",
+      "status": "pass",
+      "test": "TestReferenceClientsToGo/nodeeip/Logix_bit_write_(Read_Modify_Write_Tag)"
+    },
+    {
+      "feature": "Logix multiple tags in one request (read-tags)",
+      "direction": "ref-\u003ego",
+      "reference": "nodeeip",
+      "status": "pass",
+      "test": "TestReferenceClientsToGo/nodeeip/Logix_multiple_tags_in_one_request_(read-tags)"
+    },
+    {
+      "feature": "Logix structure read (UDT)",
+      "direction": "ref-\u003ego",
+      "reference": "nodeeip",
+      "status": "pass",
+      "test": "TestReferenceClientsToGo/nodeeip/Logix_structure_read_(UDT)"
+    },
+    {
+      "feature": "Logix structure write (UDT)",
+      "direction": "ref-\u003ego",
+      "reference": "nodeeip",
+      "status": "pass",
+      "test": "TestReferenceClientsToGo/nodeeip/Logix_structure_write_(UDT)"
+    },
+    {
+      "feature": "Logix tag list (0x55)",
+      "direction": "ref-\u003ego",
+      "reference": "nodeeip",
+      "status": "pass",
+      "test": "TestReferenceClientsToGo/nodeeip/Logix_tag_list_(0x55)"
+    },
+    {
+      "feature": "Logix tag list with structure and STRING tags",
+      "direction": "ref-\u003ego",
+      "reference": "nodeeip",
+      "status": "pass",
+      "test": "TestReferenceClientsToGo/nodeeip/Logix_tag_list_with_structure_and_STRING_tags"
+    },
+    {
+      "feature": "Multiple Service Packet",
+      "direction": "ref-\u003ego",
+      "reference": "nodeeip",
+      "status": "pass",
+      "test": "TestReferenceClientsToGo/nodeeip/Multiple_Service_Packet"
+    },
+    {
+      "feature": "Set_Attribute_Single (assembly)",
+      "direction": "ref-\u003ego",
+      "reference": "nodeeip",
+      "status": "pass",
+      "test": "TestReferenceClientsToGo/nodeeip/Set_Attribute_Single_(assembly)"
     },
     {
       "feature": "Class 1 I/O, T-\u003eO multicast",
@@ -578,6 +2077,216 @@
       "status": "pass",
       "test": "TestPycomm3ToGoAdapter/UnconnectedSendModuleInfo",
       "note": "pycomm3 get_module_info(0)"
+    },
+    {
+      "feature": "Class 1 I/O, T-\u003eO multicast",
+      "direction": "ref-\u003ego",
+      "reference": "pylogix",
+      "status": "n/a",
+      "test": "",
+      "note": "the adapter has no io operation"
+    },
+    {
+      "feature": "Class 1 I/O, configuration data",
+      "direction": "ref-\u003ego",
+      "reference": "pylogix",
+      "status": "n/a",
+      "test": "",
+      "note": "the adapter has no io operation"
+    },
+    {
+      "feature": "Class 1 I/O, exclusive owner, point-to-point",
+      "direction": "ref-\u003ego",
+      "reference": "pylogix",
+      "status": "n/a",
+      "test": "",
+      "note": "the adapter has no io operation"
+    },
+    {
+      "feature": "Class 1 I/O, input only (heartbeat O-\u003eT)",
+      "direction": "ref-\u003ego",
+      "reference": "pylogix",
+      "status": "n/a",
+      "test": "",
+      "note": "the adapter has no io operation"
+    },
+    {
+      "feature": "Class 3 connected explicit messaging",
+      "direction": "ref-\u003ego",
+      "reference": "pylogix",
+      "status": "n/a",
+      "test": "",
+      "note": "the adapter declares no client feature class3"
+    },
+    {
+      "feature": "Error responses (unknown class, attribute)",
+      "direction": "ref-\u003ego",
+      "reference": "pylogix",
+      "status": "pass",
+      "test": "TestReferenceClientsToGo/pylogix/Error_responses_(unknown_class,_attribute)"
+    },
+    {
+      "feature": "Forward_Open refusal (connection size)",
+      "direction": "ref-\u003ego",
+      "reference": "pylogix",
+      "status": "n/a",
+      "test": "",
+      "note": "the adapter has no io operation"
+    },
+    {
+      "feature": "Get_Attribute_Single",
+      "direction": "ref-\u003ego",
+      "reference": "pylogix",
+      "status": "pass",
+      "test": "TestReferenceClientsToGo/pylogix/Get_Attribute_Single"
+    },
+    {
+      "feature": "Get_Attributes_All (Identity)",
+      "direction": "ref-\u003ego",
+      "reference": "pylogix",
+      "status": "pass",
+      "test": "TestReferenceClientsToGo/pylogix/Get_Attributes_All_(Identity)"
+    },
+    {
+      "feature": "Identity object (identity operation)",
+      "direction": "ref-\u003ego",
+      "reference": "pylogix",
+      "status": "pass",
+      "test": "TestReferenceClientsToGo/pylogix/Identity_object_(identity_operation)"
+    },
+    {
+      "feature": "Large_Forward_Open",
+      "direction": "ref-\u003ego",
+      "reference": "pylogix",
+      "status": "n/a",
+      "test": "",
+      "note": "the adapter has no io operation"
+    },
+    {
+      "feature": "ListIdentity (TCP)",
+      "direction": "ref-\u003ego",
+      "reference": "pylogix",
+      "status": "n/a",
+      "test": "",
+      "note": "the adapter declares no client feature listIdentityTcp"
+    },
+    {
+      "feature": "ListIdentity (UDP)",
+      "direction": "ref-\u003ego",
+      "reference": "pylogix",
+      "status": "pass",
+      "test": "TestReferenceClientsToGo/pylogix/ListIdentity_(UDP)"
+    },
+    {
+      "feature": "Logix BOOL array element write",
+      "direction": "ref-\u003ego",
+      "reference": "pylogix",
+      "status": "pass",
+      "test": "TestReferenceClientsToGo/pylogix/Logix_BOOL_array_element_write"
+    },
+    {
+      "feature": "Logix Read Tag (64-bit types)",
+      "direction": "ref-\u003ego",
+      "reference": "pylogix",
+      "status": "pass",
+      "test": "TestReferenceClientsToGo/pylogix/Logix_Read_Tag_(64-bit_types)"
+    },
+    {
+      "feature": "Logix Read Tag (atomic types)",
+      "direction": "ref-\u003ego",
+      "reference": "pylogix",
+      "status": "pass",
+      "test": "TestReferenceClientsToGo/pylogix/Logix_Read_Tag_(atomic_types)"
+    },
+    {
+      "feature": "Logix Read Tag Fragmented (1200 octets)",
+      "direction": "ref-\u003ego",
+      "reference": "pylogix",
+      "status": "pass",
+      "test": "TestReferenceClientsToGo/pylogix/Logix_Read_Tag_Fragmented_(1200_octets)"
+    },
+    {
+      "feature": "Logix STRING read and write",
+      "direction": "ref-\u003ego",
+      "reference": "pylogix",
+      "status": "n/a",
+      "test": "",
+      "note": "the adapter declares no client feature templates"
+    },
+    {
+      "feature": "Logix Write Tag",
+      "direction": "ref-\u003ego",
+      "reference": "pylogix",
+      "status": "pass",
+      "test": "TestReferenceClientsToGo/pylogix/Logix_Write_Tag"
+    },
+    {
+      "feature": "Logix Write Tag Fragmented (1200 octets)",
+      "direction": "ref-\u003ego",
+      "reference": "pylogix",
+      "status": "n/a",
+      "test": "",
+      "note": "the adapter declares no client feature writeTagFragmented"
+    },
+    {
+      "feature": "Logix bit write (Read Modify Write Tag)",
+      "direction": "ref-\u003ego",
+      "reference": "pylogix",
+      "status": "pass",
+      "test": "TestReferenceClientsToGo/pylogix/Logix_bit_write_(Read_Modify_Write_Tag)"
+    },
+    {
+      "feature": "Logix multiple tags in one request (read-tags)",
+      "direction": "ref-\u003ego",
+      "reference": "pylogix",
+      "status": "pass",
+      "test": "TestReferenceClientsToGo/pylogix/Logix_multiple_tags_in_one_request_(read-tags)"
+    },
+    {
+      "feature": "Logix structure read (UDT)",
+      "direction": "ref-\u003ego",
+      "reference": "pylogix",
+      "status": "n/a",
+      "test": "",
+      "note": "the adapter declares no client feature templates"
+    },
+    {
+      "feature": "Logix structure write (UDT)",
+      "direction": "ref-\u003ego",
+      "reference": "pylogix",
+      "status": "n/a",
+      "test": "",
+      "note": "the adapter declares no client feature templates"
+    },
+    {
+      "feature": "Logix tag list (0x55)",
+      "direction": "ref-\u003ego",
+      "reference": "pylogix",
+      "status": "pass",
+      "test": "TestReferenceClientsToGo/pylogix/Logix_tag_list_(0x55)"
+    },
+    {
+      "feature": "Logix tag list with structure and STRING tags",
+      "direction": "ref-\u003ego",
+      "reference": "pylogix",
+      "status": "n/a",
+      "test": "",
+      "note": "the adapter declares no client feature templates"
+    },
+    {
+      "feature": "Multiple Service Packet",
+      "direction": "ref-\u003ego",
+      "reference": "pylogix",
+      "status": "n/a",
+      "test": "",
+      "note": "the adapter has no multiple-get operation"
+    },
+    {
+      "feature": "Set_Attribute_Single (assembly)",
+      "direction": "ref-\u003ego",
+      "reference": "pylogix",
+      "status": "pass",
+      "test": "TestReferenceClientsToGo/pylogix/Set_Attribute_Single_(assembly)"
     }
   ]
 }

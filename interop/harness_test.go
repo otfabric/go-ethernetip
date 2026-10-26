@@ -57,6 +57,9 @@ func image(name string) string {
 	if v := os.Getenv("ETHERNETIP_INTEROP_VERSION"); v != "" {
 		return repo + ":" + v
 	}
+	if pinned[name] == "" {
+		return repo + ":" + interopRelease
+	}
 	return repo + "@" + pinned[name]
 }
 
@@ -324,7 +327,7 @@ func writeMatrix() {
 		return a.Feature < b.Feature
 	})
 	versions := map[string]string{}
-	for _, n := range []string{"opener", "cpppo", "eipscanner", "pycomm3"} {
+	for _, n := range append([]string{"opener", "cpppo", "eipscanner", "pycomm3"}, genericClients...) {
 		v, _ := dockerOut("run", "--rm", image(n), "version")
 		versions[n] = strings.TrimSpace(v)
 	}
