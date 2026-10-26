@@ -1,5 +1,61 @@
 # go-ethernetip Releases
 
+## v0.2.0
+
+**Date:** not yet tagged
+**Previous release:** v0.1.0
+
+## Summary
+
+More interoperability: listen-only connections, configuration data, Logix
+bit writes, structures and STRING verified against the references
+(otfabric/ethernetip-interop v0.2.0: 63 cases pass, 0 fail, 13 N/A, up
+from 49), and the defects those cases found fixed. A feature comparison
+with the four reference stacks, a chaos monkey, more end-to-end tests.
+
+## Changes
+
+### Fixes
+
+- **implicit**: several multicast connections of one endpoint can consume
+  one production (an owner and its listen-only connections); before, the
+  second Open failed with "connection ID in use".
+- **implicit**: an endpoint bound to one address sends multicast from, and
+  joins groups on, that address's interface instead of the default
+  route's.
+- **logix**: template definitions give a BOOL member the plain BOOL type
+  (0x00C1), its bit in the info word, as Logix does; pycomm3 read the old
+  encoding as a template ID and could not open the controller.
+- **logix**: the emulation addresses BOOL arrays by DWORD (`Bits[1]` is
+  bits 32 to 63) and lists them as DWORD arrays, as Logix does and pycomm3
+  and libplctag expect. **Behaviour change**: an index into a BOOL array
+  of the emulation used to count bits.
+- **logix**: a Write Tag to a BOOL member ignores trailing octets, as for
+  the other types (pycomm3 repeats the request).
+- **client**: with `WithTLS` and no `ServerName`, the certificate is
+  verified against the host dialed, as `tls.Dial` does; before, the
+  handshake failed unless `ServerName` or `InsecureSkipVerify` was set.
+
+### Additions
+
+- `implicit.WithMulticastInterface`, `scanner.WithMulticastInterface`.
+- `ethernetip.ConnectionInfo.Group`: the T->O multicast address.
+
+### Tests and docs
+
+- Interop: configuration data (scanner to OpENer, EIPScanner to the
+  server), listen-only next to a multicast owner (OpENer), refusals for
+  configuration size and listen-only without owner, pycomm3 bit writes,
+  BOOL array writes, structure reads and writes, STRING, Write Tag
+  Fragmented, and the tag list with structures.
+- End to end: listen-only, Class 0, TLS (explicit, Class 3, untrusted
+  certificate), discovery, three adapters on one scanner endpoint; a
+  seeded chaos monkey mixing explicit, Class 3, Logix and Class 1
+  operations and client churn through a faulty proxy.
+- README: a feature comparison with OpENer, EIPScanner, pycomm3 and cpppo.
+
+---
+
 ## v0.1.0
 
 **Date:** 2026-10-26

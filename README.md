@@ -52,6 +52,7 @@ The library provides:
 
 ## Table of contents
 
+- [go-ethernetip vs OpENer, EIPScanner, pycomm3 and cpppo](#go-ethernetip-vs-opener-eipscanner-pycomm3-and-cpppo)
 - [Install](#install)
 - [Project structure](#project-structure)
 - [Client quickstart](#client-quickstart)
@@ -66,6 +67,47 @@ The library provides:
 - [Standards, licensing and conformance](#standards-licensing-and-conformance)
 - [Limitations](#limitations)
 - [License](#license)
+
+## go-ethernetip vs OpENer, EIPScanner, pycomm3 and cpppo
+
+go-ethernetip is tested against these four implementations (see
+[Interop tests](#interop-tests)). Each suits different needs; the table
+shows where they differ, from their public sources and the
+[ethernetip-interop capability records](https://github.com/otfabric/ethernetip-interop/blob/main/docs/CAPABILITIES.md),
+so you can pick the right one for your project.
+
+| Capability | otfabric/go-ethernetip | OpENer | EIPScanner | pycomm3 | cpppo |
+|---|:---:|:---:|:---:|:---:|:---:|
+| Language | Go | C | C++ | Python | Python |
+| Licence | MIT | adapted BSD | MIT | MIT | GPL-3.0 (copyleft) |
+| Version compared | this module | master d8820ef (v2.3+) | 1.3.0+33 (12c89a5) | 1.2.16 | 5.2.5 |
+| Originator (scanner, client) | ✅ | — | ✅ | ✅ | ✅ |
+| Target (adapter, server) | ✅ | ✅ | — | — | ✅ Logix simulator |
+| ListIdentity (TCP, UDP), discovery | ✅ both roles | ✅ | UDP | ✅ | ✅ both roles |
+| Get/Set_Attribute_Single, Get_Attributes_All | ✅ both roles | ✅ | ✅ | ✅ | ✅ both roles |
+| Multiple Service Packet | ✅ both roles | — | request encoder only | Logix reads | ✅ both roles |
+| Unconnected_Send routing | ✅ both roles | — | — | ✅ | ✅ both roles |
+| Class 3 connected explicit messaging | ✅ both roles | ✅ | — | ✅ | target |
+| Large_Forward_Open | ✅ both roles | ✅ | ✅ | ✅ | target |
+| Class 1 I/O (Class 0 too) | ✅ both roles | ✅ | ✅ | — | — |
+| T->O multicast, listen-only | ✅ both roles | ✅ | — | — | — |
+| Input-only, configuration data | ✅ both roles | ✅ | ✅ | — | — |
+| Logix tags: read, write, fragmented | ✅ client and emulation | — | — | ✅ | ✅ both roles |
+| Logix tag list, structures (templates), STRING, bit writes | ✅ client and emulation | — | — | ✅ | — |
+| EDS files: parse, validate, write, generate Go code | ✅ | — | — | — | — |
+| EtherNet/IP over TLS (port 2221) | ✅ explicit messaging | — | — | — | — |
+| Cancellation and deadlines per call | ✅ `context.Context` | — | — | socket timeout | — |
+| Structured logging, metrics | ✅ `Logger` (slog adapter), `Metrics` callbacks | own logger | own logger | `logging` | `logging` |
+| Dependencies | none (standard library) | none | none | none | greenery (and crypto_licensing, declared) |
+| Tested against other stacks in CI | ✅ the four, both directions: 63 cases pass, 13 N/A ([matrix](INTEROPERABILITY.md#interop-matrix)) | not documented | not documented | not documented | not documented |
+| ODVA conformance tested | no, and no claim | not documented | not documented | not documented | not documented |
+
+✅ = available · — = not available. For the versions go-ethernetip is
+tested against, from their sources and documentation and the capability
+documents of their interop images, as of October 2026. "Both roles" means
+as originator and as target. If you spot an inaccuracy, please
+[open an issue](https://github.com/otfabric/go-ethernetip/issues) and we will
+correct it.
 
 ## Install
 
@@ -273,8 +315,9 @@ claim.** See [docs/STANDARDS.md](docs/STANDARDS.md).
   slot; it does not bridge to other ports.
 - **Class 2 connections, safety (CIP Safety), motion (CIP Motion), DLR,
   QoS and the File object** are not implemented.
-- **Multicast** I/O is verified against OpENer and between the library's own
-  ends; EIPScanner has no multicast.
+- **Multicast** I/O, with a listen-only connection next to its owner, is
+  verified against OpENer and between the library's own ends; EIPScanner
+  has no multicast.
 - **The Logix emulation** is a test tool: no programs, no tasks, no
   online edits, no alarms.
 - See [docs/LIMITATIONS.md](docs/LIMITATIONS.md) for the complete list.

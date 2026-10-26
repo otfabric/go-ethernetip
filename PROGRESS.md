@@ -3,7 +3,9 @@
 Durable state of the EtherNet/IP work across go-ethernetip,
 ethernetip-interop and ethernetipctl. Updated at every milestone.
 
-Branch: `feature/initial-implementation` in each repository.
+Current work (v0.2.0): `feature/interop-max` (go-ethernetip),
+`feature/more-cases` (ethernetip-interop, PR #2, CI green),
+`feature/docs-examples` (ethernetipctl).
 
 ## Decisions
 
@@ -35,6 +37,19 @@ Windows (amd64 and arm64; race detector everywhere but Windows arm64), Go
 amd64 and arm64 against the pinned v0.1.0 images (49 pass, 0 fail, 10
 N/A). ethernetip-interop native amd64/arm64 build, smoke and self-test.
 ethernetipctl reusable CI and 32-bit typecheck.
+
+## v0.2.0 (in progress)
+
+- Interop: 63 pass, 0 fail, 13 N/A against locally built images of
+  ethernetip-interop `feature/more-cases`; to be re-run against the
+  released v0.2.0 digests before go-ethernetip v0.2.0 is tagged.
+- e2e: listen-only, Class 0, TLS, discovery, shared endpoint, chaos
+  monkey; coverage 98.7%.
+- Docs: README comparison table; ethernetipctl docs/examples.md generated
+  from real runs.
+- Open: merging and tagging (ethernetip-interop v0.2.0, then pinning its
+  digests here, go-ethernetip v0.2.0, ethernetipctl on it); CIP Security
+  beyond TLS waits for a decision (ODVA Volume 8, DTLS dependency).
 
 ## Next actions
 
