@@ -287,7 +287,11 @@ func TestChaosInjectedDatagrams(t *testing.T) {
 	c := dial(t, a.addr)
 	s := newScanner(t, c)
 	ctx := ctxT(t)
-	io, err := s.Open(ctx, exclusiveOwner(5*time.Millisecond))
+	cfg := exclusiveOwner(5 * time.Millisecond)
+	// 640 ms: the flood below must not starve a slow runner past the
+	// connection timeout; the test is about what the datagrams do.
+	cfg.TimeoutMultiplier = 5
+	io, err := s.Open(ctx, cfg)
 	if err != nil {
 		t.Fatal(err)
 	}

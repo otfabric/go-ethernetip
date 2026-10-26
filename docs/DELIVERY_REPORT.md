@@ -1,8 +1,9 @@
 # EtherNet/IP delivery report
 
-Date: 2026-10-26. Branch `feature/initial-implementation` in all three
-repositories, committed locally, **not pushed**: no PR, no GitHub CI run,
-no tag yet.
+Date: 2026-10-26. All three repositories merged to `main` and released
+as **v0.1.0** (go-ethernetip, ethernetip-interop with its four images,
+ethernetipctl with its binaries), with GitHub CI green on the merged
+commits.
 
 Status words: **Implemented** (in the code with tests between the
 library's own ends), **Interop verified** (also passed against an
@@ -12,9 +13,9 @@ independent implementation), **Partial**, **Not implemented**, **Blocked**.
 
 | Repository | Commits on the branch | Content |
 |---|---|---|
-| otfabric/go-ethernetip | 11 | library, tests, interop suite, docs, CI |
-| otfabric/ethernetip-interop | 2 (534a275 head) | OpENer, cpppo, EIPScanner, pycomm3 adapters; contract, fixtures, schemas, self-tests, CI |
-| otfabric/ethernetipctl | 3 | CLI |
+| [otfabric/go-ethernetip](https://github.com/otfabric/go-ethernetip) | [PR #1](https://github.com/otfabric/go-ethernetip/pull/1), [v0.1.0](https://github.com/otfabric/go-ethernetip/releases/tag/v0.1.0) | library, tests, interop suite, docs, CI |
+| [otfabric/ethernetip-interop](https://github.com/otfabric/ethernetip-interop) | [PR #1](https://github.com/otfabric/ethernetip-interop/pull/1), [v0.1.0](https://github.com/otfabric/ethernetip-interop/releases/tag/v0.1.0) | OpENer, cpppo, EIPScanner, pycomm3 adapters and images; contract, fixtures, schemas, self-tests, CI |
+| [otfabric/ethernetipctl](https://github.com/otfabric/ethernetipctl) | [PR #1](https://github.com/otfabric/ethernetipctl/pull/1), [v0.1.0](https://github.com/otfabric/ethernetipctl/releases/tag/v0.1.0) | CLI, 7 release binaries |
 
 ## 2. Architecture
 
@@ -82,8 +83,8 @@ has no structures).
 
 ## 8. Interoperability results
 
-Run 2026-10-25 23:19 UTC against locally built images (dev, = v0.1.0
-content): **49 pass, 0 fail, 10 N/A** ([matrix](../INTEROPERABILITY.md#interop-matrix),
+Against the published, digest-pinned ethernetip-interop v0.1.0 images,
+locally and in GitHub CI on amd64 and arm64: **49 pass, 0 fail, 10 N/A** ([matrix](../INTEROPERABILITY.md#interop-matrix),
 `interop/results/matrix.json`).
 
 | Stack | Version | Direction(s) | Highlights |
@@ -139,12 +140,14 @@ exponential decode. No open crashers.
 
 ## 14. Platforms
 
-Tested here: darwin/arm64 (unit, e2e, chaos, stress, fuzz), linux/arm64 in
-Docker (interop, interop node, ethernetipctl against OpENer). Cross-built:
-linux amd64/arm64/arm, darwin amd64/arm64, windows amd64/arm64, freebsd,
-js/wasm (multicast reports ErrUnsupported there). CI is configured for
-native runs on Linux, macOS and Windows, amd64 and arm64, **but has not
-run**: nothing is pushed.
+Tested natively in GitHub CI: Linux amd64 and arm64, macOS amd64 and
+arm64, Windows amd64 and arm64 (race detector everywhere except Windows
+arm64, which Go does not support), Go 1.23 to 1.26. Interop on Linux amd64
+and arm64. Cross-built only: linux/arm, freebsd, js/wasm (multicast reports
+ErrUnsupported there). The first CI runs found and fixed: a Serve/Close
+WaitGroup race (Windows), a Close reported as a lost connection, and
+platform assumptions in tests (CRLF checkouts, broadcast sends, timer
+granularity).
 
 ## 15. Benchmarks
 
@@ -155,12 +158,12 @@ references (they run in containers; the harness dominates).
 
 ## 16. CI status
 
-Workflows written, not yet run: go-ethernetip `ci.yml` (reusable go-ci@v2,
+Green on the merged commits of all three repositories. Workflows: go-ethernetip `ci.yml` (reusable go-ci@v2,
 coverage gate, generated code, examples, platforms, fuzz, chaos/stress),
 `interop.yml`, `fuzz.yml`, `release.yml`; ethernetip-interop `ci.yml`
 (validate, shellcheck, native amd64/arm64 build/smoke/self-test),
-`release.yml`; ethernetipctl `ci.yml` (with a temporary sibling-checkout
-job until go-ethernetip is published), `release.yml`.
+`release.yml`; ethernetipctl `ci.yml`, `release.yml`. Releases ran through
+the organisation's reusable release workflows.
 
 ## 17. Documentation
 
@@ -187,17 +190,13 @@ of Usage; no conformance claim ([STANDARDS.md](STANDARDS.md)).
 [LIMITATIONS.md](LIMITATIONS.md). Main ones: CIP Security is TLS only (DTLS
 and the security objects **blocked**: no ODVA Volume 8, no DTLS in the
 standard library, no reference peer); behaviour that only the ODVA
-specifications define and no reference exercises may deviate; amd64 and
-Windows not yet exercised by CI; I/O is unauthenticated; one scanner
+specifications define and no reference exercises may deviate; I/O is
+unauthenticated; one scanner
 endpoint cannot consume one multicast production twice.
 
 ## 20. Next steps
 
-1. Push the three branches, open PRs, let CI run (first amd64/Windows run).
-2. Tag ethernetip-interop v0.1.0 (images publish); pin the digests in
-   go-ethernetip `interop/harness_test.go`.
-3. Tag go-ethernetip v0.1.0; drop ethernetipctl's `replace` and sibling job.
-4. Add interop cases for listen-only, configuration data, Read-Modify-Write
+1. Add interop cases for listen-only, configuration data, Read-Modify-Write
    and templates (needs a structure in the logix fixture).
-5. CIP Security beyond TLS if ODVA Volume 8 and a DTLS dependency are
+2. CIP Security beyond TLS if ODVA Volume 8 and a DTLS dependency are
    accepted; consider a hardware validation against a real ControlLogix.
