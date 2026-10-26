@@ -24,7 +24,7 @@ No work in progress: every branch is merged.
 | Release | Date | Where |
 |---|---|---|
 | go-ethernetip v0.3.0 (seven more references; template size, connection size, Multiple Service fixes) | 2026-10-26 | https://github.com/otfabric/go-ethernetip/releases/tag/v0.3.0 |
-| go-ethernetip v0.3.2 (interop pinned to ethernetip-interop v0.5.0) | 2026-10-26 | https://github.com/otfabric/go-ethernetip/releases/tag/v0.3.2 |
+| go-ethernetip v0.3.2 (interop pinned to ethernetip-interop v0.5.0) | 2026-10-27 | https://github.com/otfabric/go-ethernetip/releases/tag/v0.3.2 |
 | ethernetip-interop v0.5.0 (weekly upstream candidates check; OpENer 2.3-591) | 2026-10-26 | https://github.com/otfabric/ethernetip-interop/releases/tag/v0.5.0 |
 | ethernetip-interop v0.4.0 (12 multi-arch images: + go-ethernetip (loki-os)) | 2026-10-26 | https://github.com/otfabric/ethernetip-interop/releases/tag/v0.4.0 |
 | ethernetip-interop v0.3.0 (11 multi-arch images: + libplctag, gologix, pylogix, etherip, eip-rs, node-ethernet-ip, EEIP.NET) | 2026-10-26 | https://github.com/otfabric/ethernetip-interop/releases/tag/v0.3.0 |
