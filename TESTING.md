@@ -33,7 +33,8 @@ other over loopback TCP and UDP; no mocks stand in for the network.
 
 CI runs the unit, e2e, chaos and stress suites natively on Linux amd64 and
 arm64, macOS amd64 and arm64, and Windows amd64 and arm64 (job
-"platforms"), and cross-compiles for FreeBSD and 32-bit ARM Linux (`make
+"platforms"; with the race detector everywhere but Windows arm64, which
+Go's race detector does not support), and cross-compiles for FreeBSD and 32-bit ARM Linux (`make
 cross`; built, not tested). Multicast membership uses `IP_ADD_MEMBERSHIP`
 on Unix and Windows; on other systems it reports `ErrUnsupported`. The
 interop suite needs Docker and runs on Linux amd64 and arm64.

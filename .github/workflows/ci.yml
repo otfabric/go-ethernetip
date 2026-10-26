@@ -77,7 +77,15 @@ jobs:
           go-version-file: go.mod
       - name: Test
         shell: bash
-        run: go test -count=1 -race $(go list ./... | grep -v /examples | grep -v /interop)
+        # The race detector does not support windows/arm64: the tests run
+        # without it there.
+        run: |
+          race=-race
+          if [ "$RUNNER_OS" = Windows ] && [ "$RUNNER_ARCH" = ARM64 ]; then
+            echo "::notice::race detector not supported on windows/arm64"
+            race=
+          fi
+          go test -count=1 $race $(go list ./... | grep -v /examples | grep -v /interop)
       - name: Cross-compile every target
         if: matrix.os == 'ubuntu-24.04'
         run: make cross
