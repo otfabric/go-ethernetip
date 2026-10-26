@@ -1,5 +1,34 @@
 # go-ethernetip Releases
 
+## v0.2.1
+
+**Date:** 2026-10-26
+**Previous release:** v0.2.0
+
+## Summary
+
+A fix of the adapter server: ListIdentity over UDP could be off at random.
+
+## Changes
+
+### Fixes
+
+- **server**: `Listen` binds the UDP socket of the explicit port (ListIdentity
+  over UDP) before the I/O endpoint. An I/O endpoint on an ephemeral port
+  (`WithIOAddress("host:0")`) could take the explicit port's number
+  (Windows hands out the same numbers for TCP and UDP); the UDP socket then
+  failed to bind and the server answered ListIdentity over TCP only, with
+  only a warning in the log, so discovery found nothing. When the I/O
+  address is unusable, `Listen` now also releases the UDP socket.
+
+### Tests
+
+- `TestListenUDPBeforeIO`: explicit and I/O address on the same port; the
+  explicit UDP socket keeps it, `Listen` reports the I/O endpoint, and both
+  ports are released.
+
+---
+
 ## v0.2.0
 
 **Date:** 2026-10-26

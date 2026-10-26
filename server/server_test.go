@@ -214,6 +214,49 @@ func TestListenErrors(t *testing.T) {
 	}
 }
 
+// TestListenUDPBeforeIO checks that the explicit UDP socket is bound before
+// the I/O endpoint: when both want the same port, ListIdentity over UDP
+// keeps it (the I/O endpoint used to take it, and ListIdentity over UDP
+// went off unnoticed, as when Windows gives an ephemeral I/O port the
+// explicit port's number), Listen reports the I/O endpoint, and every
+// socket is released.
+func TestListenUDPBeforeIO(t *testing.T) {
+	// A port free for TCP and UDP.
+	l, err := net.Listen("tcp4", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	port := l.Addr().(*net.TCPAddr).Port
+	_ = l.Close()
+	u, err := net.ListenUDP("udp4", &net.UDPAddr{IP: net.IPv4(127, 0, 0, 1), Port: port})
+	if err != nil {
+		t.Skipf("UDP port %d not available: %v", port, err)
+	}
+	_ = u.Close()
+
+	addr := net.JoinHostPort("127.0.0.1", strconv.Itoa(port))
+	s, _ := New(WithIOAddress(addr))
+	err = s.Listen(addr)
+	if err == nil {
+		defer func() { _ = s.Close() }()
+		t.Fatalf("Listen succeeded with UDPAddr %v: the I/O endpoint took the explicit UDP port", s.UDPAddr())
+	}
+	if !strings.Contains(err.Error(), "I/O endpoint") {
+		t.Fatalf("Listen = %v, want the I/O endpoint's error", err)
+	}
+	// Both sockets were released.
+	if l, err := net.Listen("tcp4", addr); err != nil {
+		t.Errorf("TCP port not released: %v", err)
+	} else {
+		_ = l.Close()
+	}
+	if u, err := net.ListenUDP("udp4", &net.UDPAddr{IP: net.IPv4(127, 0, 0, 1), Port: port}); err != nil {
+		t.Errorf("UDP port not released: %v", err)
+	} else {
+		_ = u.Close()
+	}
+}
+
 func TestListenDefaultPort(t *testing.T) {
 	s, _ := New(WithIOAddress("127.0.0.1:0"), WithTLS(&tls.Config{}))
 	if err := s.Listen("127.0.0.1"); err != nil {

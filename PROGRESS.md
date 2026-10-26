@@ -23,6 +23,7 @@ No work in progress: every branch is merged.
 
 | Release | Date | Where |
 |---|---|---|
+| go-ethernetip v0.2.1 (fix: ListIdentity over UDP could be off) | 2026-10-26 | https://github.com/otfabric/go-ethernetip/releases/tag/v0.2.1 |
 | go-ethernetip v0.2.0 | 2026-10-26 | https://github.com/otfabric/go-ethernetip/releases/tag/v0.2.0 |
 | ethernetip-interop v0.2.0 (4 multi-arch images, public on GHCR) | 2026-10-26 | https://github.com/otfabric/ethernetip-interop/releases/tag/v0.2.0 |
 | ethernetipctl v0.2.0 (7 binaries, checksums), on go-ethernetip v0.2.0 | 2026-10-26 | https://github.com/otfabric/ethernetipctl/releases/tag/v0.2.0 |
