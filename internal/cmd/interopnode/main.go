@@ -22,6 +22,7 @@ import (
 	"os/signal"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"syscall"
 	"time"
 
@@ -81,9 +82,10 @@ type Fixture struct {
 		Kind     string `json:"kind"`
 		Size     int    `json:"size"`
 	} `json:"assemblies"`
-	EchoOutputToInput bool         `json:"echoOutputToInput"`
-	Slot              int          `json:"slot"`
-	Tags              []FixtureTag `json:"tags"`
+	EchoOutputToInput bool              `json:"echoOutputToInput"`
+	Slot              int               `json:"slot"`
+	Templates         []FixtureTemplate `json:"templates"`
+	Tags              []FixtureTag      `json:"tags"`
 }
 
 // FixtureTag is a tag of the logix fixture.
@@ -96,6 +98,10 @@ type FixtureTag struct {
 		Multiplier float64 `json:"multiplier"`
 		Offset     float64 `json:"offset"`
 	} `json:"pattern"`
+	// Strings and Fields are the initial values of a STRING and of a
+	// structure tag.
+	Strings []string         `json:"strings"`
+	Fields  []map[string]any `json:"fields"`
 }
 
 // Value returns element i of the tag's initial value.
@@ -181,8 +187,18 @@ func serve(args []string, stdout, stderr io.Writer) int {
 	}
 	if len(f.Tags) > 0 {
 		ts := logix.NewTagServer(logix.WithProgramName(f.Name))
+		byName, err := addTemplates(ts, f.Templates)
+		if err != nil {
+			_, _ = fmt.Fprintln(stderr, err)
+			return 4
+		}
 		for _, t := range f.Tags {
-			if err := addTag(ts, t); err != nil {
+			add := addTag
+			// STRING is a Logix structure here, not CIP's elementary STRING.
+			if _, ok := cip.ParseDataType(t.Type); !ok || strings.EqualFold(t.Type, "STRING") {
+				add = func(ts *logix.TagServer, t FixtureTag) error { return addStructTag(ts, byName, t) }
+			}
+			if err := add(ts, t); err != nil {
 				_, _ = fmt.Fprintln(stderr, err)
 				return 4
 			}
@@ -232,6 +248,24 @@ func addTag(ts *logix.TagServer, t FixtureTag) error {
 	}
 	var v logix.Value
 	var err error
+	if typ == cip.TypeBOOL && len(dims) > 0 {
+		// Logix stores BOOL arrays as DWORDs, bit i of the array in bit
+		// i%32 of DWORD i/32.
+		words := make([]int64, (n+31)/32)
+		for i := 0; i < n; i++ {
+			if t.Value(i) != 0 {
+				words[i/32] |= 1 << (i % 32)
+			}
+		}
+		for i := range words {
+			words[i] = int64(int32(uint32(words[i])))
+		}
+		v, err = logix.Ints(cip.TypeDWORD, words...)
+		if err != nil {
+			return err
+		}
+		return ts.Set(t.Name, v)
+	}
 	if typ.IsFloat() {
 		fs := make([]float64, n)
 		for i := range fs {
@@ -264,9 +298,9 @@ func capabilities() map[string]any {
 		"schemaVersion": schemaVersion,
 		"adapter":       "go-ethernetip",
 		"roles":         map[string]bool{"server": true, "client": true},
-		"fixtures":      []string{"adapter", "logix"},
+		"fixtures":      []string{"adapter", "logix", "logix-structures"},
 		"clientOperations": []string{"list-identity", "list-services", "get-attribute", "set-attribute",
-			"get-attributes-all", "multiple-get", "io", "read-tag", "write-tag", "tag-list"},
+			"get-attributes-all", "multiple-get", "io", "read-tag", "write-tag", "write-bit", "tag-list"},
 	}
 }
 
@@ -318,6 +352,8 @@ func clientOp(op string, args []string, stdout, stderr io.Writer) int {
 	outData := fs.String("output-data", "", "hex output data")
 	large := fs.Bool("large", false, "Large_Forward_Open")
 	multicast := fs.Bool("multicast", false, "T->O multicast")
+	cfgData := fs.String("config-data", "", "hex configuration data of the Forward_Open")
+	listenOnly := fs.Uint("listen-only", 0, "listen-only connection point opened next to the (multicast) owner")
 	tag := fs.String("tag", "", "tag name")
 	count := fs.Int("count", 1, "elements")
 	typ := fs.String("type", "", "tag type")
@@ -453,11 +489,16 @@ func clientOp(op string, args []string, stdout, stderr io.Writer) int {
 		}
 		res["status"], res["replies"], res["ok"] = 0, out, true
 	case "io":
+		cd, err := hex.DecodeString(*cfgData)
+		if err != nil {
+			_, _ = fmt.Fprintln(stderr, "--config-data:", err)
+			return 2
+		}
 		return ioOp(ctx, c, res, write, fail, scanner.IOConfig{
 			ConfigInstance: uint32(*cfgInst), OutputInstance: uint32(*outInst), InputInstance: uint32(*inInst),
 			OutputSize: *outSize, InputSize: *inSize, RPI: time.Duration(*rpi) * time.Millisecond,
-			Large: *large, Multicast: *multicast,
-		}, *outData, time.Duration(*dur)*time.Millisecond)
+			Large: *large, Multicast: *multicast, ConfigData: cd,
+		}, *outData, uint32(*listenOnly), time.Duration(*dur)*time.Millisecond)
 	case "read-tag":
 		v, err := logix.NewClient(d, logix.WithMaxData(maxData(*connected, *large))).Read(ctx, *tag, *count)
 		var ce *ethernetip.CIPError
@@ -481,6 +522,22 @@ func clientOp(op string, args []string, stdout, stderr io.Writer) int {
 			return 2
 		}
 		err = logix.NewClient(d, logix.WithMaxData(maxData(*connected, *large))).Write(ctx, *tag, v)
+		var ce *ethernetip.CIPError
+		if err != nil && !errors.As(err, &ce) {
+			return fail(err)
+		}
+		res["status"], res["ok"] = 0, true
+		if ce != nil {
+			res["status"] = int(ce.Status)
+		}
+	case "write-bit":
+		t, ok := cip.ParseDataType(*typ)
+		if !ok || t.Size() == 0 || t.IsFloat() {
+			_, _ = fmt.Fprintln(stderr, "--type: an integer type")
+			return 2
+		}
+		set := *values == "1" || strings.EqualFold(*values, "true")
+		err := logix.NewClient(d).WriteBit(ctx, *tag, t.Size(), set)
 		var ce *ethernetip.CIPError
 		if err != nil && !errors.As(err, &ce) {
 			return fail(err)
@@ -516,7 +573,11 @@ func maxData(connected, large bool) int {
 	return 480
 }
 
-func ioOp(ctx context.Context, c *client.Client, res result, write func(int) int, fail func(error) int, cfg scanner.IOConfig, outHex string, dur time.Duration) int {
+// ioOp opens an I/O connection and exchanges data for dur. With listenOnly
+// it opens, after the owner, a listen-only connection to that connection
+// point and the owner's configuration and input points, which shares the owner's multicast T->O
+// data, and reports it under "listenOnly".
+func ioOp(ctx context.Context, c *client.Client, res result, write func(int) int, fail func(error) int, cfg scanner.IOConfig, outHex string, listenOnly uint32, dur time.Duration) int {
 	out, err := hex.DecodeString(outHex)
 	if err != nil || (len(out) != 0 && len(out) != cfg.OutputSize) {
 		res["error"] = opError{"usage", "--output-data must be output-size octets of hex"}
@@ -553,13 +614,57 @@ func ioOp(ctx context.Context, c *client.Client, res result, write func(int) int
 	info := io.Info()
 	fo["otConnectionId"], fo["toConnectionId"] = info.OTConnID, info.TOConnID
 	fo["otApiUs"], fo["toApiUs"] = info.OTRPI.Microseconds(), info.TORPI.Microseconds()
+	if info.Group.IsValid() {
+		fo["multicastGroup"] = info.Group.String()
+	}
 	res["forwardOpen"] = fo
 	if len(out) > 0 {
 		_ = io.SetOutput(out)
 	}
+	var lio *scanner.IO
+	var lreceived atomic.Int64
+	if listenOnly != 0 {
+		lcfg := cfg
+		// The listen-only path names the owner's configuration point (OpENer
+		// matches all three points), without configuration data.
+		lcfg.ConfigData = nil
+		lcfg.OutputInstance, lcfg.OutputSize = listenOnly, 0
+		lcfg.OnInput = func([]byte, bool) { lreceived.Add(1) }
+		lfo := map[string]any{"status": 0, "extendedStatus": []int{}}
+		lio, err = s.Open(ctx, lcfg)
+		if err != nil {
+			var ce *ethernetip.CIPError
+			if !errors.As(err, &ce) {
+				return fail(err)
+			}
+			ext := []int{}
+			for _, x := range ce.Extended {
+				ext = append(ext, int(x))
+			}
+			lfo["status"], lfo["extendedStatus"] = int(ce.Status), ext
+		} else {
+			li := lio.Info()
+			lfo["otConnectionId"], lfo["toConnectionId"] = li.OTConnID, li.TOConnID
+			if li.Group.IsValid() {
+				lfo["multicastGroup"] = li.Group.String()
+			}
+		}
+		res["listenOnly"] = map[string]any{"forwardOpen": lfo}
+	}
 	select {
 	case <-time.After(dur):
 	case <-io.Done():
+	}
+	if lio != nil {
+		last, _, _ := lio.Input()
+		lr := res["listenOnly"].(map[string]any)
+		lr["received"], lr["lastInput"] = lreceived.Load(), hex.EncodeToString(last)
+		lr["timedOut"] = lio.State() == ethernetip.StateTimedOut
+		fc := map[string]any{"status": 0}
+		if err := lio.Close(ctx); err != nil {
+			fc["error"] = err.Error()
+		}
+		lr["forwardClose"] = fc
 	}
 	st := io.Stats()
 	last, _, _ := io.Input()

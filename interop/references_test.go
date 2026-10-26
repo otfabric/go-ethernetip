@@ -107,6 +107,26 @@ func TestEIPScannerToGoAdapter(t *testing.T) {
 			t.Fatalf("%v", r)
 		}
 	})
+	t.Run("Class1ConfigData", func(t *testing.T) {
+		record(t, "Class 1 I/O, configuration data", dir, name, "a data segment at the end of EIPScanner's connection path")
+		cfg := "a1a2a3a4a5a6a7a8a9aa"
+		out := strings.Repeat("4e", 32)
+		r := client(t, img, "io", "--host", host, "--config", "151", "--output", "150", "--input", "100",
+			"--output-size", "32", "--input-size", "32", "--rpi-ms", "10", "--duration-ms", "1000", "--output-data", out, "--config-data", cfg)
+		checkIO(t, r, out)
+		if r := client(t, img, "get-attribute", "--host", host, "--class", "4", "--instance", "151", "--attribute", "3"); r.str("data") != cfg {
+			t.Fatalf("configuration assembly after the Forward_Open: %v", r)
+		}
+	})
+	t.Run("Class1ConfigDataWrongSize", func(t *testing.T) {
+		record(t, "Forward_Open refusal (configuration size)", dir, name, "EIPScanner logs the refusal; the adapter reports refused")
+		r := client(t, img, "io", "--host", host, "--config", "151", "--output", "150", "--input", "100",
+			"--output-size", "32", "--input-size", "32", "--rpi-ms", "10", "--duration-ms", "100", "--config-data", "0102")
+		if refused, _ := r.obj("forwardOpen")["refused"].(bool); !r.ok() || !refused {
+			t.Fatalf("%v", r)
+		}
+	})
+	notApplicable("Class 1 I/O, listen-only (multicast, next to its owner)", dir, name, "EIPScanner does not join multicast groups")
 	notApplicable("Class 3 connected explicit messaging", dir, name, "EIPScanner has no SendUnitData sender")
 	notApplicable("Class 1 I/O, T->O multicast", dir, name, "EIPScanner does not join multicast groups")
 	notApplicable("Logix tag services", dir, name, "EIPScanner has no symbolic segments")
@@ -230,6 +250,129 @@ func TestPycomm3ToGoLogix(t *testing.T) {
 		}
 		if r := client(t, img, "read-tag", "--host", host, "--tag", "Speeds", "--count", "4"); fmt.Sprint(r["values"]) != "[5 6 7 9]" {
 			t.Fatalf("%v", r)
+		}
+	})
+	t.Run("WriteFragmented", func(t *testing.T) {
+		record(t, "Logix Write Tag Fragmented (1200 octets)", dir, name, "pycomm3 splits a write larger than its connection size into Write Tag Fragmented (0x53)")
+		vals := make([]string, 300)
+		for i := range vals {
+			vals[i] = fmt.Sprint(i*11 - 1500)
+		}
+		if r := client(t, img, "write-tag", "--host", host, "--tag", "Samples", "--type", "DINT", "--values", strings.Join(vals, ",")); r.num("status") != 0 {
+			t.Fatalf("%v", r)
+		}
+		r := client(t, img, "read-tag", "--host", host, "--tag", "Samples", "--count", "300")
+		got, _ := r["values"].([]any)
+		if len(got) != 300 || got[0] != -1500.0 || got[299] != float64(299*11-1500) {
+			t.Fatalf("%v", r)
+		}
+	})
+}
+
+// TestPycomm3ToGoStructures runs pycomm3's LogixDriver against the Logix
+// emulation serving the logix-structures fixture: bit writes, structures
+// (template upload) and STRING.
+func TestPycomm3ToGoStructures(t *testing.T) {
+	node := startNode(t, image("pycomm3"), "logix-structures")
+	img, host := image("pycomm3"), node.ip
+	const dir, name = "ref->go", "pycomm3"
+	read := func(t *testing.T, tag string, count int) []any {
+		t.Helper()
+		r := client(t, img, "read-tag", "--host", host, "--tag", tag, "--count", fmt.Sprint(count))
+		vals, _ := r["values"].([]any)
+		if !r.ok() || r.num("status") != 0 {
+			t.Fatalf("read %s: %v", tag, r)
+		}
+		return vals
+	}
+	write := func(t *testing.T, tag, typ, values string) {
+		t.Helper()
+		if r := client(t, img, "write-tag", "--host", host, "--tag", tag, "--type", typ, "--values", values); !r.ok() || r.num("status") != 0 {
+			t.Fatalf("write %s: %v", tag, r)
+		}
+	}
+	t.Run("TagList", func(t *testing.T) {
+		record(t, "Logix tag list with structure and STRING tags", dir, name, "pycomm3 uploads the Motor template (Get_Attribute_List and Read Template on class 0x6C) on open")
+		r := client(t, img, "tag-list", "--host", host)
+		types := map[string]string{}
+		tags, _ := r["tags"].([]any)
+		for _, x := range tags {
+			tg := result(x.(map[string]any))
+			types[tg.str("name")] = tg.str("type")
+		}
+		if !r.ok() || types["Pump"] != "Motor" || types["Fans"] != "Motor" || types["Message"] != "STRING" || types["Flags"] != "DINT" {
+			t.Fatalf("%v", r)
+		}
+	})
+	t.Run("BitWrite", func(t *testing.T) {
+		record(t, "Logix bit write (Read Modify Write Tag)", dir, name, "pycomm3 writes Flags.N with service 0x4E")
+		write(t, "Flags.3", "BOOL", "true")
+		write(t, "Flags.0", "BOOL", "1")
+		if v := read(t, "Flags", 1); fmt.Sprint(v) != "[9]" {
+			t.Fatalf("Flags = %v", v)
+		}
+		write(t, "Flags.3", "BOOL", "false")
+		write(t, "Flags.31", "BOOL", "true")
+		if v := read(t, "Flags", 1); fmt.Sprint(v) != fmt.Sprint([]any{float64(int32(-2147483647))}) {
+			t.Fatalf("Flags = %v", v)
+		}
+	})
+	t.Run("BoolArrayBitWrite", func(t *testing.T) {
+		record(t, "Logix BOOL array element write", dir, name, "pycomm3 writes Bits[N] with Read Modify Write on the DWORD holding it")
+		write(t, "Bits[37]", "BOOL", "true")
+		if v := read(t, "Bits[37]", 1); fmt.Sprint(v) != "[true]" {
+			t.Fatalf("Bits[37] = %v", v)
+		}
+		if v := read(t, "Bits[36]", 1); fmt.Sprint(v) != "[false]" {
+			t.Fatalf("Bits[36] = %v", v)
+		}
+	})
+	t.Run("StructRead", func(t *testing.T) {
+		record(t, "Logix structure read (UDT)", dir, name, "BOOL members in a hidden host SINT, an INT array and a nested STRING")
+		v := read(t, "Pump", 1)
+		want := "[map[Current:2.5 Enabled:true Faulted:false Label:pump Setpoints:[10 20 30 40] Speed:1500]]"
+		if fmt.Sprint(v) != want {
+			t.Fatalf("Pump = %v, want %s", v, want)
+		}
+		v = read(t, "Fans", 2)
+		if len(v) != 2 || fmt.Sprint(v[1]) != "map[Current:1.25 Enabled:true Faulted:false Label:fan-b Setpoints:[5 6 7 8] Speed:900]" {
+			t.Fatalf("Fans = %v", v)
+		}
+		if v := read(t, "Fans[0].Label", 1); fmt.Sprint(v) != "[fan-a]" {
+			t.Fatalf("Fans[0].Label = %v", v)
+		}
+	})
+	t.Run("StructWrite", func(t *testing.T) {
+		record(t, "Logix structure write (UDT)", dir, name, "a whole structure, then one member")
+		write(t, "Pump", "JSON", `{"Enabled": false, "Faulted": true, "Speed": -5, "Current": 0.5, "Setpoints": [4, 3, 2, 1], "Label": "renamed"}`)
+		want := "[map[Current:0.5 Enabled:false Faulted:true Label:renamed Setpoints:[4 3 2 1] Speed:-5]]"
+		if v := read(t, "Pump", 1); fmt.Sprint(v) != want {
+			t.Fatalf("Pump = %v, want %s", v, want)
+		}
+		write(t, "Pump.Speed", "DINT", "1800")
+		if v := read(t, "Pump.Speed", 1); fmt.Sprint(v) != "[1800]" {
+			t.Fatalf("Pump.Speed = %v", v)
+		}
+		write(t, "Pump.Enabled", "BOOL", "true")
+		if v := read(t, "Pump.Enabled", 1); fmt.Sprint(v) != "[true]" {
+			t.Fatalf("Pump.Enabled = %v", v)
+		}
+	})
+	t.Run("String", func(t *testing.T) {
+		record(t, "Logix STRING read and write", dir, name, "")
+		if v := read(t, "Message", 1); fmt.Sprint(v) != "[hello]" {
+			t.Fatalf("Message = %v", v)
+		}
+		if v := read(t, "Names", 3); fmt.Sprint(v) != "[alpha beta gamma]" {
+			t.Fatalf("Names = %v", v)
+		}
+		write(t, "Message", "STRING", "written by pycomm3")
+		if v := read(t, "Message", 1); fmt.Sprint(v) != "[written by pycomm3]" {
+			t.Fatalf("Message = %v", v)
+		}
+		write(t, "Names[1]", "STRING", "BETA")
+		if v := read(t, "Names", 3); fmt.Sprint(v) != "[alpha BETA gamma]" {
+			t.Fatalf("Names = %v", v)
 		}
 	})
 }
@@ -375,6 +518,8 @@ func TestGoClientCpppo(t *testing.T) {
 			t.Fatalf("%v", r)
 		}
 	})
+	notApplicable("Logix bit write (Read Modify Write Tag)", dir, name, "cpppo 5.2.5 rejects service 0x4E: it answers SendRRData with encapsulation status 0x0008")
 	notApplicable("Class 1 I/O, exclusive owner, point-to-point", dir, name, "cpppo has no implicit messaging")
 	notApplicable("Logix tag list (0x55) and LogixDriver open", dir, name, "cpppo has no Symbol object tag list")
+	notApplicable("Logix structure read (UDT)", dir, name, "cpppo's simulator has no structure templates")
 }

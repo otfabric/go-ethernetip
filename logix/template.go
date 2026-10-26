@@ -109,8 +109,14 @@ type Template struct {
 func (t *Template) definition() []byte {
 	var b []byte
 	for _, m := range t.Members {
+		typ := m.Type
+		if !typ.IsStruct() && typ.Atomic() == cip.TypeBOOL && typ.Dims() == 0 {
+			// Logix gives a BOOL member's bit in the info word only: its
+			// type is plain BOOL (0x00C1), which pycomm3 relies on.
+			typ &^= 7 << 8
+		}
 		b = binary.LittleEndian.AppendUint16(b, m.Info)
-		b = binary.LittleEndian.AppendUint16(b, uint16(m.Type))
+		b = binary.LittleEndian.AppendUint16(b, uint16(typ))
 		b = binary.LittleEndian.AppendUint32(b, m.Offset)
 	}
 	b = append(b, t.Name+";n"...)

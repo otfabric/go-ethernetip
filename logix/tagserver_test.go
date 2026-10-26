@@ -277,10 +277,12 @@ func TestTagServerRead(t *testing.T) {
 	// BOOL arrays are DWORDs.
 	bits, _ := Ints(cip.TypeDWORD, 0, 1<<8)
 	must(t, ts.Set("Bits", bits))
-	if r := h.read("Bits[40]", 1); !r.OK() || !bytes.Equal(r.Data, []byte{0xD3, 0, 0, 1, 0, 0}) {
-		t.Fatalf("Bits[40] %+v", r)
+	// The index counts DWORDs: Bits[1] is bits 32 to 63.
+	if r := h.read("Bits[1]", 1); !r.OK() || !bytes.Equal(r.Data, []byte{0xD3, 0, 0, 1, 0, 0}) {
+		t.Fatalf("Bits[1] %+v", r)
 	}
-	wantBeyond(t, "Bits[40] x2", h.read("Bits[40]", 2))
+	wantBeyond(t, "Bits[1] x2", h.read("Bits[1]", 2))
+	wantBeyond(t, "Bits[2]", h.read("Bits[2]", 1))
 	if r := h.read("Bits", 2); !r.OK() || len(r.Data) != 10 {
 		t.Fatalf("Bits %+v", r)
 	}
@@ -306,8 +308,8 @@ func TestTagServerStructMembers(t *testing.T) {
 		{"Outs[1].Ins[1].A", 1, []byte{0xC3, 0, 9, 0}},
 		{"Outs[1].Ins[0]", 2, cat([]byte{0xA0, 2, 0x11, 0x11}, outerData()[8:16])},
 		{"Outs[1].In", 1, cat([]byte{0xA0, 2, 0x11, 0x11}, outerData()[4:8])},
-		{"Outs[1].Flags[39]", 1, []byte{0xD3, 0, 0x80, 0, 0, 0}},
-		{"Outs[1].Flags[2]", 2, []byte{0xD3, 0, 4, 0, 0, 0, 0x80, 0, 0, 0}},
+		{"Outs[1].Flags[1]", 1, []byte{0xD3, 0, 0x80, 0, 0, 0}},
+		{"Outs[1].Flags[0]", 2, []byte{0xD3, 0, 4, 0, 0, 0, 0x80, 0, 0, 0}},
 		{"Outs[1].Flags", 2, []byte{0xD3, 0, 4, 0, 0, 0, 0x80, 0, 0, 0}},
 		{"Outs[1].Raw[1]", 2, []byte{0xC2, 0, 2, 3}},
 		{"Outs[1].Raw", 3, []byte{0xC2, 0, 1, 2, 3}},
@@ -328,7 +330,7 @@ func TestTagServerStructMembers(t *testing.T) {
 	wantBeyond(t, "bit count 2", h.read("Outs[1].In.B", 2))
 	wantBeyond(t, "Raw x4", h.read("Outs[1].Raw", 4))
 	wantBeyond(t, "Raw[3]", h.read("Outs[1].Raw[3]", 1))
-	wantBeyond(t, "Flags[40]", h.read("Outs[1].Flags[40]", 1))
+	wantBeyond(t, "Flags[2]", h.read("Outs[1].Flags[2]", 1))
 	wantBeyond(t, "Outs[2]", h.read("Outs[2].X", 1))
 	wantStatus(t, "member of array", h.read("Outs.X", 1), cip.StatusPathSegmentError)
 	wantStatus(t, "unknown member", h.read("Outs[0].Nope", 1), cip.StatusPathDestinationUnknown)
@@ -457,20 +459,27 @@ func TestTagServerWrite(t *testing.T) {
 	if g.Data[116+6] != 0 {
 		t.Fatalf("In.B host %x", g.Data[116+6])
 	}
-	wantBeyond(t, "bit with 2 octets", h.write("Outs[1].In.B", Value{Type: cip.TypeBOOL, Count: 1, Data: []byte{1, 1}}))
+	// Trailing octets are ignored (pycomm3 repeats the request); none is
+	// not enough.
+	if r := h.write("Outs[1].In.B", Value{Type: cip.TypeBOOL, Count: 1, Data: []byte{1, 1}}); !r.OK() {
+		t.Fatalf("bit with 2 octets %+v", r)
+	}
+	if r := h.write("Outs[1].In.B", Value{Type: cip.TypeBOOL, Count: 1}); r.Status != cip.StatusNotEnoughData {
+		t.Fatalf("bit without data %+v", r)
+	}
 	wantBeyond(t, "bit fragmented", h.do(cip.Request{Service: cip.ServiceWriteTagFragmented, Path: h.path("Outs[1].In.B"), Data: cat([]byte{0xC1, 0, 1, 0}, le32(1), []byte{1})}, false))
 	wantTypeMismatch(t, "INT into BOOL member", h.write("Outs[1].In.B", x))
 
 	// BOOL arrays take DWORDs.
 	dw, _ := Ints(cip.TypeDWORD, 1<<5)
-	if r := h.write("Bits[33]", dw); !r.OK() {
+	if r := h.write("Bits[1]", dw); !r.OK() {
 		t.Fatalf("%+v", r)
 	}
 	if b, _ := h.ts.Get("Bits"); b.Data[4] != 1<<5 {
 		t.Fatalf("Bits %x", b.Data)
 	}
 
-	want := []string{"Count", "Program:Main.Local", "Text", "Count", "Big", "Outs", "Outs", "Outs", "Bits"}
+	want := []string{"Count", "Program:Main.Local", "Text", "Count", "Big", "Outs", "Outs", "Outs", "Outs", "Bits"}
 	if !reflect.DeepEqual(written, want) {
 		t.Fatalf("OnWrite %v, want %v", written, want)
 	}
@@ -532,7 +541,7 @@ func TestTagServerReadModifyWrite(t *testing.T) {
 		t.Fatalf("Count %x", g.Data)
 	}
 	// BOOL arrays are DWORDs, integers.
-	if r := rmw("Bits[35]", cat(le16(4), []byte{0, 0, 0, 0x80}, []byte{0xFF, 0xFF, 0xFF, 0xFF})); !r.OK() {
+	if r := rmw("Bits[1]", cat(le16(4), []byte{0, 0, 0, 0x80}, []byte{0xFF, 0xFF, 0xFF, 0xFF})); !r.OK() {
 		t.Fatalf("Bits %+v", r)
 	}
 	if b, _ := h.ts.Get("Bits"); b.Data[7] != 0x80 {
