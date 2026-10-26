@@ -199,7 +199,9 @@ func TestChaosExplicit(t *testing.T) {
 	seed := chaosSeed(t)
 	a := startAdapter(t)
 	p := newChaosProxy(t, a.addr, seed, false)
+	p.enabled.Store(false) // the first session is set up without faults
 	c := dial(t, p.addr(), client.WithAutoReconnect(), client.WithTimeout(time.Second))
+	p.enabled.Store(true)
 	want := bytes.Repeat([]byte{0x5A}, ioSize)
 	if err := a.in.SetData(want); err != nil {
 		t.Fatal(err)
@@ -246,7 +248,11 @@ func TestChaosCorruption(t *testing.T) {
 	seed := chaosSeed(t)
 	a := startAdapter(t)
 	p := newChaosProxy(t, a.addr, seed, true)
+	// The first session is set up without faults; the chaos then also
+	// hits the reconnections, whose failures are allowed below.
+	p.enabled.Store(false)
 	c := dial(t, p.addr(), client.WithAutoReconnect(), client.WithTimeout(500*time.Millisecond))
+	p.enabled.Store(true)
 	deadline := time.Now().Add(3 * time.Second)
 	for time.Now().Before(deadline) {
 		ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
