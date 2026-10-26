@@ -43,8 +43,9 @@ The library provides:
   sentinel errors with the peer's general and extended status, structured
   logging, metrics hooks, bounded allocations on every decoder, connection
   and session limits
-- **Verified against four independent implementations**: OpENer,
-  EIPScanner, pycomm3 and cpppo, in both roles where they have them, in the
+- **Verified against eleven independent implementations**: OpENer,
+  EIPScanner, pycomm3, cpppo, libplctag, gologix, pylogix, etherip, eip-rs,
+  node-ethernet-ip and EEIP.NET, in both roles where they have them, in the
   containers of [otfabric/ethernetip-interop](https://github.com/otfabric/ethernetip-interop)
   (see [INTEROPERABILITY.md](INTEROPERABILITY.md))
 
@@ -52,7 +53,7 @@ The library provides:
 
 ## Table of contents
 
-- [go-ethernetip vs OpENer, EIPScanner, pycomm3 and cpppo](#go-ethernetip-vs-opener-eipscanner-pycomm3-and-cpppo)
+- [go-ethernetip vs the reference stacks](#go-ethernetip-vs-the-reference-stacks)
 - [Install](#install)
 - [Project structure](#project-structure)
 - [Client quickstart](#client-quickstart)
@@ -68,9 +69,9 @@ The library provides:
 - [Limitations](#limitations)
 - [License](#license)
 
-## go-ethernetip vs OpENer, EIPScanner, pycomm3 and cpppo
+## go-ethernetip vs the reference stacks
 
-go-ethernetip is tested against these four implementations (see
+go-ethernetip is tested against eleven implementations (see
 [Interop tests](#interop-tests)). Each suits different needs; the table
 shows where they differ, from their public sources and the
 [ethernetip-interop capability records](https://github.com/otfabric/ethernetip-interop/blob/main/docs/CAPABILITIES.md),
@@ -99,8 +100,35 @@ so you can pick the right one for your project.
 | Cancellation and deadlines per call | ✅ `context.Context` | — | — | socket timeout | — |
 | Structured logging, metrics | ✅ `Logger` (slog adapter), `Metrics` callbacks | own logger | own logger | `logging` | `logging` |
 | Dependencies | none (standard library) | none | none | none | greenery (and crypto_licensing, declared) |
-| Tested against other stacks in CI | ✅ the four, both directions: 63 cases pass, 13 N/A ([matrix](INTEROPERABILITY.md#interop-matrix)) | not documented | not documented | not documented | not documented |
+| Tested against other stacks in CI | ✅ these four and seven more, both directions: 173 cases pass, 0 fail, 129 N/A ([matrix](INTEROPERABILITY.md#interop-matrix)) | not documented | not documented | not documented | not documented |
 | ODVA conformance tested | no, and no claim | not documented | not documented | not documented | not documented |
+
+And against the seven other stacks it is tested against:
+
+| Capability | go-ethernetip | libplctag | gologix | pylogix | etherip | eip-rs | node-ethernet-ip | EEIP.NET |
+|---|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
+| Language | Go | C | Go | Python | Java | Rust | TypeScript | C# |
+| Licence | MIT | MPL-2.0 or LGPL-2.0+ | MIT | Apache-2.0 | EPL-1.0 | MIT | MIT | MIT |
+| Version compared | this module | 2.7.2 | 0.44.0-beta | 1.1.6 | main ce0688a | main 16e2236 | 2.0.0 | master 58b91a0 |
+| Originator (scanner, client) | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Target (adapter, server) | ✅ | ab_server simulator (Logix tags only) | ✅ Logix tags and Class 1 I/O | — | — | — | — | — |
+| ListIdentity | ✅ TCP, UDP, both roles | — | TCP | UDP (broadcast) | TCP, UDP | TCP, UDP | TCP, UDP | UDP |
+| Get/Set_Attribute_Single, Get_Attributes_All | ✅ both roles | ✅ (over Class 3 ¹) | ✅ | ✅ | Get only | ✅ | ✅ | ✅ |
+| Multiple Service Packet | ✅ both roles | tag reads | ✅ | tag reads | tag reads | ✅ | ✅ | — |
+| Unconnected_Send routing | ✅ both roles | target ¹ | target | ✅ | ✅ | ✅ | — | — |
+| Class 3 connected explicit messaging | ✅ both roles | ✅ | ✅ (always) | Logix only | — | ✅ | ✅ | — |
+| Large_Forward_Open | ✅ both roles | ✅ | ✅ | ✅ | — | — | ✅ | ✅ |
+| Class 1 I/O | ✅ both roles | — | target | — | — | — | — | ✅ |
+| T->O multicast, listen-only | ✅ both roles | — | — | — | — | — | — | ✅ |
+| Input-only, configuration data | ✅ both roles | — | input-only target | — | — | — | — | input-only |
+| Logix tags: read, write, fragmented | ✅ client and emulation | ✅ | ✅ (no fragments) | ✅ | ✅ (no fragments, no 64-bit) | ✅ | ✅ (no fragments) | — |
+| Logix tag list, structures, STRING, bit writes | ✅ client and emulation | tag list, STRING, bits | tag list, STRING | tag list, STRING, bits | STRING | ✅ | tag list, STRING, bits, structure reads | — |
+| EDS files | ✅ | — | — | — | — | — | — | — |
+| EtherNet/IP over TLS | ✅ explicit messaging | — | — | — | — | — | — | — |
+| Dependencies | none | none | crc16 | none | none (JRE) | tokio and others | none (Node.js) | none (.NET) |
+
+¹ libplctag 2.7.2 builds unconnected requests without their route path, so
+its attribute requests are tested over a Class 3 connection.
 
 ✅ = available · — = not available. For the versions go-ethernetip is
 tested against, from their sources and documentation and the capability
@@ -287,6 +315,13 @@ NAT).
 | [EIPScanner](https://github.com/nimbuscontrols/EIPScanner) | 1.3.0+33 (12c89a5) | MIT | originator (scanner) |
 | [pycomm3](https://github.com/ottowayi/pycomm3) | 1.2.16 | MIT | originator (generic CIP and Logix) |
 | [cpppo](https://github.com/pjkundert/cpppo) | 5.2.5 | GPL-3.0 | target (Logix simulator) and originator |
+| [libplctag](https://github.com/libplctag/libplctag) | 2.7.2 | MPL-2.0 or LGPL-2.0+ | originator (Logix and generic CIP) and target (ab_server simulator) |
+| [gologix](https://github.com/danomagnum/gologix) | 0.44.0-beta | MIT | originator and target (Logix tags, Class 1 I/O) |
+| [pylogix](https://github.com/dmroeder/pylogix) | 1.1.6 | Apache-2.0 | originator (Logix) |
+| [etherip](https://github.com/ornl-epics/etherip) | main ce0688a | EPL-1.0 | originator (Logix, generic) |
+| [eip-rs (rseip)](https://github.com/Joylei/eip-rs) | main 16e2236 | MIT | originator (generic CIP and Logix) |
+| [node-ethernet-ip](https://github.com/cmseaton42/node-ethernet-ip) | 2.0.0 | MIT | originator (Logix, generic) |
+| [EEIP.NET](https://github.com/rossmann-engineering/EEIP.NET) | master 58b91a0 | MIT | originator (scanner: explicit, Class 1 I/O) |
 
 The [coverage matrix](INTEROPERABILITY.md#interop-matrix) lists each
 feature per reference and direction, with the features a reference does
@@ -316,8 +351,7 @@ claim.** See [docs/STANDARDS.md](docs/STANDARDS.md).
 - **Class 2 connections, safety (CIP Safety), motion (CIP Motion), DLR,
   QoS and the File object** are not implemented.
 - **Multicast** I/O, with a listen-only connection next to its owner, is
-  verified against OpENer and between the library's own ends; EIPScanner
-  has no multicast.
+  verified against OpENer and EEIP.NET and between the library's own ends.
 - **The Logix emulation** is a test tool: no programs, no tasks, no
   online edits, no alarms.
 - See [docs/LIMITATIONS.md](docs/LIMITATIONS.md) for the complete list.

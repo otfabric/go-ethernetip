@@ -26,6 +26,12 @@ type Request struct {
 	Remote net.Addr
 	// Connected is true for a request received on a Class 3 connection.
 	Connected bool
+	// MaxReply, for a request received on a Class 3 connection, is the
+	// largest reply data the connection carries (its T->O size less the
+	// sequence count and the reply header). An object that can split its
+	// reply (a partial transfer) keeps within it; a larger reply cannot be
+	// delivered to the originator. 0 elsewhere.
+	MaxReply int
 }
 
 // Object is a CIP object class the Message Router dispatches requests to.

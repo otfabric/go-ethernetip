@@ -371,6 +371,7 @@ type explicitConn struct {
 	sess    *session
 	orig    netip.Addr
 	timeout time.Duration
+	toSize  int // the T->O connection size
 
 	mu        sync.Mutex
 	timer     *time.Timer
@@ -398,6 +399,7 @@ func (cm *connectionManager) openExplicit(ex *exchange, fo cip.ForwardOpen, part
 		sess:    ex.sess,
 		orig:    remoteIP(remote),
 		timeout: cip.ConnectionTimeout(time.Duration(fo.OTRPI)*time.Microsecond, fo.TimeoutMultiplier),
+		toSize:  int(fo.TOParams.Size),
 	}
 	cm.mu.Lock()
 	if _, dup := cm.conns[fo.Triad]; dup {

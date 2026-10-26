@@ -42,6 +42,10 @@ type exchange struct {
 	sess     *session
 	items    []encap.Item
 	addItems []encap.Item
+	// maxReply is the reply data a Class 3 connection carries: its T->O
+	// size less the sequence count and the reply header; 0 off a
+	// connection.
+	maxReply int
 }
 
 type exchangeKey struct{}
@@ -324,7 +328,7 @@ func (ss *session) sendUnitData(pkt encap.Packet) {
 	}
 	seq := binary.LittleEndian.Uint16(data.Data)
 	resp, ok := cn.request(seq, func() []byte {
-		ctx := context.WithValue(ss.s.ctx, exchangeKey{}, &exchange{sess: ss, items: rr.Items})
+		ctx := context.WithValue(ss.s.ctx, exchangeKey{}, &exchange{sess: ss, items: rr.Items, maxReply: max(cn.toSize-6, 0)})
 		r := ss.s.handleMessage(ctx, data.Data[2:], ss.remote, true)
 		b, err := r.Encode()
 		if err != nil {

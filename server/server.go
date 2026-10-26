@@ -361,6 +361,9 @@ func (s *Server) dispatch(ctx context.Context, req cip.Request, remote net.Addr,
 
 func (s *Server) route(ctx context.Context, req cip.Request, remote net.Addr, connected bool) cip.Response {
 	r := &Request{Request: req, Remote: remote, Connected: connected}
+	if e := exchangeOf(ctx); e != nil && connected {
+		r.MaxReply = e.maxReply
+	}
 	if req.Path.Symbolic() {
 		s.mu.Lock()
 		h := s.symbols

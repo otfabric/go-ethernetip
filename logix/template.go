@@ -129,9 +129,13 @@ func (t *Template) definition() []byte {
 }
 
 // definitionWords returns attribute 4, the size of the definition in
-// 32-bit words, by the convention that reading it takes words×4 − 21
-// octets.
-func definitionWords(n int) uint32 { return uint32((n + 21 + 3) / 4) }
+// 32-bit words: reading the definition takes words×4 − 23 octets (Logix
+// 5000 Controllers Data Access, 1756-PM020), so n octets need
+// ⌈(n + 23) / 4⌉ words.
+func definitionWords(n int) uint32 { return uint32((n + 23 + 3) / 4) }
+
+// definitionLen returns the octets of a definition of words words.
+func definitionLen(words uint32) int { return int(words)*4 - 23 }
 
 // parseDefinition decodes a template definition of members members.
 func parseDefinition(b []byte, members int) (string, []Member, error) {
