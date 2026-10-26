@@ -24,9 +24,10 @@ type Endpoint struct {
 	metrics ethernetip.IOMetrics
 
 	mu      sync.Mutex
-	conns   map[uint32][]*Connection // consumers by consumed connection ID
-	groups  map[netip.Addr]int       // multicast memberships, counted
-	local   netip.Addr               // the default multicast interface address
+	conns   map[uint32][]*Connection  // consumers by consumed connection ID
+	groups  map[netip.Addr]int        // multicast memberships, counted
+	groupIf map[netip.Addr]netip.Addr // the interface address each group was joined on
+	local   netip.Addr                // the default multicast interface address
 	mcastIf *net.Interface
 	closed  bool
 
@@ -82,7 +83,7 @@ func Listen(addr string, opts ...EndpointOption) (*Endpoint, error) {
 // NewEndpoint returns an endpoint serving an open UDP socket. The endpoint
 // owns it and closes it on Close.
 func NewEndpoint(c *net.UDPConn, opts ...EndpointOption) *Endpoint {
-	e := &Endpoint{conn: c, conns: map[uint32][]*Connection{}, groups: map[netip.Addr]int{}}
+	e := &Endpoint{conn: c, conns: map[uint32][]*Connection{}, groups: map[netip.Addr]int{}, groupIf: map[netip.Addr]netip.Addr{}}
 	for _, o := range opts {
 		o(e)
 	}
@@ -217,7 +218,7 @@ func (e *Endpoint) join(group netip.Addr, ifi *net.Interface) error {
 	if err := membership(e.conn, group, ifaddr, true); err != nil {
 		return err
 	}
-	e.groups[group] = 1
+	e.groups[group], e.groupIf[group] = 1, ifaddr
 	return nil
 }
 
@@ -229,9 +230,13 @@ func (e *Endpoint) leave(group netip.Addr) {
 	}
 	e.groups[group]--
 	if e.groups[group] == 0 {
+		// Linux matches the membership to drop by its interface: leave on
+		// the one joined.
+		ifaddr := e.groupIf[group]
 		delete(e.groups, group)
+		delete(e.groupIf, group)
 		if !e.closed {
-			_ = membership(e.conn, group, netip.IPv4Unspecified(), false)
+			_ = membership(e.conn, group, ifaddr, false)
 		}
 	}
 }

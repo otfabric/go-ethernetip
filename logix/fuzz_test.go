@@ -131,11 +131,16 @@ func FuzzTemplateDecode(f *testing.F) {
 			t.Fatalf("%d members of %d", len(ms), members)
 		}
 		tm := &Template{ID: 7, Name: name, Size: size % 4096, Members: ms}
-		// Round trip through definition.
+		// Round trip through definition; a scalar BOOL member's type loses
+		// its bit bits on the wire (the bit is in Info).
 		name2, ms2, err := parseDefinition(tm.definition(), len(ms))
 		if err == nil && name2 == name && len(ms2) == len(ms) {
 			for i := range ms {
-				if ms[i].Info != ms2[i].Info || ms[i].Type != ms2[i].Type || ms[i].Offset != ms2[i].Offset {
+				want := ms[i].Type
+				if !want.IsStruct() && want.Atomic() == cip.TypeBOOL && want.Dims() == 0 {
+					want &^= 7 << 8
+				}
+				if ms[i].Info != ms2[i].Info || want != ms2[i].Type || ms[i].Offset != ms2[i].Offset {
 					t.Fatalf("member %d: %+v != %+v", i, ms[i], ms2[i])
 				}
 			}

@@ -22,7 +22,9 @@ with the four reference stacks, a chaos monkey, more end-to-end tests.
   second Open failed with "connection ID in use".
 - **implicit**: an endpoint bound to one address sends multicast from, and
   joins groups on, that address's interface instead of the default
-  route's.
+  route's; a group is left on the interface it was joined on (on Linux,
+  leaving one joined on a given interface failed silently, and joining it
+  again failed with "address already in use").
 - **logix**: template definitions give a BOOL member the plain BOOL type
   (0x00C1), its bit in the info word, as Logix does; pycomm3 read the old
   encoding as a template ID and could not open the controller.
