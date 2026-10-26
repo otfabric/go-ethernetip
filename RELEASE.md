@@ -26,6 +26,12 @@ A fix of the adapter server: ListIdentity over UDP could be off at random.
 - `TestListenUDPBeforeIO`: explicit and I/O address on the same port; the
   explicit UDP socket keeps it, `Listen` reports the I/O endpoint, and both
   ports are released.
+- The chaos monkey's invariants: a write whose reply was lost may be
+  applied after later writes (its request can arrive late from a dying
+  connection); such values, and the bits of unconfirmed bit writes, stay
+  possible. The monkey had flagged a correct late arrival as an error.
+- The scanner's API test allows a longer stall on loaded runners and
+  reports the connection state when the input does not arrive.
 
 ---
 
