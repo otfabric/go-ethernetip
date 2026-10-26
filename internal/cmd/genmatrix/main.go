@@ -49,11 +49,11 @@ func main() {
 	}
 }
 
-var refs = []string{"opener", "eipscanner", "pycomm3", "cpppo", "libplctag", "gologix", "pylogix", "etherip", "eiprs", "nodeeip", "eeip"}
+var refs = []string{"opener", "eipscanner", "pycomm3", "cpppo", "libplctag", "gologix", "pylogix", "etherip", "eiprs", "nodeeip", "eeip", "lokieip"}
 
 var names = map[string]string{"opener": "OpENer", "eipscanner": "EIPScanner", "pycomm3": "pycomm3", "cpppo": "cpppo",
 	"libplctag": "libplctag", "gologix": "gologix", "pylogix": "pylogix", "etherip": "etherip", "eiprs": "eip-rs",
-	"nodeeip": "node-ethernet-ip", "eeip": "EEIP.NET"}
+	"nodeeip": "node-ethernet-ip", "eeip": "EEIP.NET", "lokieip": "loki-os go-ethernet-ip"}
 
 func run(check bool) error {
 	b, err := os.ReadFile(results)

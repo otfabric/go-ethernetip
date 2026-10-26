@@ -19,7 +19,7 @@ import (
 // cpppo keep their own tests (opener_test.go, references_test.go), which
 // also check their documented quirks.
 var (
-	genericClients = []string{"libplctag", "gologix", "pylogix", "etherip", "eiprs", "nodeeip", "eeip"}
+	genericClients = []string{"libplctag", "gologix", "pylogix", "etherip", "eiprs", "nodeeip", "eeip", "lokieip"}
 	genericServers = []string{"libplctag", "gologix"}
 )
 
@@ -35,6 +35,9 @@ var knownLimits = map[string]map[string]string{
 	},
 	"nodeeip": {
 		"Logix BOOL array element write": "reference limitation: node-ethernet-ip sends Bits[37] as element 37 of the DWORD array",
+	},
+	"lokieip": {
+		"Logix Write Tag": "reference limitation: go-ethernet-ip writes a tag only whole (all its elements, with the dimension bits in the type), not elements of an array",
 	},
 }
 
