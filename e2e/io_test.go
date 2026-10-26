@@ -204,3 +204,55 @@ func TestIOInitialOutputIdle(t *testing.T) {
 		t.Fatalf("short initial output: %v", err)
 	}
 }
+
+// TestIOListenOnly opens a multicast exclusive owner and, on the same
+// scanner endpoint, a listen-only connection to the same production: both
+// consume the multicast data; the listen-only connection closes with its
+// owner.
+func TestIOListenOnly(t *testing.T) {
+	a := startAdapter(t)
+	c := dial(t, a.addr)
+	s := newMulticastScanner(t, c)
+	ctx := ctxT(t)
+
+	owner := exclusiveOwner(5 * time.Millisecond)
+	owner.Multicast = true
+	oio, err := s.Open(ctx, owner)
+	if err != nil {
+		t.Fatal(err)
+	}
+	lcfg := exclusiveOwner(5 * time.Millisecond)
+	lcfg.ConfigInstance = 0
+	lcfg.OutputInstance, lcfg.OutputSize, lcfg.Multicast = asmListenOnly, 0, true
+	lio, err := s.Open(ctx, lcfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if oi, li := oio.Info(), lio.Info(); oi.TOConnID != li.TOConnID || !oi.Group.IsValid() || oi.Group != li.Group {
+		t.Fatalf("owner %+v, listener %+v: not one multicast production", oi, li)
+	}
+	out := bytes.Repeat([]byte{0x5A}, ioSize)
+	if err := oio.SetOutput(out); err != nil {
+		t.Fatal(err)
+	}
+	waitData := func(io *scanner.IO, what string) {
+		t.Helper()
+		eventually(t, 3*time.Second, what, func() bool {
+			in, _, _ := io.Input()
+			return bytes.Equal(in, out)
+		})
+	}
+	waitData(oio, "owner input")
+	waitData(lio, "listen-only input")
+	if n := len(a.srv.Connections()); n != 2 {
+		t.Fatalf("%d connections on the server", n)
+	}
+
+	// Closing the owner closes the listen-only connection on the target;
+	// the scanner sees its data stop.
+	if err := oio.Close(ctx); err != nil {
+		t.Fatal(err)
+	}
+	eventually(t, 3*time.Second, "server connections closed", func() bool { return len(a.srv.Connections()) == 0 })
+	eventually(t, 5*time.Second, "listen-only timed out", func() bool { return lio.State() == ethernetip.StateTimedOut })
+}

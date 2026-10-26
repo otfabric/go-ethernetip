@@ -5,12 +5,15 @@ package e2e
 import (
 	"context"
 	"errors"
+	"net"
+	"net/netip"
 	"testing"
 	"time"
 
 	ethernetip "github.com/otfabric/go-ethernetip"
 	"github.com/otfabric/go-ethernetip/cip"
 	"github.com/otfabric/go-ethernetip/client"
+	"github.com/otfabric/go-ethernetip/implicit"
 	"github.com/otfabric/go-ethernetip/scanner"
 	"github.com/otfabric/go-ethernetip/server"
 )
@@ -126,6 +129,77 @@ func newScanner(t testing.TB, c *client.Client) *scanner.Scanner {
 		_ = s.Close(ctx)
 	})
 	return s
+}
+
+// newMulticastScanner returns a scanner that consumes multicast from the
+// test adapter: its endpoint binds the wildcard address (an endpoint bound
+// to 127.0.0.1 receives no multicast) and joins on the loopback
+// interface. It skips the test where loopback multicast is not delivered.
+func newMulticastScanner(t testing.TB, c *client.Client) *scanner.Scanner {
+	t.Helper()
+	lo := loopbackMulticast(t)
+	s, err := scanner.New(c, scanner.WithLocalAddr("0.0.0.0:0"), scanner.WithMulticastInterface(lo))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		_ = s.Close(ctx)
+	})
+	return s
+}
+
+// loopbackMulticast returns the loopback interface after checking that a
+// multicast datagram sent on it arrives, or skips the test.
+func loopbackMulticast(t testing.TB) *net.Interface {
+	t.Helper()
+	var lo *net.Interface
+	ifs, _ := net.Interfaces()
+	for i := range ifs {
+		if ifs[i].Flags&net.FlagLoopback != 0 && ifs[i].Flags&net.FlagUp != 0 {
+			lo = &ifs[i]
+			break
+		}
+	}
+	if lo == nil {
+		t.Skip("no loopback interface")
+	}
+	group := netip.MustParseAddr("239.192.255.254")
+	rx, err := implicit.Listen("0.0.0.0:0", implicit.WithMulticastInterface(lo))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = rx.Close() }()
+	tx, err := implicit.Listen("127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = tx.Close() }()
+	got := make(chan struct{}, 1)
+	in, err := rx.Open(implicit.Config{ConsumedID: 1, Group: group, ConsumeSize: 0, OnData: func([]byte, bool) {
+		select {
+		case got <- struct{}{}:
+		default:
+		}
+	}})
+	if err != nil {
+		t.Skipf("loopback multicast: %v", err)
+	}
+	defer in.Close()
+	out, err := tx.Open(implicit.Config{ProducedID: 1, ProduceRPI: 10 * time.Millisecond,
+		Destination: netip.AddrPortFrom(group, rx.LocalAddr().Port())})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer out.Close()
+	select {
+	case <-got:
+		return lo
+	case <-time.After(time.Second):
+		t.Skip("multicast is not delivered on the loopback interface here")
+		return nil
+	}
 }
 
 func ctxT(t testing.TB) context.Context {

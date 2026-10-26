@@ -23,10 +23,12 @@ type Endpoint struct {
 	log     *logx.Logger
 	metrics ethernetip.IOMetrics
 
-	mu     sync.Mutex
-	conns  map[uint32]*Connection
-	groups map[netip.Addr]int // multicast memberships, counted
-	closed bool
+	mu      sync.Mutex
+	conns   map[uint32][]*Connection // consumers by consumed connection ID
+	groups  map[netip.Addr]int       // multicast memberships, counted
+	local   netip.Addr               // the default multicast interface address
+	mcastIf *net.Interface
+	closed  bool
 
 	// faults, when set (by the package's chaos tests), decides the fate of
 	// each datagram sent: it returns the datagrams to send now, which may
@@ -52,6 +54,17 @@ func WithMetrics(m ethernetip.Metrics) EndpointOption {
 	return func(e *Endpoint) { e.metrics, _ = m.(ethernetip.IOMetrics) }
 }
 
+// WithMulticastInterface sets the interface the endpoint sends multicast
+// from and joins groups on, when a connection does not name one
+// (Config.Interface). By default an endpoint bound to one address uses
+// that address's interface, and one bound to the wildcard address leaves
+// the choice to the system (the interface of the default route). Note that
+// an endpoint bound to a unicast address does not receive multicast on
+// most systems: a consuming endpoint binds the wildcard address.
+func WithMulticastInterface(ifi *net.Interface) EndpointOption {
+	return func(e *Endpoint) { e.mcastIf = ifi }
+}
+
 // Listen opens an endpoint on a UDP address, "host:2222" or ":0" for any
 // port.
 func Listen(addr string, opts ...EndpointOption) (*Endpoint, error) {
@@ -69,9 +82,22 @@ func Listen(addr string, opts ...EndpointOption) (*Endpoint, error) {
 // NewEndpoint returns an endpoint serving an open UDP socket. The endpoint
 // owns it and closes it on Close.
 func NewEndpoint(c *net.UDPConn, opts ...EndpointOption) *Endpoint {
-	e := &Endpoint{conn: c, conns: map[uint32]*Connection{}, groups: map[netip.Addr]int{}}
+	e := &Endpoint{conn: c, conns: map[uint32][]*Connection{}, groups: map[netip.Addr]int{}}
 	for _, o := range opts {
 		o(e)
+	}
+	// An endpoint bound to one address sends and joins multicast on that
+	// address's interface rather than the one of the default route.
+	ip := e.LocalAddr().Addr().Unmap()
+	if e.mcastIf != nil {
+		ip = interfaceAddr(e.mcastIf)
+	}
+	if ip.Is4() && !ip.IsUnspecified() && !ip.IsMulticast() {
+		if err := multicastInterface(c, ip); err != nil {
+			e.log.Warn("multicast interface not set", "addr", ip, "err", err)
+		} else {
+			e.local = ip
+		}
 	}
 	e.wg.Add(1)
 	go e.receive(c)
@@ -92,8 +118,8 @@ func (e *Endpoint) Close() error {
 	}
 	e.closed = true
 	conns := make([]*Connection, 0, len(e.conns))
-	for _, c := range e.conns {
-		conns = append(conns, c)
+	for _, cs := range e.conns {
+		conns = append(conns, cs...)
 	}
 	e.groups = map[netip.Addr]int{}
 	e.mu.Unlock()
@@ -135,13 +161,15 @@ func (e *Endpoint) handle(from netip.AddrPort, b []byte) {
 		return
 	}
 	e.mu.Lock()
-	c := e.conns[m.ConnID]
+	cs := append([]*Connection(nil), e.conns[m.ConnID]...)
 	e.mu.Unlock()
-	if c == nil {
+	if len(cs) == 0 {
 		e.drop(from, "unknown connection")
 		return
 	}
-	c.consume(from, m)
+	for _, c := range cs {
+		c.consume(from, m)
+	}
 }
 
 func (e *Endpoint) drop(from netip.AddrPort, reason string) {
@@ -182,7 +210,11 @@ func (e *Endpoint) join(group netip.Addr, ifi *net.Interface) error {
 		e.groups[group]++
 		return nil
 	}
-	if err := membership(e.conn, group, interfaceAddr(ifi), true); err != nil {
+	ifaddr := interfaceAddr(ifi)
+	if ifi == nil && e.local.IsValid() {
+		ifaddr = e.local
+	}
+	if err := membership(e.conn, group, ifaddr, true); err != nil {
 		return err
 	}
 	e.groups[group] = 1
@@ -220,9 +252,14 @@ func interfaceAddr(ifi *net.Interface) netip.Addr {
 	return netip.IPv4Unspecified()
 }
 
-// Connections returns the number of open connections on the endpoint.
+// Connections returns the number of open consuming connections on the
+// endpoint.
 func (e *Endpoint) Connections() int {
 	e.mu.Lock()
 	defer e.mu.Unlock()
-	return len(e.conns)
+	n := 0
+	for _, cs := range e.conns {
+		n += len(cs)
+	}
+	return n
 }

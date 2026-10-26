@@ -9,7 +9,6 @@
 | Objects | no Parameter, File, QoS, DLR, LLDP, Time Sync objects on the server | out of the first release's scope; add them as `server.Object` |
 | I/O | one scanner per host on UDP 2222 (unless targets honour a Sockaddr Info item); originator and target must reach each other without NAT | the protocol sends I/O to the originator's address at 2222 |
 | I/O security | the server filters O->T datagrams by source address only; a host on the same network that spoofs the originator can inject data | EtherNet/IP I/O is unauthenticated without DTLS |
-| Multicast consumption | two IO connections of one scanner endpoint cannot consume the same multicast production (they share the T->O connection ID; the second Open fails); use one IO per production, or a second scanner | the endpoint dispatches one connection per consumed ID |
 | Class 1 delivery | `OnData` may be called once more while `Close` runs | a callback lock would deadlock callbacks that call `Close` |
 | Multicast | needs `IP_ADD_MEMBERSHIP` (Unix, Windows); TTL is the system default | stdlib only |
 | ListIdentity over UDP | the server's reply delay applies only when `WithDiscoveryDelay` is set | without IP_PKTINFO the server cannot tell broadcast from unicast |

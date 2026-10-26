@@ -4,6 +4,7 @@ package ethernetip
 
 import (
 	"net"
+	"net/netip"
 	"time"
 
 	"github.com/otfabric/go-ethernetip/cip"
@@ -118,4 +119,7 @@ type ConnectionInfo struct {
 	OTRPI, TORPI time.Duration
 	// Path is the connection path.
 	Path cip.Path
+	// Group is the multicast address of the T->O data, when it is
+	// multicast.
+	Group netip.Addr
 }
