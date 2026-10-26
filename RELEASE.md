@@ -1,5 +1,28 @@
 # go-ethernetip Releases
 
+## v0.3.1
+
+**Date:** 2026-10-26
+**Previous release:** v0.3.0
+
+## Summary
+
+Interop with a twelfth independent stack, loki-os's go-ethernet-ip
+(otfabric/ethernetip-interop v0.4.0, pinned by digest): 184 cases pass,
+0 fail, 146 N/A. No change to the library's code.
+
+## Changes
+
+- **Interop**: go-ethernet-ip (loki-os) by its declared capabilities: 11
+  cases pass; Logix Write Tag N/A (it writes a tag only whole).
+- **README**: one comparison table of go-ethernetip and all twelve
+  reference stacks.
+- **Tests**: `TestChaosExplicit` polls for recovery with a deadline; the
+  scanner tests' shared configuration has a 64-RPI timeout (flaky on loaded
+  macOS Intel runners before).
+
+---
+
 ## v0.3.0
 
 **Date:** 2026-10-26
