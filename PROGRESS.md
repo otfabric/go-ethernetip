@@ -23,6 +23,8 @@ No work in progress: every branch is merged.
 
 | Release | Date | Where |
 |---|---|---|
+| go-ethernetip v0.3.0 (seven more references; template size, connection size, Multiple Service fixes) | 2026-10-26 | https://github.com/otfabric/go-ethernetip/releases/tag/v0.3.0 |
+| ethernetip-interop v0.3.0 (11 multi-arch images: + libplctag, gologix, pylogix, etherip, eip-rs, node-ethernet-ip, EEIP.NET) | 2026-10-26 | https://github.com/otfabric/ethernetip-interop/releases/tag/v0.3.0 |
 | go-ethernetip v0.2.1 (fix: ListIdentity over UDP could be off) | 2026-10-26 | https://github.com/otfabric/go-ethernetip/releases/tag/v0.2.1 |
 | go-ethernetip v0.2.0 | 2026-10-26 | https://github.com/otfabric/go-ethernetip/releases/tag/v0.2.0 |
 | ethernetip-interop v0.2.0 (4 multi-arch images, public on GHCR) | 2026-10-26 | https://github.com/otfabric/ethernetip-interop/releases/tag/v0.2.0 |
@@ -33,7 +35,7 @@ GitHub CI green on the merged commits: go-ethernetip on Linux, macOS and
 Windows (amd64 and arm64; race detector everywhere but Windows arm64), Go
 1.23-1.26, 90% coverage gate (98.7%), lint, fuzz, chaos (with the chaos
 monkey) and stress; interop on amd64 and arm64 against the pinned
-ethernetip-interop v0.2.0 images: 63 pass, 0 fail, 13 N/A
+ethernetip-interop v0.3.0 images (eleven references): 173 pass, 0 fail, 129 N/A
 ([matrix](INTEROPERABILITY.md#interop-matrix)). ethernetip-interop native
 amd64/arm64 build, smoke and self-test (52 pass, 0 fail). ethernetipctl
 reusable CI and 32-bit typecheck.
