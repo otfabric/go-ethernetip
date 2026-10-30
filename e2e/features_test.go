@@ -115,7 +115,7 @@ func TestTLS(t *testing.T) {
 
 // TestDiscover finds the adapter with one ListIdentity datagram.
 func TestDiscover(t *testing.T) {
-	a := startAdapter(t)
+	a := startUDPAdapter(t)
 	devs, err := client.Discover(ctxT(t), client.DiscoverOptions{Address: a.addr, Wait: 5 * time.Second, MaxDelay: 100 * time.Millisecond, MaxDevices: 1})
 	if err != nil {
 		t.Fatal(err)

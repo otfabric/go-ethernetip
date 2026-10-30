@@ -4,7 +4,7 @@
 
 .DEFAULT_GOAL := help
 
-.PHONY: help all build examples fmt fmt-check lint lint-ci vet vuln test test-short coverage coverage-check cover bench fuzz fuzz-long check clean interop test-interop generate generate-check coverpkg-check cross chaos stress
+.PHONY: help all build examples fmt fmt-check lint lint-ci vet vuln test test-short coverage coverage-check cover bench fuzz fuzz-long check clean interop test-interop generate generate-check coverpkg-check cross e2e chaos stress
 
 help: ## This help
 	@awk 'BEGIN {FS = ":.*?## "} /^[a-zA-Z0-9_-]+:.*?## / {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -106,6 +106,9 @@ cover: coverage ## Open coverage report in browser
 bench: ## Run the codec and end-to-end benchmarks
 	@echo "Running benchmarks"
 	@go test -count=1 -run='^$$' -bench=. -benchmem ./cip ./encap ./implicit ./e2e
+
+e2e: ## Run the end-to-end suite (client, scanner and server over loopback) with the race detector
+	@go test -count=1 -race ./e2e
 
 chaos: ## Run the chaos tests 10 times (ETHERNETIP_CHAOS_SEED=... repeats a seed)
 	@go test -count=10 -race -run 'Chaos' ./implicit ./e2e
