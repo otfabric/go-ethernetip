@@ -105,6 +105,26 @@ func startAdapterAt(t testing.TB, addr string, opts ...server.Option) *adapter {
 	return a
 }
 
+// startUDPAdapter is startAdapter for a test of ListIdentity over UDP. The
+// server opens its UDP socket on the number of its ephemeral TCP port and
+// carries on without one when that number is taken: every test package
+// binds ephemeral UDP ports, and Windows hands out the same numbers for TCP
+// and UDP, so the datagram of such a test would reach another socket. An
+// adapter whose UDP socket was not available is replaced.
+func startUDPAdapter(t testing.TB, opts ...server.Option) *adapter {
+	t.Helper()
+	const attempts = 20
+	for range attempts {
+		a := startAdapter(t, opts...)
+		if a.srv.UDPAddr() != nil {
+			return a
+		}
+		t.Logf("UDP port of %s is taken: trying another port", a.addr)
+	}
+	t.Fatalf("no adapter with a UDP socket in %d attempts", attempts)
+	return nil
+}
+
 func dial(t testing.TB, addr string, opts ...client.Option) *client.Client {
 	t.Helper()
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
