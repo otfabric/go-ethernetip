@@ -378,6 +378,107 @@ func TestReconnect(t *testing.T) {
 	}
 }
 
+// stallConn fails writes on demand and holds back the read error that would
+// wake the client's reader, so that the reader cannot tidy up after a lost
+// session: what a request sees then is what it would see if the reader were
+// merely not scheduled yet.
+type stallConn struct {
+	net.Conn
+	failWrites atomic.Bool
+	release    chan struct{}
+}
+
+func (s *stallConn) Write(b []byte) (int, error) {
+	if s.failWrites.Load() {
+		return 0, errors.New("injected write failure")
+	}
+	return s.Conn.Write(b)
+}
+
+func (s *stallConn) Read(b []byte) (int, error) {
+	n, err := s.Conn.Read(b)
+	if err != nil {
+		<-s.release
+	}
+	return n, err
+}
+
+// stallDialer makes the first connection a stallConn.
+type stallDialer struct {
+	mu    sync.Mutex
+	first *stallConn
+}
+
+func (d *stallDialer) DialContext(ctx context.Context, network, addr string) (net.Conn, error) {
+	conn, err := (&net.Dialer{}).DialContext(ctx, network, addr)
+	if err != nil {
+		return nil, err
+	}
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	if d.first == nil {
+		d.first = &stallConn{Conn: conn, release: make(chan struct{})}
+		return d.first, nil
+	}
+	return conn, nil
+}
+
+// A request after a failed write finds the session gone, whether or not the
+// reader has run: it reconnects, or reports ErrNotConnected without
+// auto-reconnect, and is not failed with the error of the dead session.
+func TestSessionLostOnWriteFailure(t *testing.T) {
+	for _, auto := range []bool{true, false} {
+		t.Run("auto="+strconv.FormatBool(auto), func(t *testing.T) {
+			_, addr := startServer(t)
+			d := &stallDialer{}
+			opts := []Option{WithDialer(d)}
+			if auto {
+				opts = append(opts, WithAutoReconnect())
+			}
+			c := dialT(t, addr, opts...)
+			t.Cleanup(func() { close(d.first.release) })
+			ctx := ctxT(t)
+			if _, err := c.Identity(ctx); err != nil {
+				t.Fatal(err)
+			}
+			d.first.failWrites.Store(true)
+			if _, err := c.Identity(ctx); !errors.Is(err, ethernetip.ErrConnectionLost) {
+				t.Fatalf("request on a broken connection = %v, want ErrConnectionLost", err)
+			}
+			_, err := c.Identity(ctx)
+			if auto {
+				if err != nil {
+					t.Fatalf("request after the failed write: %v", err)
+				}
+				if c.State() != ethernetip.StateConnected {
+					t.Errorf("state %v after reconnecting", c.State())
+				}
+				return
+			}
+			if !errors.Is(err, ethernetip.ErrNotConnected) || !errors.Is(err, ethernetip.ErrConnectionLost) {
+				t.Fatalf("request after the failed write = %v, want ErrNotConnected wrapping ErrConnectionLost", err)
+			}
+		})
+	}
+}
+
+// When a request fails because the peer closed the connection, the client
+// already knows the session is gone: there is no moment in which a retry
+// finds the dead session.
+func TestSessionLostBeforeRequestFails(t *testing.T) {
+	f := newFakeTarget(t, func(p *peer, _ encap.Packet) { _ = p.conn.Close() })
+	c := dialT(t, f.addr(), WithAutoReconnect())
+	ctx := ctxT(t)
+	for i := 0; i < 200; i++ {
+		if _, err := c.Identity(ctx); !errors.Is(err, ethernetip.ErrConnectionLost) {
+			t.Fatalf("round %d: %v, want ErrConnectionLost", i, err)
+		}
+		if h, st := c.Session(), c.State(); h != 0 || st != ethernetip.StateDisconnected {
+			t.Fatalf("round %d: session %#x in state %v after losing it", i, h, st)
+		}
+	}
+}
+
 func TestTimeoutAndCancel(t *testing.T) {
 	f := newFakeTarget(t, nil) // registers, then never answers
 	c := dialT(t, f.addr(), WithTimeout(50*time.Millisecond))

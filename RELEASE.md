@@ -1,5 +1,26 @@
 # go-ethernetip Releases
 
+## v0.3.3
+
+**Date:** 2026-10-30
+**Previous release:** v0.3.2
+
+## Summary
+
+A request right after a lost session no longer fails with that session's old
+error.
+
+## Changes
+
+- **client**: the session is released before requests see its failure. A
+  retry could otherwise find the dead session and fail at once with the old
+  error, without reconnecting (`WithAutoReconnect`) or reporting
+  `ErrNotConnected`, until the reader goroutine had run. The state handler now
+  reports the disconnection before pending requests fail, from whichever
+  goroutine ended the session.
+
+---
+
 ## v0.3.2
 
 **Date:** 2026-10-27
