@@ -315,6 +315,7 @@ go run ./examples/quickstart
 ```sh
 make check      # generated files, format, lint, vet, govulncheck, race tests, coverage gate, examples
 make test       # tests with the race detector
+make e2e        # end-to-end suite only, race detector
 make coverage-check   # combined coverage of the library packages, 90% minimum
 make fuzz       # every fuzz target (FUZZTIME=30s each)
 make chaos      # chaos suites, 10 times (ETHERNETIP_CHAOS_SEED repeats a run)
