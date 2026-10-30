@@ -367,17 +367,6 @@ func (c *Client) readLoop(s *session) {
 		err = ethernetip.ErrClosed
 	}
 	s.close(err)
-	c.mu.Lock()
-	ended := c.sess == s
-	if ended {
-		c.sess = nil
-		c.lastErr = s.err
-	}
-	c.mu.Unlock()
-	if ended {
-		c.log.Warn("session lost", "error", s.err)
-		c.setState(ethernetip.StateDisconnected, s.err)
-	}
 	if m := c.opts.metrics; m != nil {
 		var cause error
 		if !errors.Is(s.err, ethernetip.ErrClosed) {
@@ -386,6 +375,25 @@ func (c *Client) readLoop(s *session) {
 		m.OnDisconnect(s.remote, cause)
 	}
 	close(s.done)
+}
+
+// detach removes the lost session s from the client. The state changes with
+// the session, so that a client never reports Connected without one.
+func (c *Client) detach(s *session, err error) {
+	c.mu.Lock()
+	if c.sess != s {
+		c.mu.Unlock()
+		return
+	}
+	c.sess = nil
+	c.lastErr = err
+	changed := c.state != ethernetip.StateDisconnected
+	c.state = ethernetip.StateDisconnected
+	c.mu.Unlock()
+	c.log.Warn("session lost", "error", err)
+	if changed && c.opts.stateChange != nil {
+		c.opts.stateChange(ethernetip.StateDisconnected, err)
+	}
 }
 
 // dispatch delivers a reply to the request with its sender context.
@@ -404,8 +412,11 @@ func (s *session) dispatch(pkt encap.Packet) {
 }
 
 // close ends the session: the connection is closed and every pending
-// request fails with err.
+// request fails with err. The client lets go of the session first: whoever
+// sees err and tries again must not get this session back, or a retry fails
+// with the old error instead of reconnecting.
 func (s *session) close(err error) {
+	s.c.detach(s, err)
 	s.mu.Lock()
 	if s.err != nil {
 		s.mu.Unlock()
