@@ -13,8 +13,11 @@ permissions:
 
 jobs:
   ci:
-    uses: otfabric/.github/.github/workflows/go-ci.yml@v2
+    uses: otfabric/.github/.github/workflows/go-ci.yml@v2.1.0
     with:
+      run-govulncheck: true
+      coverage-min: "90"
+      fuzz-time: 10s
       codecov-name: go-ethernetip
       # Coverage across the library packages, as make coverage measures it:
       # the e2e suite and the client and server tests exercise each other's
@@ -89,24 +92,6 @@ jobs:
       - name: Cross-compile every target
         if: matrix.os == 'ubuntu-24.04'
         run: make cross
-
-  # The fuzz targets, briefly, on every push; longer in fuzz.yml.
-  fuzz:
-    name: Fuzz
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-go@v7
-        with:
-          go-version: "1.23.x"
-      - run: make fuzz FUZZTIME=15s
-      - name: Upload the failing inputs
-        if: failure()
-        uses: actions/upload-artifact@v7
-        with:
-          name: fuzz-failures
-          path: "**/testdata/fuzz/"
-          if-no-files-found: warn
 
   # The chaos and stress suites, repeated.
   chaos:
