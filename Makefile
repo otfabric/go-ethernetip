@@ -21,9 +21,11 @@ BIN_DIR := bin
 # sample package are not library code).
 TEST_PKGS := $(shell go list ./... | grep -v '/examples' | grep -v '/interop')
 # Packages whose coverage counts, including what the e2e suite exercises.
-COVER_PKGS := $(shell go list ./... | grep -v '/examples' | grep -v '/internal/cmd' | grep -v '/e2e' | grep -v '/sampledevice' | grep -v '/interop' | paste -sd, -)
+COVER_PKGS := $(shell go list ./... | grep -v '/examples' | grep -v '/internal/cmd' | grep -v '/e2e' | grep -v '/sampledevice' | grep -v '/internal/testenv' | grep -v '/interop' | paste -sd, -)
 # Minimum total statement coverage enforced by coverage-check (and CI).
 COVERAGE_MIN ?= 90
+# Per-package floor (TEST-012); needs the -coverpkg coverage.out of `make coverage`.
+COVER_PKG_MIN := 90
 
 INTEROP_TAGS := interop
 
@@ -100,6 +102,11 @@ coverage-check: coverage ## Fail when the total coverage is below COVERAGE_MIN p
 	awk -v t="$$total" -v m="$(COVERAGE_MIN)" 'BEGIN { exit (t + 0 < m + 0) ? 1 : 0 }' || \
 		{ echo "Coverage $$total% is below the required $(COVERAGE_MIN)%"; exit 1; }
 
+coverage-pkg-check: coverage ## Fail when a package is below COVER_PKG_MIN
+	@awk -v m="$(COVER_PKG_MIN)" 'NR > 1 { n[$$1] = $$2; if ($$3 > 0) h[$$1] = 1 } \
+	END { for (k in n) { p = k; sub(/\/[^\/]*$$/, "", p); s[p] += n[k]; if (k in h) c[p] += n[k] } \
+	for (p in s) { v = 100 * c[p] / s[p]; if (v < m) { printf "%s: %.1f%% < %s%%\n", p, v, m; bad = 1 } } exit bad }' coverage.out
+
 cover: coverage ## Open coverage report in browser
 	@go tool cover -html=coverage.out
 
@@ -153,7 +160,7 @@ generate-check: ## Fail when the generated files differ from their sources
 coverpkg-check: ## Fail when CI's coverpkg (.github/workflows/ci.yml) is not COVER_PKGS
 	@grep -qF -- "$(COVER_PKGS)" .github/workflows/ci.yml || { echo "coverpkg in .github/workflows/ci.yml must be: $(COVER_PKGS)"; exit 1; }
 
-check: generate-check coverpkg-check fmt fmt-check lint lint-ci vet vuln test coverage-check examples ## Run every check (pre-push gate)
+check: generate-check coverpkg-check fmt fmt-check lint lint-ci vet vuln test coverage-check coverage-pkg-check examples ## Run every check (pre-push gate)
 
 clean: ## Remove generated binaries and coverage artifacts
 	@echo "Cleaning up"

@@ -24,13 +24,16 @@ other over loopback TCP and UDP; no mocks stand in for the network.
   `ETHERNETIP_MONKEY_DURATION=10m` soaks the chaos monkey.
 - Multicast tests over loopback skip, saying so, where the system does not
   deliver multicast on the loopback interface.
+  `ETHERNETIP_REQUIRE_MULTICAST=1` turns that skip into a failure; the CI job
+  "Coverage gate" sets it.
 - Coverage is measured across the library packages together (`make
   coverage`: `-coverpkg` over every library package, so that the e2e suite
   counts for the packages it exercises) and must be at least 90%
-  (`make coverage-check`, CI job "Coverage gate"). Not counted: the
+  (`make coverage-check`, CI job "Coverage gate"), and so must each package
+  (`make coverage-pkg-check`, `COVER_PKG_MIN`). Not counted: the
   examples, `internal/cmd` (generators and the interop node), the
-  generated sample package `eds/internal/sampledevice` (tested, but
-  generated), the interop suite.
+  test helper `internal/testenv`, the generated sample package
+  `eds/internal/sampledevice` (tested, but generated), the interop suite.
 
 ## Platforms
 

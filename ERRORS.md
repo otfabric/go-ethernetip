@@ -24,6 +24,21 @@ A cancelled context returns `context.Canceled` (not `ErrTimeout`); a
 deadline returns an error matching both `ErrTimeout` and
 `context.DeadlineExceeded`.
 
+## Sentinels of the subpackages
+
+These packages stand alone (a decoder, a file parser), so their input errors
+are their own. The client and server turn a bad frame into `ErrProtocol` or a
+CIP status; the sentinels below reach code that calls the packages directly.
+
+| Sentinel | Meaning | Typical cause |
+|---|---|---|
+| `cip.ErrTruncated` | data ends before the structure it encodes | a decoder given a short buffer |
+| `cip.ErrMalformed` | data that does not encode a valid structure | an unknown segment type, an inconsistent length, an out-of-range value |
+| `cip.ErrTooLarge` | a value too large for the field that carries its size | a path above 255 words, a string longer than its length prefix allows, a Multiple Service Packet above 65535 services, a connection size that needs Large_Forward_Open |
+| `eds.ErrSyntax` | text that is not an EDS file; every `*eds.SyntaxError` matches it and adds the position | `eds.Parse` on a file with a broken section or entry |
+| `logix.ErrTagName` | a tag name that does not parse | `logix.ParseTag` |
+| `logix.ErrType` | a value used with a type it does not have | `Value` accessors on another type, a template's data that does not fit the structure |
+
 ## Typed errors
 
 **`*ethernetip.CIPError`** — a CIP response whose general status is not

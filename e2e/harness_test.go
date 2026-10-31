@@ -14,6 +14,7 @@ import (
 	"github.com/otfabric/go-ethernetip/cip"
 	"github.com/otfabric/go-ethernetip/client"
 	"github.com/otfabric/go-ethernetip/implicit"
+	"github.com/otfabric/go-ethernetip/internal/testenv"
 	"github.com/otfabric/go-ethernetip/scanner"
 	"github.com/otfabric/go-ethernetip/server"
 )
@@ -204,7 +205,7 @@ func loopbackMulticast(t testing.TB) *net.Interface {
 		}
 	}})
 	if err != nil {
-		t.Skipf("loopback multicast: %v", err)
+		testenv.Multicast(t, "loopback multicast: %v", err)
 	}
 	defer in.Close()
 	out, err := tx.Open(implicit.Config{ProducedID: 1, ProduceRPI: 10 * time.Millisecond,
@@ -217,7 +218,7 @@ func loopbackMulticast(t testing.TB) *net.Interface {
 	case <-got:
 		return lo
 	case <-time.After(time.Second):
-		t.Skip("multicast is not delivered on the loopback interface here")
+		testenv.Multicast(t, "multicast is not delivered on the loopback interface here")
 		return nil
 	}
 }

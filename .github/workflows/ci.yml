@@ -30,16 +30,20 @@ jobs:
       timeout-minutes: 25
     secrets: inherit
 
-  # The shared workflow reports coverage; this job enforces the 90% gate.
+  # The shared workflow reports coverage; this job enforces the 90% gates,
+  # of the total and of each package. Multicast works here, so a multicast
+  # test that cannot run is a failure, not a skip.
   coverage-gate:
     name: Coverage gate (90%)
     runs-on: ubuntu-latest
+    env:
+      ETHERNETIP_REQUIRE_MULTICAST: "1"
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
-      - run: make coverage-check
+      - run: make coverage-check coverage-pkg-check
 
   # The generated catalog and sample EDS package follow their sources.
   generate:
