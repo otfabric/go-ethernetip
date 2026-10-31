@@ -1,5 +1,16 @@
 # go-ethernetip Releases
 
+## v0.3.4
+
+**Date:** 2026-10-31
+**Previous release:** v0.3.3
+
+### Changed
+
+- Policy 1.2: build output in `bin/` and `release/`, a per-package coverage floor, and more tests and CI. No change in behaviour.
+
+---
+
 ## v0.3.3
 
 **Date:** 2026-10-30
