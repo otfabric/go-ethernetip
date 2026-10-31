@@ -14,7 +14,7 @@ This repository follows **otfabric/engineering policy 1.1**, profile **protocol-
 |---|---|
 | Standards used, and what is public | docs/STANDARDS.md |
 | Codes and vendors | `cip/catalog.json`, `cip/vendors.json` (generate `cip/catalog_gen.go`, CATALOG.md) |
-| What is supported and verified | INTEROPERABILITY.md, docs/LIMITATIONS.md |
+| What is supported and verified | docs/FEATURE-STATUS.md, INTEROPERABILITY.md, docs/LIMITATIONS.md |
 | How to test | TESTING.md |
 | Errors | ERRORS.md |
 | Release history | RELEASE.md (`## vX.Y.Z` … `---`) |

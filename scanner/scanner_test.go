@@ -17,6 +17,7 @@ import (
 	"github.com/otfabric/go-ethernetip/client"
 	"github.com/otfabric/go-ethernetip/encap"
 	"github.com/otfabric/go-ethernetip/implicit"
+	"github.com/otfabric/go-ethernetip/internal/testenv"
 	"github.com/otfabric/go-ethernetip/server"
 )
 
@@ -452,7 +453,7 @@ func TestMulticast(t *testing.T) {
 		if errors.Is(err, ethernetip.ErrProtocol) || connStatus(err) != 0 {
 			t.Fatalf("multicast Open = %v", err)
 		}
-		t.Skipf("multicast group not joinable here: %v", err)
+		testenv.Multicast(t, "multicast group not joinable here: %v", err)
 	}
 	defer func() { _ = io.Close(ctx) }()
 	conns := a.srv.Connections()

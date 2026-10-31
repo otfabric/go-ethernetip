@@ -14,6 +14,8 @@ import (
 	"time"
 
 	ethernetip "github.com/otfabric/go-ethernetip"
+
+	"github.com/otfabric/go-ethernetip/internal/testenv"
 )
 
 func mustAddrPort(s string) netip.AddrPort { return netip.MustParseAddrPort(s) }
@@ -737,7 +739,7 @@ func TestMulticastJoinLeave(t *testing.T) {
 	group := netip.MustParseAddr("239.192.13.37")
 	c1, err := e.Open(Config{ConsumedID: 1, Group: group})
 	if err != nil {
-		t.Skipf("multicast not available: %v", err)
+		testenv.Multicast(t, "multicast not available: %v", err)
 	}
 	c2, err := e.Open(Config{ConsumedID: 2, Group: group})
 	if err != nil {
@@ -804,7 +806,7 @@ func TestMulticastSharedConsumption(t *testing.T) {
 	var owner, listener dataLog
 	c1, err := e.Open(Config{Class: 1, ConsumedID: 7, Group: group, ConsumeSize: 2, OnData: owner.onData})
 	if err != nil {
-		t.Skipf("multicast not available: %v", err)
+		testenv.Multicast(t, "multicast not available: %v", err)
 	}
 	t.Cleanup(c1.Close)
 	// A second multicast consumer shares the ID (a listen-only connection
