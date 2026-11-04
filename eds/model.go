@@ -214,7 +214,7 @@ func (f *File) Params() ([]Param, error) {
 // "20 04 24 64 2C 65". It is packed (no pad octets).
 func ParseEPATH(s string) (cip.Path, error) {
 	var b []byte
-	for _, tok := range strings.Fields(s) {
+	for tok := range strings.FieldsSeq(s) {
 		if len(tok) != 2 {
 			return nil, fmt.Errorf("eds: EPATH octet %q", tok)
 		}
@@ -358,7 +358,7 @@ func (f *File) Connections() ([]Connection, error) {
 // bits 0..15 flag classes 0 to 15 (CIP Volume 1, 7-3.6.13 as EDS files use
 // it); the lowest flagged class is returned.
 func (c Connection) Class() int {
-	for i := 0; i < 16; i++ {
+	for i := range 16 {
 		if c.TriggerTransport&(1<<i) != 0 {
 			return i
 		}

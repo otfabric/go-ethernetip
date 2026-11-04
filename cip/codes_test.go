@@ -165,7 +165,7 @@ func TestDataType(t *testing.T) {
 
 	// Every known type parses back from its name.
 	n := 0
-	for i := 0; i < 256; i++ {
+	for i := range 256 {
 		dt := cip.DataType(i)
 		if !dt.Known() {
 			continue

@@ -133,7 +133,7 @@ func TestForwardOpenErrors(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for n := 0; n < len(good); n++ {
+	for n := range good {
 		if _, err := cip.DecodeForwardOpen(good[:n], false); !errors.Is(err, cip.ErrTruncated) {
 			t.Fatalf("truncated to %d: %v", n, err)
 		}

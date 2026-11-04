@@ -268,8 +268,7 @@ func TestChaosCorruption(t *testing.T) {
 		cancel()
 		if err != nil && !allowedChaosError(err) && !errors.Is(err, ethernetip.ErrProtocol) &&
 			!errors.Is(err, ethernetip.ErrSession) {
-			var ce *ethernetip.CIPError
-			if !errors.As(err, &ce) {
+			if _, ok := errors.AsType[*ethernetip.CIPError](err); !ok {
 				t.Fatalf("unexpected error: %v", err)
 			}
 		}
@@ -320,7 +319,7 @@ func TestChaosInjectedDatagrams(t *testing.T) {
 		return b
 	}
 	evil := bytes.Repeat([]byte{0xEE}, ioSize)
-	for i := 0; i < 500; i++ {
+	for range 500 {
 		var b []byte
 		switch rng.Intn(5) {
 		case 0: // a stale encapsulation sequence number (a replay)

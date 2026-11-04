@@ -27,7 +27,7 @@ func TestStressManyClients(t *testing.T) {
 	const clients, requests = 40, 40
 	var wg sync.WaitGroup
 	errs := make(chan error, clients)
-	for i := 0; i < clients; i++ {
+	for i := range clients {
 		wg.Add(1)
 		go func(i int) {
 			defer wg.Done()
@@ -39,7 +39,7 @@ func TestStressManyClients(t *testing.T) {
 				return
 			}
 			defer func() { _ = c.Close() }()
-			for j := 0; j < requests; j++ {
+			for j := range requests {
 				if j%4 == 0 {
 					resps, err := c.MultipleService(ctx, []cip.Request{
 						{Service: cip.ServiceGetAttributeSingle, Path: cip.AttributePath(cip.ClassIdentity, 1, 3)},
@@ -75,14 +75,14 @@ func TestStressSharedSession(t *testing.T) {
 	ctx := ctxT(t)
 	var wg sync.WaitGroup
 	var bad atomic.Int32
-	for g := 0; g < 16; g++ {
+	for g := range 16 {
 		wg.Add(1)
 		go func(g int) {
 			defer wg.Done()
 			// Each goroutine reads an attribute whose value tells it apart.
 			attr := []uint16{1, 2, 3, 6}[g%4]
 			want := map[uint16]int{1: 2, 2: 2, 3: 2, 6: 4}[attr]
-			for i := 0; i < 100; i++ {
+			for range 100 {
 				b, err := c.GetAttributeSingle(ctx, cip.ClassIdentity, 1, attr)
 				if err != nil || len(b) != want {
 					bad.Add(1)
@@ -106,10 +106,8 @@ func TestStressSessionLimit(t *testing.T) {
 	var mu sync.Mutex
 	var ok []*client.Client
 	refused := 0
-	for i := 0; i < 3*limit; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+	for range 3 * limit {
+		wg.Go(func() {
 			c, err := client.Dial(ctxT(t), a.addr)
 			mu.Lock()
 			defer mu.Unlock()
@@ -123,7 +121,7 @@ func TestStressSessionLimit(t *testing.T) {
 				return
 			}
 			t.Errorf("unexpected error %v", err)
-		}()
+		})
 	}
 	wg.Wait()
 	if len(ok) != limit || refused != 2*limit {
@@ -182,7 +180,6 @@ func TestStressConnections(t *testing.T) {
 		t.Fatalf("%d connections", n)
 	}
 	for _, io := range ios {
-		io := io
 		eventually(t, 3*time.Second, "input", func() bool { d, _, _ := io.Input(); return bytes.Equal(d, in) })
 	}
 	for _, cn := range conns {
@@ -251,7 +248,7 @@ func TestStressReconnectStorm(t *testing.T) {
 		}(c)
 	}
 	srv := a.srv
-	for i := 0; i < 5; i++ {
+	for range 5 {
 		time.Sleep(50 * time.Millisecond)
 		_ = srv.Close()
 		srv = startAdapterAt(t, addr).srv
@@ -263,7 +260,7 @@ func TestStressReconnectStorm(t *testing.T) {
 	}
 	for _, c := range cs {
 		var err error
-		for i := 0; i < 5; i++ {
+		for range 5 {
 			if _, err = c.Identity(ctxT(t)); err == nil {
 				break
 			}
@@ -279,7 +276,7 @@ func TestStressReconnectStorm(t *testing.T) {
 func TestStressConnectCycles(t *testing.T) {
 	a := startAdapter(t)
 	rng := rand.New(rand.NewSource(1))
-	for i := 0; i < 200; i++ {
+	for range 200 {
 		c, err := client.Dial(ctxT(t), a.addr)
 		if err != nil {
 			t.Fatal(err)
@@ -306,10 +303,8 @@ func TestStressShutdownUnderLoad(t *testing.T) {
 	var wg sync.WaitGroup
 	stop := make(chan struct{})
 	var unexpected atomic.Value
-	for g := 0; g < 8; g++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+	for range 8 {
+		wg.Go(func() {
 			for {
 				select {
 				case <-stop:
@@ -323,7 +318,7 @@ func TestStressShutdownUnderLoad(t *testing.T) {
 					unexpected.Store(err)
 				}
 			}
-		}()
+		})
 	}
 	time.Sleep(100 * time.Millisecond)
 	start := time.Now()
@@ -351,7 +346,7 @@ func TestStressCancellation(t *testing.T) {
 		delays[i] = time.Duration(rng.Intn(400)) * time.Microsecond
 	}
 	var bad atomic.Int32
-	for g := 0; g < 4; g++ {
+	for g := range 4 {
 		wg.Add(1)
 		go func(g int) {
 			defer wg.Done()

@@ -200,13 +200,13 @@ func SplitMultiple(b []byte) ([][]byte, error) {
 		return nil, fmt.Errorf("multiple service packet: %w: %d services in %d octets", ErrTruncated, n, len(b))
 	}
 	offs := make([]int, n+1)
-	for i := 0; i < n; i++ {
+	for i := range n {
 		offs[i] = int(r.Uint16())
 	}
 	offs[n] = len(b)
 	lo := 2 + 2*n
 	out := make([][]byte, n)
-	for i := 0; i < n; i++ {
+	for i := range n {
 		if offs[i] < lo || offs[i] > offs[i+1] || offs[i+1] > len(b) {
 			return nil, fmt.Errorf("multiple service packet: %w: offset %d of service %d", ErrMalformed, offs[i], i)
 		}

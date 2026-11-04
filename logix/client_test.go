@@ -97,7 +97,7 @@ func TestClientReadFragmented(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for i := 0; i < 4; i++ {
+	for i := range 4 {
 		if x, _ := v.Int(i); x != int64(i+1) {
 			t.Fatalf("[%d] = %d", i, x)
 		}
@@ -155,8 +155,7 @@ func TestClientReadErrors(t *testing.T) {
 			t.Fatalf("%s: %v", cs.name, err)
 		}
 		if cs.want == nil {
-			var ce *ethernetip.CIPError
-			if !errors.As(err, &ce) {
+			if _, ok := errors.AsType[*ethernetip.CIPError](err); !ok {
 				t.Fatalf("%s: %v", cs.name, err)
 			}
 		}
@@ -223,7 +222,7 @@ func TestClientWriteFragmented(t *testing.T) {
 	}
 	v, _ := Ints(cip.TypeDINT, vals...)
 	d := &fakeDoer{t: t}
-	for i := 0; i < 6; i++ {
+	for range 6 {
 		d.resps = append(d.resps, ok())
 	}
 	if err := NewClient(d, WithMaxData(70), WithMaxData(10)).Write(ctx, "Arr", v); err != nil {

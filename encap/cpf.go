@@ -103,7 +103,7 @@ func decodeCPF(b []byte) ([]Item, []byte, error) {
 	}
 	b = b[2:]
 	items := make([]Item, 0, n)
-	for i := 0; i < n; i++ {
+	for i := range n {
 		if len(b) < 4 {
 			return nil, nil, fmt.Errorf("%w: item %d header", ErrTruncated, i)
 		}

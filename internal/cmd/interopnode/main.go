@@ -476,8 +476,7 @@ func clientOp(op string, args []string, stdout, stderr io.Writer) int {
 		}
 		resps, err := d.(multi).MultipleService(ctx, reqs)
 		if err != nil {
-			var ce *ethernetip.CIPError
-			if errors.As(err, &ce) {
+			if ce, ok := errors.AsType[*ethernetip.CIPError](err); ok {
 				res["status"], res["ok"] = int(ce.Status), true
 				break
 			}
@@ -663,8 +662,7 @@ func ioOp(ctx context.Context, c *client.Client, res result, write func(int) int
 	res["timedOut"] = io.State() == ethernetip.StateTimedOut
 	fc := map[string]any{"status": 0}
 	if err := io.Close(ctx); err != nil {
-		var ce *ethernetip.CIPError
-		if errors.As(err, &ce) {
+		if ce, ok := errors.AsType[*ethernetip.CIPError](err); ok {
 			ext := []int{}
 			for _, x := range ce.Extended {
 				ext = append(ext, int(x))
@@ -686,8 +684,7 @@ func ioOp(ctx context.Context, c *client.Client, res result, write func(int) int
 		lr["timedOut"] = lio.State() == ethernetip.StateTimedOut
 		lfc := map[string]any{"status": 0}
 		if err := lio.Close(ctx); err != nil {
-			var ce *ethernetip.CIPError
-			if errors.As(err, &ce) {
+			if ce, ok := errors.AsType[*ethernetip.CIPError](err); ok {
 				ext := []int{}
 				for _, x := range ce.Extended {
 					ext = append(ext, int(x))

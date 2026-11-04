@@ -104,7 +104,7 @@ func NewTagServer(opts ...TagServerOption) *TagServer {
 		byInst:      map[uint32]*tagEntry{},
 		programs:    map[string]uint32{},
 		progNames:   map[uint32]string{},
-		templates:   map[uint16]*Template{StringTemplate.ID: ptr(StringTemplate)},
+		templates:   map[uint16]*Template{StringTemplate.ID: new(StringTemplate)},
 		nextInst:    1,
 	}
 	for _, o := range opts {
@@ -112,8 +112,6 @@ func NewTagServer(opts ...TagServerOption) *TagServer {
 	}
 	return ts
 }
-
-func ptr[T any](v T) *T { return &v }
 
 // OnWrite sets a function called with the full name of a tag after an
 // originator wrote it.
@@ -188,11 +186,11 @@ func (ts *TagServer) memberSize(m Member) (int, error) {
 
 func splitProgram(name string) (program, tag string, err error) {
 	if strings.HasPrefix(strings.ToLower(name), "program:") {
-		i := strings.IndexByte(name, '.')
-		if i < 0 {
+		before, after, ok := strings.Cut(name, ".")
+		if !ok {
 			return "", "", fmt.Errorf("%w: %q", ErrTagName, name)
 		}
-		return name[:i], name[i+1:], nil
+		return before, after, nil
 	}
 	return "", name, nil
 }
@@ -781,7 +779,7 @@ func (o *templateObject) ServeCIP(_ context.Context, r *server.Request) cip.Resp
 		}
 		out := cip.AppendUint16(nil, uint16(n))
 		st := cip.StatusSuccess
-		for i := 0; i < n; i++ {
+		for range n {
 			id := rd.Uint16()
 			out = cip.AppendUint16(out, id)
 			switch id {

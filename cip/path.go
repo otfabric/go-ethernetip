@@ -660,7 +660,7 @@ func ParseRoute(s string) (Path, error) {
 		return nil, nil
 	}
 	var p Path
-	for _, hop := range strings.Split(s, ",") {
+	for hop := range strings.SplitSeq(s, ",") {
 		port, link, ok := strings.Cut(strings.TrimSpace(hop), "/")
 		if !ok {
 			return nil, fmt.Errorf("%w: route hop %q: want port/link", ErrMalformed, hop)

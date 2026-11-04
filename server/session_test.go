@@ -301,7 +301,7 @@ func TestDiscoveryDelay(t *testing.T) {
 	if d := s.discoveryDelay(ls); d != 0 {
 		t.Errorf("ListServices delayed by %v", d)
 	}
-	for i := 0; i < 100; i++ {
+	for range 100 {
 		if d := s.discoveryDelay(li); d < 0 || d >= 30*time.Millisecond {
 			t.Fatalf("delay %v outside [0, 30ms)", d)
 		}

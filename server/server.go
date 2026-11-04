@@ -9,7 +9,7 @@ import (
 	"fmt"
 	"net"
 	"net/netip"
-	"sort"
+	"slices"
 	"strconv"
 	"sync"
 	"time"
@@ -117,7 +117,7 @@ func (s *Server) Classes() []cip.Class {
 	for c := range s.objects {
 		out = append(out, c)
 	}
-	sort.Slice(out, func(i, j int) bool { return out[i] < out[j] })
+	slices.Sort(out)
 	return out
 }
 

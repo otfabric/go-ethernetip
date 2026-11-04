@@ -49,5 +49,5 @@ Status words, as in INTEROPERABILITY.md:
 
 Tested natively on Linux, macOS and Windows, amd64 and arm64; FreeBSD and
 32-bit ARM Linux are built, not tested. The interop suite runs on Linux amd64
-and arm64. Multicast needs `IP_ADD_MEMBERSHIP` (Unix, Windows). Go 1.23 to 1.26
+and arm64. Multicast needs `IP_ADD_MEMBERSHIP` (Unix, Windows). Go 1.26 and 1.27
 in CI.

@@ -90,10 +90,7 @@ func Discover(ctx context.Context, opts DiscoverOptions) ([]Device, error) {
 	h.Command = encap.CommandListIdentity
 	_, _ = rand.Read(h.Context[2:])
 	if opts.MaxDelay > 0 {
-		ms := opts.MaxDelay.Milliseconds()
-		if ms > 0xFFFF {
-			ms = 0xFFFF
-		}
+		ms := min(opts.MaxDelay.Milliseconds(), 0xFFFF)
 		binary.LittleEndian.PutUint16(h.Context[:], uint16(ms))
 	}
 	req, _ := encap.Packet{Header: h}.Encode()

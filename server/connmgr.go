@@ -65,8 +65,7 @@ func newConnectionManager(s *Server) *connectionManager {
 		ids:            map[uint32]bool{},
 	}
 	in := cm.AddInstance(1)
-	for i := 0; i < numCounters; i++ {
-		i := i
+	for i := range numCounters {
 		in.SetAttribute(uint16(i+1), Attribute{Get: func() []byte {
 			cm.mu.Lock()
 			defer cm.mu.Unlock()

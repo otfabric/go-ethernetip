@@ -263,7 +263,7 @@ func TestTemplateDecodeFieldBudget(t *testing.T) {
 	chain := make([]Template, 21)
 	for id := range chain {
 		chain[id] = Template{ID: uint16(id), Name: "Chain", Size: 4}
-		for i := 0; i < 8; i++ {
+		for range 8 {
 			m := Member{Name: "M", Type: NewStructType(uint16(id+1), 0)}
 			if id == len(chain)-1 {
 				m.Type = NewAtomicType(cip.TypeDINT, 0, 0)

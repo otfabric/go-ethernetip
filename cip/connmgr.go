@@ -231,11 +231,8 @@ func TickTimeout(priorityTick, ticks uint8) time.Duration {
 // represent d as closely as possible from above, at most 255 × 2^15 ms
 // (about 2.3 hours).
 func Ticks(d time.Duration) (priorityTick, ticks uint8) {
-	ms := d.Milliseconds()
-	if ms < 1 {
-		ms = 1
-	}
-	for tick := uint8(0); tick < 16; tick++ {
+	ms := max(d.Milliseconds(), 1)
+	for tick := range uint8(16) {
 		n := (ms + (1<<tick - 1)) >> tick
 		if n <= math.MaxUint8 {
 			return tick, uint8(n)

@@ -65,7 +65,7 @@ func TestCIPErrorExtendedStatus(t *testing.T) {
 }
 
 func TestCIPErrorIs(t *testing.T) {
-	for s := 0; s < 0x100; s++ {
+	for s := range 0x100 {
 		e := &CIPError{Status: cip.GeneralStatus(s)}
 		want := s == 0x08 || s == 0x14
 		if got := errors.Is(e, ErrUnsupported); got != want {

@@ -144,7 +144,7 @@ func TestScannerManyAdapters(t *testing.T) {
 		out []byte
 	}
 	var devs []dev
-	for i := 0; i < 3; i++ {
+	for i := range 3 {
 		a := startAdapter(t)
 		s, err := scanner.New(dial(t, a.addr), scanner.WithEndpoint(ep))
 		if err != nil {

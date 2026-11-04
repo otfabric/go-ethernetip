@@ -5,7 +5,7 @@ package server
 import (
 	"context"
 	"net"
-	"sort"
+	"slices"
 	"sync"
 
 	"github.com/otfabric/go-ethernetip/cip"
@@ -286,7 +286,7 @@ func (o *StandardObject) getAll(attrs map[uint16]Attribute) []byte {
 		}
 	}
 	o.mu.RUnlock()
-	sort.Slice(ids, func(i, j int) bool { return ids[i] < ids[j] })
+	slices.Sort(ids)
 	var b []byte
 	for _, id := range ids {
 		b = append(b, sel[id].Get()...)
@@ -311,7 +311,7 @@ func (o *StandardObject) getList(attrs map[uint16]Attribute, data []byte) cip.Re
 	}
 	out := cip.AppendUint16(nil, uint16(n))
 	st := cip.StatusSuccess
-	for i := 0; i < n; i++ {
+	for range n {
 		id := r.Uint16()
 		a, ok := o.attr(attrs, id)
 		out = cip.AppendUint16(out, id)

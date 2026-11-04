@@ -1,6 +1,6 @@
 # go-ethernetip - EtherNet/IP and CIP Scanner and Adapter Library for Go
 
-[![Go Version](https://img.shields.io/badge/Go-1.23%2B-00ADD8?style=flat&logo=go)](https://go.dev/)
+[![Go Version](https://img.shields.io/badge/Go-1.26%2B-00ADD8?style=flat&logo=go)](https://go.dev/)
 [![Go Reference](https://pkg.go.dev/badge/github.com/otfabric/go-ethernetip.svg)](https://pkg.go.dev/github.com/otfabric/go-ethernetip)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![CI Status](https://github.com/otfabric/go-ethernetip/actions/workflows/ci.yml/badge.svg)](https://github.com/otfabric/go-ethernetip/actions/workflows/ci.yml)
@@ -170,7 +170,7 @@ and we will correct it.
 go get github.com/otfabric/go-ethernetip
 ```
 
-Requires Go 1.23 or later.
+Requires Go 1.26 or later.
 
 ## Project structure
 

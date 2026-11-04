@@ -13,7 +13,7 @@ permissions:
 
 jobs:
   ci:
-    uses: otfabric/.github/.github/workflows/go-ci.yml@v3.3.0
+    uses: otfabric/.github/.github/workflows/go-ci.yml@v3.3.1
     with:
       run-govulncheck: true
       coverage-min: "90"
@@ -24,7 +24,7 @@ jobs:
       # packages. make coverpkg-check keeps it equal to COVER_PKGS.
       coverpkg: >-
         github.com/otfabric/go-ethernetip,github.com/otfabric/go-ethernetip/cip,github.com/otfabric/go-ethernetip/client,github.com/otfabric/go-ethernetip/eds,github.com/otfabric/go-ethernetip/encap,github.com/otfabric/go-ethernetip/implicit,github.com/otfabric/go-ethernetip/internal/logx,github.com/otfabric/go-ethernetip/logix,github.com/otfabric/go-ethernetip/scanner,github.com/otfabric/go-ethernetip/server
-      go-versions: '["1.23", "1.24", "1.25", "1.26"]'
+      go-versions: '["1.26", "1.27"]'
       # The race and e2e suites need more than the default 15 minutes on
       # loaded runners.
       timeout-minutes: 25
@@ -53,7 +53,7 @@ jobs:
       - uses: actions/checkout@v7
       - uses: actions/setup-go@v7
         with:
-          go-version: "1.23.x"
+          go-version-file: go.mod
       - run: make generate-check coverpkg-check
 
   # The self-contained examples keep running as they are.
@@ -64,7 +64,7 @@ jobs:
       - uses: actions/checkout@v7
       - uses: actions/setup-go@v7
         with:
-          go-version: "1.23.x"
+          go-version-file: go.mod
       - run: make build examples
 
   # Native test runs on every platform the library supports; arm64
