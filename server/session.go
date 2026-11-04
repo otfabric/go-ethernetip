@@ -358,10 +358,14 @@ func (ss *session) sendUnitData(pkt encap.Packet) {
 		ctx := context.WithValue(ss.s.ctx, exchangeKey{}, &exchange{sess: ss, items: rr.Items, maxReply: max(cn.toSize-6, 0)})
 		r := ss.s.handleMessage(ctx, data.Data[2:], ss.remote, true)
 		b, err := r.Encode()
-		if err == nil && len(b) <= maxConnectedReply {
+		// The T->O connection size bounds what the target sends on the
+		// connection, sequence count included: a reply beyond it is
+		// answered with 0x11 (reply data too large), which always fits
+		// (Forward_Open accepts no smaller size).
+		if err == nil && len(b) <= min(cn.toSize-2, maxConnectedReply) {
 			return b
 		}
-		ss.s.log.Warn("response not encoded", "error", err, "octets", len(b))
+		ss.s.log.Warn("response not sent", "error", err, "octets", len(b), "connection size", cn.toSize)
 		b, _ = tooLarge(r.Service).Encode()
 		return b
 	})

@@ -38,6 +38,8 @@ func TestOptionValidation(t *testing.T) {
 		{"sessions", WithMaxSessions(0)},
 		{"connections", WithMaxConnections(0)},
 		{"connections large", WithMaxConnections(65536)},
+		{"per originator negative", WithMaxConnectionsPerOriginator(-1)},
+		{"per originator large", WithMaxConnectionsPerOriginator(65536)},
 		{"packet small", WithMaxPacket(511)},
 		{"packet large", WithMaxPacket(65536)},
 		{"inactivity negative", WithInactivityTimeout(-1)},

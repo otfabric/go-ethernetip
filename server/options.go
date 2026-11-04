@@ -38,6 +38,7 @@ type options struct {
 	tls               *tls.Config
 	maxSessions       int
 	maxConnections    int
+	maxPerOriginator  int
 	maxPacket         int
 	inactivity        time.Duration
 	ioAddr            string
@@ -144,6 +145,23 @@ func WithMaxConnections(n int) Option {
 			return invalidOption("max connections %d", n)
 		}
 		o.maxConnections = n
+		return nil
+	}
+}
+
+// WithMaxConnectionsPerOriginator limits the open CIP connections (Class
+// 0, 1 and 3) of one originator, by IP address, so that one originator
+// cannot take every connection of WithMaxConnections; Forward_Open beyond
+// it is refused with 0x01/0x0113 (out of connections). Class 3 connections
+// end with their session, I/O connections do not, so the originator, not
+// the session, is what is counted. Default 0: no limit beyond
+// WithMaxConnections (originators behind one NAT address share it).
+func WithMaxConnectionsPerOriginator(n int) Option {
+	return func(o *options) error {
+		if n < 0 || n > math.MaxUint16 {
+			return invalidOption("max connections per originator %d", n)
+		}
+		o.maxPerOriginator = n
 		return nil
 	}
 }

@@ -335,12 +335,12 @@ func (cm *connectionManager) open(ex *exchange, fo cip.ForwardOpen, remote net.A
 	}
 	cm.mu.Lock()
 	_, dup := cm.conns[fo.Triad]
-	n := len(cm.conns)
+	full := cm.full(remoteIP(remote))
 	cm.mu.Unlock()
 	if dup {
 		return reply, nil, connFailure(cip.ConnStatusInUse)
 	}
-	if n >= cm.s.opts.maxConnections {
+	if full {
 		return reply, nil, connFailure(cip.ConnStatusOutOfConnections)
 	}
 	path, f := cm.localPath(fo.Path)
@@ -365,6 +365,32 @@ func (cm *connectionManager) open(ex *exchange, fo cip.ForwardOpen, remote net.A
 	default:
 		return reply, nil, connFailure(cip.ConnStatusTransportClassNotSupported)
 	}
+}
+
+// The smallest Class 3 connection sizes: the sequence count and a request
+// of a service and its path size (O->T), or a reply header (T->O).
+const (
+	minClass3OT = 2 + 2
+	minClass3TO = 2 + 4
+)
+
+// full reports whether the connection limits leave no room for another
+// connection from orig. cm.mu is held.
+func (cm *connectionManager) full(orig netip.Addr) bool {
+	if len(cm.conns) >= cm.s.opts.maxConnections {
+		return true
+	}
+	limit := cm.s.opts.maxPerOriginator
+	if limit == 0 {
+		return false
+	}
+	n := 0
+	for _, c := range cm.conns {
+		if c.originator() == orig {
+			n++
+		}
+	}
+	return n >= limit
 }
 
 // explicitConn is a Class 3 connection: requests in SendUnitData on the
@@ -396,6 +422,16 @@ func (cm *connectionManager) openExplicit(ex *exchange, fo cip.ForwardOpen, part
 	if fo.Transport.Trigger() != cip.TriggerApplication && fo.Transport.Trigger() != cip.TriggerCyclic {
 		return cip.ForwardOpenReply{}, nil, connFailure(cip.ConnStatusTriggerNotSupported)
 	}
+	// Each Class 3 message carries the 16-bit sequence count: a connection
+	// smaller than that plus the smallest request (service and path size)
+	// or the smallest reply (its four-octet header) cannot carry one. The
+	// additional status is the smallest size accepted.
+	if int(fo.OTParams.Size) < minClass3OT {
+		return cip.ForwardOpenReply{}, nil, connFailure(cip.ConnStatusInvalidOTSize, minClass3OT)
+	}
+	if int(fo.TOParams.Size) < minClass3TO {
+		return cip.ForwardOpenReply{}, nil, connFailure(cip.ConnStatusInvalidTOSize, minClass3TO)
+	}
 	if ex.sess == nil {
 		return cip.ForwardOpenReply{}, nil, connFailure(cip.ConnStatusMiscellaneous)
 	}
@@ -411,7 +447,7 @@ func (cm *connectionManager) openExplicit(ex *exchange, fo cip.ForwardOpen, part
 		cm.mu.Unlock()
 		return cip.ForwardOpenReply{}, nil, connFailure(cip.ConnStatusInUse)
 	}
-	if len(cm.conns) >= cm.s.opts.maxConnections {
+	if cm.full(ec.orig) {
 		// Checked again where the connection is added: concurrent
 		// Forward_Opens on other sessions passed the first check too.
 		cm.mu.Unlock()

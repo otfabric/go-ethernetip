@@ -386,8 +386,12 @@ func TestOversizeConnectedReply(t *testing.T) {
 	s.RegisterObject(o)
 	p := dialPeer(t, s)
 	p.register()
+	// Large_Forward_Open: a T->O size that holds the largest reply, so
+	// that the packet, not the connection, is the bound.
 	fo := fwdOpen(3, cip.TriggerApplication, explicitPath)
 	fo.OTRPI = 10_000_000
+	fo.Large = true
+	fo.TOParams.Size = maxConnectedReply + 2
 	reply, _ := p.mustOpen(fo)
 	req := func(attr uint16) cip.Request {
 		return cip.Request{Service: cip.ServiceGetAttributeSingle, Path: cip.AttributePath(0x0300, 1, attr)}

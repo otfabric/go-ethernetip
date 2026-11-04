@@ -73,7 +73,7 @@ length 0x65, unsupported protocol 0x69).
 | set data too short / too long | 0x13 / 0x15 |
 | output assembly owned by an I/O connection | 0x0C object state conflict |
 | malformed path | 0x04 path segment error; a path that runs past the message 0x26 |
-| Forward_Open refusals | 0x01 with the extended status of [CATALOG.md](CATALOG.md) (0x0100 duplicate triad, 0x0106 ownership conflict, 0x0109/0x0127/0x0128 sizes, 0x0112 RPI, 0x0113 out of connections, 0x0114-0x0116 electronic key, 0x0117/0x012A/0x012B paths, 0x0119 listen-only without producer, 0x0311 port, 0x0315 segment, ...) |
+| Forward_Open refusals | 0x01 with the extended status of [CATALOG.md](CATALOG.md) (0x0100 duplicate triad, 0x0106 ownership conflict, 0x0109/0x0127/0x0128 sizes, 0x0112 RPI, 0x0113 out of connections (`WithMaxConnections`, `WithMaxConnectionsPerOriginator`), Class 3 O->T below 4 or T->O below 6 octets 0x0127/0x0128 with the smallest size, 0x0114-0x0116 electronic key, 0x0117/0x012A/0x012B paths, 0x0119 listen-only without producer, 0x0311 port, 0x0315 segment, ...) |
 | Forward_Close of an unknown connection | 0x01 / 0x0107 |
 | Unconnected_Send to a route that is not this slot | 0x01 / 0x0311 with the remaining path size |
 | Logix: unknown tag; index beyond the end; wrong type (a type code above one octet too) | 0x05; 0xFF / 0x2105; 0xFF / 0x2107 |
@@ -82,6 +82,6 @@ length 0x65, unsupported protocol 0x69).
 | encapsulation: unknown command | status 0x01 |
 | encapsulation: packet above `WithMaxPacket` | status 0x65, then the connection is closed |
 | encapsulation: options not zero | discarded without answer |
-| a reply larger than an encapsulation packet (SendRRData) or a SendUnitData can carry | 0x11 reply data too large |
+| a reply larger than an encapsulation packet (SendRRData), a SendUnitData, or the T->O size of its Class 3 connection (sequence count included) can carry | 0x11 reply data too large |
 | TCP connections beyond 2 × `WithMaxSessions` + 16, registered or not | closed on accept, without answer |
 | delayed UDP ListIdentity replies beyond 256 waiting | not answered |

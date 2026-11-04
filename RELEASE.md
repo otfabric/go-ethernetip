@@ -30,7 +30,14 @@ make a client loop or allocate without bound. Go 1.26 is the minimum.
   `WithMaxConnections` limit holds under concurrent Forward_Opens.
   `WithMaxConnections` above 65535 is `ErrInvalidOption`. At most 256 delayed
   ListIdentity replies wait at once. A reply too large for its packet is
-  answered with 0x11 (reply data too large) instead of no reply. Class
+  answered with 0x11 (reply data too large) instead of no reply. A Class 3
+  reply is bounded by the connection's T->O size, sequence count included:
+  beyond it the answer is 0x11 (it was sent whatever its size), and a
+  Class 3 Forward_Open with an O->T size below 4 or a T->O size below 6
+  octets, too small for any message, is refused with 0x01/0x0127 or 0x0128
+  and the smallest size accepted. New `WithMaxConnectionsPerOriginator`
+  limits the connections (Class 0, 1 and 3) of one originator address,
+  refused beyond it with 0x01/0x0113; off by default. Class
   attributes 2 and 3 and the Message Router counts saturate at 0xFFFF. The
   ListIdentity reply delay uses crypto/rand.
 - **client**: `Reset` with a type above 255 and `GetAttributeList` with more
