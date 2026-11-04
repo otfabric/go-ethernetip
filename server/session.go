@@ -452,11 +452,14 @@ func (s *Server) serveUDP(c *net.UDPConn) {
 			s.pendingDiscovery.Add(-1)
 			continue
 		}
-		time.AfterFunc(delay, func() {
-			defer s.pendingDiscovery.Add(-1)
-			_, _ = c.WriteToUDPAddrPort(out, from)
-		})
+		time.AfterFunc(delay, func() { s.sendDelayed(c, out, from) })
 	}
+}
+
+// sendDelayed sends a delayed discovery reply and releases its slot.
+func (s *Server) sendDelayed(c *net.UDPConn, out []byte, to netip.AddrPort) {
+	defer s.pendingDiscovery.Add(-1)
+	_, _ = c.WriteToUDPAddrPort(out, to)
 }
 
 // maxPendingDiscovery bounds the delayed UDP ListIdentity replies waiting
