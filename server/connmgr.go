@@ -333,15 +333,14 @@ func (cm *connectionManager) open(ex *exchange, fo cip.ForwardOpen, remote net.A
 	if fo.TimeoutMultiplier > 7 {
 		return reply, nil, connFailure(cip.ConnStatusTimeoutMultiplierNotAcceptable)
 	}
+	// The connection limits are checked where the connection is added,
+	// under the lock: an earlier check would race with Forward_Opens on
+	// other sessions anyway.
 	cm.mu.Lock()
 	_, dup := cm.conns[fo.Triad]
-	full := cm.full(remoteIP(remote))
 	cm.mu.Unlock()
 	if dup {
 		return reply, nil, connFailure(cip.ConnStatusInUse)
-	}
-	if full {
-		return reply, nil, connFailure(cip.ConnStatusOutOfConnections)
 	}
 	path, f := cm.localPath(fo.Path)
 	if f != nil {
@@ -448,8 +447,6 @@ func (cm *connectionManager) openExplicit(ex *exchange, fo cip.ForwardOpen, part
 		return cip.ForwardOpenReply{}, nil, connFailure(cip.ConnStatusInUse)
 	}
 	if cm.full(ec.orig) {
-		// Checked again where the connection is added: concurrent
-		// Forward_Opens on other sessions passed the first check too.
 		cm.mu.Unlock()
 		return cip.ForwardOpenReply{}, nil, connFailure(cip.ConnStatusOutOfConnections)
 	}

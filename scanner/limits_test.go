@@ -3,35 +3,27 @@
 package scanner
 
 import (
-	"errors"
 	"math"
 	"testing"
 	"time"
-
-	ethernetip "github.com/otfabric/go-ethernetip"
 )
 
-func TestRPIMicroseconds(t *testing.T) {
-	if us, err := rpiMicroseconds(maxRPI); err != nil || us != math.MaxUint32 {
-		t.Fatalf("max RPI: %d %v", us, err)
-	}
-	if us, err := rpiMicroseconds(time.Microsecond); err != nil || us != 1 {
-		t.Fatalf("1 µs: %d %v", us, err)
-	}
-	for _, d := range []time.Duration{0, 999 * time.Nanosecond, -time.Second, maxRPI + time.Microsecond} {
-		if _, err := rpiMicroseconds(d); !errors.Is(err, ethernetip.ErrInvalidOption) {
-			t.Errorf("rpiMicroseconds(%v) = %v", d, err)
+// The Forward_Open fields never wrap, whatever validate let through.
+func TestFields(t *testing.T) {
+	for d, want := range map[time.Duration]uint32{
+		time.Microsecond:          1,
+		maxRPI:                    math.MaxUint32,
+		maxRPI + time.Microsecond: math.MaxUint32,
+		-time.Second:              0,
+		999 * time.Nanosecond:     0,
+	} {
+		if got := rpiField(d); got != want {
+			t.Errorf("rpiField(%v) = %d, want %d", d, got, want)
 		}
 	}
-}
-
-func TestConnectionSize(t *testing.T) {
-	if n, err := connectionSize(0xFFFF); err != nil || n != 0xFFFF {
-		t.Fatalf("65535: %d %v", n, err)
-	}
-	for _, n := range []int{-1, 0x10000} {
-		if _, err := connectionSize(n); !errors.Is(err, ethernetip.ErrInvalidOption) {
-			t.Errorf("connectionSize(%d) = %v", n, err)
+	for n, want := range map[int]uint16{0: 0, 0xFFFF: 0xFFFF, 0x10000: 0xFFFF, -1: 0} {
+		if got := sizeField(n); got != want {
+			t.Errorf("sizeField(%d) = %d, want %d", n, got, want)
 		}
 	}
 }

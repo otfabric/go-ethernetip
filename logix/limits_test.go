@@ -34,9 +34,6 @@ func TestFieldConversions(t *testing.T) {
 	if _, err := fragmentOffset(-1); !errors.Is(err, ethernetip.ErrInvalidOption) {
 		t.Errorf("fragmentOffset(-1) = %v", err)
 	}
-	if _, err := writeOffset(-1); !errors.Is(err, ethernetip.ErrInvalidOption) {
-		t.Errorf("writeOffset(-1) = %v", err)
-	}
 	if offsetOf(7) != 7 {
 		t.Error("offsetOf")
 	}
@@ -44,12 +41,6 @@ func TestFieldConversions(t *testing.T) {
 		return
 	}
 	top := int64(math.MaxUint32)
-	if o, err := writeOffset(int(top)); err != nil || int64(o) != top {
-		t.Fatalf("writeOffset(max) = %d %v", o, err)
-	}
-	if _, err := writeOffset(int(top + 1)); !errors.Is(err, ethernetip.ErrInvalidOption) {
-		t.Errorf("writeOffset(max+1) = %v", err)
-	}
 	if int64(offsetOf(math.MaxUint32)) != top {
 		t.Error("offsetOf(max)")
 	}
@@ -276,5 +267,43 @@ func TestReadFragmentLimit(t *testing.T) {
 	d = &countedDoer{last: maxReadFragments + 1}
 	if _, err := NewClient(d).Read(ctx, "S", 1); !errors.Is(err, ethernetip.ErrProtocol) || d.n != maxReadFragments {
 		t.Fatalf("%d replies: %v after %d", maxReadFragments+1, err, d.n)
+	}
+}
+
+// A write is bounded like a read: more than maxReadData octets is refused
+// before anything is sent; the largest is sent in fragments.
+func TestWriteSizeBound(t *testing.T) {
+	ctx := context.Background()
+	d := &fakeDoer{t: t}
+	big := Value{Type: cip.TypeSINT, Count: 0xFFFF, Data: make([]byte, maxReadData+1)}
+	if err := NewClient(d).Write(ctx, "X", big); !errors.Is(err, ethernetip.ErrInvalidOption) || len(d.reqs) != 0 {
+		t.Fatalf("write of %d octets: %v, %d requests", len(big.Data), err, len(d.reqs))
+	}
+}
+
+// Count 0 and 65536 are refused before anything is sent.
+func TestReadCountBound(t *testing.T) {
+	d := &fakeDoer{t: t}
+	for _, n := range []int{0, 0x10000} {
+		if _, err := NewClient(d).Read(context.Background(), "X", n); !errors.Is(err, ethernetip.ErrInvalidOption) || len(d.reqs) != 0 {
+			t.Errorf("Read count %d: %v, %d requests", n, err, len(d.reqs))
+		}
+	}
+}
+
+// A Read_Template reply that carries no data ends the read, even as a
+// partial transfer: the short definition is a protocol error, not a loop.
+func TestTemplateEmptyFragment(t *testing.T) {
+	entry16 := func(id, v uint16) []byte { return cat(le16(id), le16(0), le16(v)) }
+	entry32 := func(id uint16, v uint32) []byte { return cat(le16(id), le16(0), le32(v)) }
+	attrs := ok(cat(le16(4), entry32(4, 10), entry32(5, 4), entry16(2, 1), entry16(1, 0x1111))...)
+	for name, empty := range map[string]cip.Response{
+		"success": ok(),
+		"partial": {Status: cip.StatusPartialTransfer},
+	} {
+		d := &fakeDoer{t: t, resps: []cip.Response{attrs, empty}}
+		if _, err := NewClient(d).Template(context.Background(), 0x30); !errors.Is(err, ethernetip.ErrProtocol) || len(d.reqs) != 2 {
+			t.Errorf("%s: %v after %d requests", name, err, len(d.reqs))
+		}
 	}
 }

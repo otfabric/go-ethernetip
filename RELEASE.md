@@ -55,6 +55,7 @@ make a client loop or allocate without bound. Go 1.26 is the minimum.
   the client and a type mismatch (0xFF/0x2107) in `TagServer`; it read as
   the type of its low octet. A fragmented read stops at 65536 fragments, at
   count × element size, and on a fragment of another type or handle; a
+  write above 16 MiB is `ErrInvalidOption` (the bound of a read); a
   template reply with an unrequested or repeated attribute is
   `ErrProtocol`; `AddTemplate` refuses more than 65535 members;
   `Template.Decode` copies its input once and its fields share it (a hostile

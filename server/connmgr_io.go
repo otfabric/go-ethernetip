@@ -165,8 +165,6 @@ func (cm *connectionManager) openIO(ex *exchange, fo cip.ForwardOpen, parts open
 		return reply, nil, connFailure(cip.ConnStatusInUse)
 	}
 	if cm.full(orig) {
-		// Checked again where the connection is added: concurrent
-		// Forward_Opens on other sessions passed the first check too.
 		cm.mu.Unlock()
 		return reply, nil, connFailure(cip.ConnStatusOutOfConnections)
 	}

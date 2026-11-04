@@ -108,11 +108,26 @@ func Discover(ctx context.Context, opts DiscoverOptions) ([]Device, error) {
 	stop := context.AfterFunc(ctx, func() { _ = conn.SetReadDeadline(time.Unix(1, 0)) })
 	defer stop()
 
+	out, err := collect(conn, h.Context, opts.MaxDevices)
+	if err == nil && ctx.Err() != nil && !errors.Is(ctx.Err(), context.DeadlineExceeded) {
+		err = ctx.Err()
+	}
+	return out, err
+}
+
+// datagramReader is the receive side of the discovery socket.
+type datagramReader interface {
+	ReadFromUDPAddrPort(b []byte) (int, netip.AddrPort, error)
+}
+
+// collect reads ListIdentity replies to the request with sender context
+// ctx until the read deadline, max devices, or a socket that keeps failing.
+func collect(conn datagramReader, ctx [8]byte, limit int) ([]Device, error) {
 	seen := map[netip.AddrPort]bool{}
 	var out []Device
 	buf := make([]byte, 1500)
 	failed := 0
-	for len(out) < opts.MaxDevices {
+	for len(out) < limit {
 		n, from, err := conn.ReadFromUDPAddrPort(buf)
 		if err != nil {
 			var ne net.Error
@@ -131,7 +146,7 @@ func Discover(ctx context.Context, opts DiscoverOptions) ([]Device, error) {
 		}
 		failed = 0
 		pkt, err := encap.Decode(buf[:n])
-		if err != nil || pkt.Command != encap.CommandListIdentity || pkt.Context != h.Context || pkt.Status != encap.StatusSuccess {
+		if err != nil || pkt.Command != encap.CommandListIdentity || pkt.Context != ctx || pkt.Status != encap.StatusSuccess {
 			continue
 		}
 		id, err := decodeListIdentity(pkt.Data)
@@ -140,9 +155,6 @@ func Discover(ctx context.Context, opts DiscoverOptions) ([]Device, error) {
 		}
 		seen[from] = true
 		out = append(out, Device{Addr: from, Identity: id})
-	}
-	if ctx.Err() != nil && !errors.Is(ctx.Err(), context.DeadlineExceeded) {
-		return out, ctx.Err()
 	}
 	return out, nil
 }

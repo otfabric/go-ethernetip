@@ -257,30 +257,15 @@ func (c IOConfig) path() (cip.Path, error) {
 // maxRPI is the largest RPI Forward_Open carries: 2^32-1 microseconds.
 const maxRPI = time.Duration(1<<32-1) * time.Microsecond
 
-// rpiMicroseconds returns an RPI as the 32-bit count of microseconds
-// Forward_Open carries.
-func rpiMicroseconds(d time.Duration) (uint32, error) {
-	us := int64(d / time.Microsecond)
-	if us <= 0 {
-		return 0, fmt.Errorf("%w: RPI %v", ethernetip.ErrInvalidOption, d)
-	}
-	if us > math.MaxUint32 {
-		return 0, fmt.Errorf("%w: RPI above %v", ethernetip.ErrInvalidOption, maxRPI)
-	}
-	return uint32(us), nil
+// rpiField is an RPI as the 32-bit microseconds of Forward_Open, and
+// sizeField a connection size (data and overhead) as its 16-bit size.
+// validate keeps both in range; the clamps only stop a field from ever
+// wrapping.
+func rpiField(d time.Duration) uint32 {
+	return uint32(max(min(int64(d/time.Microsecond), math.MaxUint32), 0))
 }
 
-// connectionSize returns a connection size (data and overhead) as the
-// 16-bit size of Forward_Open's network parameters.
-func connectionSize(n int) (uint16, error) {
-	if n < 0 {
-		return 0, fmt.Errorf("%w: connection size %d", ethernetip.ErrInvalidOption, n)
-	}
-	if n > 0xFFFF {
-		return 0, fmt.Errorf("%w: connection size %d above 65535", ethernetip.ErrInvalidOption, n)
-	}
-	return uint16(n), nil
-}
+func sizeField(n int) uint16 { return uint16(max(min(n, 0xFFFF), 0)) }
 
 func (c IOConfig) validate() error {
 	ot, to := c.rpis()
@@ -289,6 +274,8 @@ func (c IOConfig) validate() error {
 		return fmt.Errorf("%w: output and input instances are required", ethernetip.ErrInvalidOption)
 	case ot <= 0 || to <= 0:
 		return fmt.Errorf("%w: RPI is required", ethernetip.ErrInvalidOption)
+	case ot < time.Microsecond || to < time.Microsecond:
+		return fmt.Errorf("%w: RPI below 1 µs", ethernetip.ErrInvalidOption)
 	case ot > maxRPI || to > maxRPI:
 		return fmt.Errorf("%w: RPI above %v", ethernetip.ErrInvalidOption, maxRPI)
 	case c.OutputSize < 0 || c.InputSize < 0 || c.OutputSize > 65000 || c.InputSize > 65000:
@@ -374,24 +361,8 @@ func (io *IO) open(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	// validate bounds the RPIs and sizes; the conversions check again so
-	// that a field never wraps.
-	otUS, err := rpiMicroseconds(otRPI)
-	if err != nil {
-		return err
-	}
-	toUS, err := rpiMicroseconds(toRPI)
-	if err != nil {
-		return err
-	}
-	otSize16, err := connectionSize(otSize)
-	if err != nil {
-		return err
-	}
-	toSize16, err := connectionSize(toSize)
-	if err != nil {
-		return err
-	}
+	otUS, toUS := rpiField(otRPI), rpiField(toRPI)
+	otSize16, toSize16 := sizeField(otSize), sizeField(toSize)
 	toType := cip.ConnectionPointToPoint
 	if cfg.Multicast {
 		toType = cip.ConnectionMulticast

@@ -110,12 +110,9 @@ func signExtend(u uint64, bits int) int64 {
 		}
 	}
 	if u > math.MaxInt64 {
-		// Negative: -(^u) - 1, where ^u is at most MaxInt64.
-		n := ^u
-		if n > math.MaxInt64 {
-			return 0
-		}
-		return -int64(n) - 1
+		// Negative: -(^u) - 1. The top bit of u is set, so ^u is at most
+		// MaxInt64 and the mask changes nothing.
+		return -int64(^u&math.MaxInt64) - 1
 	}
 	return int64(u)
 }

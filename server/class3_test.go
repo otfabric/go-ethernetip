@@ -105,6 +105,13 @@ func TestMaxConnectionsPerOriginator(t *testing.T) {
 	if resp.Status != cip.StatusConnectionFailure || len(resp.Extended) == 0 || resp.Extended[0] != uint16(cip.ConnStatusOutOfConnections) {
 		t.Fatalf("third connection: %s %x, want 0x01/0x0113", resp.Status, resp.Extended)
 	}
+	// I/O connections count too: a second I/O owner is refused for the
+	// limit, not for ownership.
+	listen := fwdOpen(1, cip.TriggerCyclic, ioPath(0, asmOut, asmIn))
+	resp, _ = q.open(listen)
+	if resp.Status != cip.StatusConnectionFailure || len(resp.Extended) == 0 || resp.Extended[0] != uint16(cip.ConnStatusOutOfConnections) {
+		t.Fatalf("I/O beyond the limit: %s %x, want 0x01/0x0113", resp.Status, resp.Extended)
+	}
 	if r := p.close(first.Triad, explicitPath); !r.OK() {
 		t.Fatalf("Forward_Close: %s", r.Status)
 	}

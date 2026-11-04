@@ -37,6 +37,7 @@ func TestDeviceErrors(t *testing.T) {
 	for _, tc := range []struct{ src, msg string }{
 		{"[File]\n", "no [Device] section"},
 		{"[Device]\nVendCode=1;ProdType=2;MajRev=1;MinRev=0;", "eds: [Device] has no ProdCode"},
+		{"[Device]\nVendCode=1;ProdType=2;ProdCode=3;MinRev=0;", "eds: [Device] has no MajRev"},
 		{"[Device]\n" + strings.Replace(ok, "VendCode=1", "VendCode=70000", 1), "VendCode: not a 16-bit number: 70000"},
 		{"[Device]\n" + strings.Replace(ok, "MajRev=1", "MajRev=256", 1), "MajRev: not a 8-bit number: 256"},
 		{"[Device]\n" + strings.Replace(ok, "MinRev=0", `MinRev="0"`, 1), `MinRev: not a number: "0"`},

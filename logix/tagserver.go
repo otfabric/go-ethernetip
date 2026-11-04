@@ -192,12 +192,7 @@ func (ts *TagServer) memberSize(m Member) (int64, error) {
 // offsetOf returns the 32-bit offset of a fragmented service as an int;
 // on a 32-bit platform an offset above MaxInt is clamped, which is beyond
 // any tag.
-func offsetOf(u uint32) int {
-	if int64(u) > math.MaxInt {
-		return math.MaxInt
-	}
-	return int(u)
-}
+func offsetOf(u uint32) int { return int(max(min(int64(u), math.MaxInt), 0)) }
 
 func splitProgram(name string) (program, tag string, err error) {
 	if strings.HasPrefix(strings.ToLower(name), "program:") {

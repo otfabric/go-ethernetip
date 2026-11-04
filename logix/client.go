@@ -6,7 +6,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"math"
 	"strings"
 	"sync"
 
@@ -70,9 +69,6 @@ func (c *Client) Read(ctx context.Context, tag string, count int) (Value, error)
 	if err != nil {
 		return Value{}, err
 	}
-	if count < 1 || count > 0xFFFF {
-		return Value{}, fmt.Errorf("%w: count %d", ethernetip.ErrInvalidOption, count)
-	}
 	return c.read(ctx, path, count)
 }
 
@@ -134,8 +130,9 @@ func (c *Client) read(ctx context.Context, path cip.Path, count int) (Value, err
 	return v, nil
 }
 
-// maxReadData bounds the data of a fragmented read: a controller that
-// keeps answering with partial transfers cannot make it grow without end.
+// maxReadData bounds the data of a fragmented read (a controller that
+// keeps answering with partial transfers cannot make it grow without end)
+// and of a write.
 const maxReadData = 1 << 24
 
 // maxReadFragments bounds the replies of a fragmented read, so that a
@@ -191,7 +188,7 @@ func (c *Client) Write(ctx context.Context, tag string, v Value) error {
 
 func (c *Client) write(ctx context.Context, path cip.Path, v Value) error {
 	cnt, err := elementCount(v.Count)
-	if err != nil || len(v.Data) == 0 {
+	if err != nil || len(v.Data) == 0 || len(v.Data) > maxReadData {
 		return fmt.Errorf("%w: value %s", ethernetip.ErrInvalidOption, v)
 	}
 	if len(v.Data) <= c.maxData {
@@ -205,29 +202,14 @@ func (c *Client) write(ctx context.Context, path cip.Path, v Value) error {
 	}
 	for off := 0; off < len(v.Data); off += step {
 		end := min(off+step, len(v.Data))
-		o, err := writeOffset(off)
-		if err != nil {
-			return err
-		}
+		// off is below len(v.Data), at most maxReadData.
 		req := cip.AppendUint16(v.appendType(nil), cnt)
-		req = cip.AppendUint32(req, o)
+		req = cip.AppendUint32(req, uint32(int64(off)&0xFFFFFFFF))
 		if _, err := c.d.Do(ctx, cip.Request{Service: cip.ServiceWriteTagFragmented, Path: path, Data: append(req, v.Data[off:end]...)}); err != nil {
 			return err
 		}
 	}
 	return nil
-}
-
-// writeOffset returns the offset of a fragmented write, which the request
-// carries in 32 bits.
-func writeOffset(n int) (uint32, error) {
-	if n < 0 {
-		return 0, fmt.Errorf("%w: fragment offset %d", ethernetip.ErrInvalidOption, n)
-	}
-	if int64(n) > math.MaxUint32 {
-		return 0, fmt.Errorf("%w: fragment offset %d above 32 bits", ethernetip.ErrInvalidOption, n)
-	}
-	return uint32(n), nil
 }
 
 // WriteBit sets or clears one bit of an integer tag with Read-Modify-Write
@@ -251,11 +233,8 @@ func (c *Client) WriteBit(ctx context.Context, tag string, size int, set bool) e
 	} else {
 		and[tp.Bit/8] &^= 1 << (tp.Bit % 8)
 	}
-	mask, err := elementCount(size)
-	if err != nil {
-		return err
-	}
-	data := cip.AppendUint16(nil, mask)
+	// size is 1, 2, 4 or 8 (checked above).
+	data := cip.AppendUint16(nil, uint16(max(min(size, 8), 0)))
 	data = append(append(data, or...), and...)
 	_, err = c.d.Do(ctx, cip.Request{Service: cip.ServiceReadModifyWriteTag, Path: tp.Path, Data: data})
 	return err
@@ -431,14 +410,9 @@ func (c *Client) Template(ctx context.Context, id uint16) (*Template, error) {
 	}
 	var def []byte
 	for len(def) < total {
-		off, err := fragmentOffset(len(def))
-		if err != nil {
-			return nil, err
-		}
-		size, err := elementCount(min(total-len(def), 0xFFFF))
-		if err != nil {
-			return nil, err
-		}
+		// len(def) is below total, at most maxDefinition.
+		off := uint32(int64(len(def)) & 0xFFFFFFFF)
+		size := uint16(max(min(total-len(def), 0xFFFF), 0))
 		req := cip.AppendUint32(nil, off)
 		req = cip.AppendUint16(req, size)
 		resp, err := c.d.Do(ctx, cip.Request{Service: cip.ServiceReadTemplate, Path: path, Data: req})
