@@ -43,7 +43,7 @@ Status words, as in INTEROPERABILITY.md:
 | Unit, end-to-end, chaos, stress and leak suites with the race detector | [TESTING.md](../TESTING.md) |
 | Coverage of at least 90 % in total and per package | `make coverage-check coverage-pkg-check` |
 | 15 fuzz targets on the decoders and the server, in CI and in `fuzz.yml` | `make fuzz` |
-| Independent peers: ethernetip-interop v0.5.0, images pinned by digest | `interop/harness_test.go`, `interop.yml`, nightly |
+| Independent peers: ethernetip-interop v0.6.1, images pinned by digest | `interop/harness_test.go`, `interop.yml`, nightly |
 
 ## Platforms
 
