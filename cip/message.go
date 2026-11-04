@@ -37,10 +37,11 @@ func (r Request) AppendTo(b []byte) ([]byte, error) {
 		return b[:start], err
 	}
 	n := len(b) - start - 2
-	if n%2 != 0 || n/2 > math.MaxUint8 {
+	words, ok := words8(n)
+	if !ok {
 		return b[:start], fmt.Errorf("%w: request path of %d octets", ErrTooLarge, n)
 	}
-	b[start+1] = byte(n / 2)
+	b[start+1] = words
 	return append(b, r.Data...), nil
 }
 
@@ -86,10 +87,11 @@ func (r Response) Encode() ([]byte, error) { return r.AppendTo(nil) }
 
 // AppendTo appends the encoding of the response to b.
 func (r Response) AppendTo(b []byte) ([]byte, error) {
-	if len(r.Extended) > math.MaxUint8 {
+	n, ok := len8(len(r.Extended))
+	if !ok {
 		return b, fmt.Errorf("%w: %d additional status words", ErrTooLarge, len(r.Extended))
 	}
-	b = append(b, byte(r.Service|ReplyBit), 0, byte(r.Status), byte(len(r.Extended)))
+	b = append(b, byte(r.Service|ReplyBit), 0, byte(r.Status), n)
 	for _, w := range r.Extended {
 		b = AppendUint16(b, w)
 	}
@@ -169,13 +171,18 @@ func packMultiple(items [][]byte) ([]byte, error) {
 	for _, it := range items {
 		total += len(it)
 	}
+	count, ok := len16(len(items))
+	if !ok {
+		return nil, fmt.Errorf("%w: multiple service packet of %d messages", ErrTooLarge, len(items))
+	}
 	b := make([]byte, 0, total)
-	b = AppendUint16(b, uint16(len(items)))
+	b = AppendUint16(b, count)
 	for _, it := range items {
-		if off > math.MaxUint16 {
+		o, ok := len16(off)
+		if !ok {
 			return nil, fmt.Errorf("%w: multiple service packet of %d octets", ErrTooLarge, total)
 		}
-		b = AppendUint16(b, uint16(off))
+		b = AppendUint16(b, o)
 		off += len(it)
 	}
 	for _, it := range items {

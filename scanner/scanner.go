@@ -23,6 +23,7 @@ package scanner
 import (
 	"context"
 	"fmt"
+	"math"
 	"net"
 	"net/netip"
 	"sync"
@@ -256,6 +257,31 @@ func (c IOConfig) path() (cip.Path, error) {
 // maxRPI is the largest RPI Forward_Open carries: 2^32-1 microseconds.
 const maxRPI = time.Duration(1<<32-1) * time.Microsecond
 
+// rpiMicroseconds returns an RPI as the 32-bit count of microseconds
+// Forward_Open carries.
+func rpiMicroseconds(d time.Duration) (uint32, error) {
+	us := int64(d / time.Microsecond)
+	if us <= 0 {
+		return 0, fmt.Errorf("%w: RPI %v", ethernetip.ErrInvalidOption, d)
+	}
+	if us > math.MaxUint32 {
+		return 0, fmt.Errorf("%w: RPI above %v", ethernetip.ErrInvalidOption, maxRPI)
+	}
+	return uint32(us), nil
+}
+
+// connectionSize returns a connection size (data and overhead) as the
+// 16-bit size of Forward_Open's network parameters.
+func connectionSize(n int) (uint16, error) {
+	if n < 0 {
+		return 0, fmt.Errorf("%w: connection size %d", ethernetip.ErrInvalidOption, n)
+	}
+	if n > 0xFFFF {
+		return 0, fmt.Errorf("%w: connection size %d above 65535", ethernetip.ErrInvalidOption, n)
+	}
+	return uint16(n), nil
+}
+
 func (c IOConfig) validate() error {
 	ot, to := c.rpis()
 	switch {
@@ -348,6 +374,24 @@ func (io *IO) open(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	// validate bounds the RPIs and sizes; the conversions check again so
+	// that a field never wraps.
+	otUS, err := rpiMicroseconds(otRPI)
+	if err != nil {
+		return err
+	}
+	toUS, err := rpiMicroseconds(toRPI)
+	if err != nil {
+		return err
+	}
+	otSize16, err := connectionSize(otSize)
+	if err != nil {
+		return err
+	}
+	toSize16, err := connectionSize(toSize)
+	if err != nil {
+		return err
+	}
 	toType := cip.ConnectionPointToPoint
 	if cfg.Multicast {
 		toType = cip.ConnectionMulticast
@@ -362,10 +406,10 @@ func (io *IO) open(ctx context.Context) error {
 		TOConnID:          toID,
 		Triad:             c.NewTriad(),
 		TimeoutMultiplier: cfg.TimeoutMultiplier,
-		OTRPI:             uint32(otRPI / time.Microsecond),
-		OTParams:          cip.NetworkParams{Type: cip.ConnectionPointToPoint, Priority: cip.PriorityScheduled, Size: uint16(otSize)},
-		TORPI:             uint32(toRPI / time.Microsecond),
-		TOParams:          cip.NetworkParams{Type: toType, Priority: cip.PriorityScheduled, Size: uint16(toSize)},
+		OTRPI:             otUS,
+		OTParams:          cip.NetworkParams{Type: cip.ConnectionPointToPoint, Priority: cip.PriorityScheduled, Size: otSize16},
+		TORPI:             toUS,
+		TOParams:          cip.NetworkParams{Type: toType, Priority: cip.PriorityScheduled, Size: toSize16},
 		Transport:         cip.NewTransportTrigger(class, cip.TriggerCyclic, false),
 		Path:              path,
 	}

@@ -55,8 +55,13 @@ func TestCPFErrors(t *testing.T) {
 	if _, err := encap.AppendCPF(nil, make([]encap.Item, encap.MaxItems)); err != nil {
 		t.Errorf("64 items: %v", err)
 	}
-	if _, err := encap.AppendCPF(nil, []encap.Item{{Type: 1, Data: make([]byte, 65536)}}); !errors.Is(err, encap.ErrTooLarge) {
-		t.Errorf("item of 65536: %v", err)
+	// A failed append leaves b as it was.
+	prefix := []byte{0xEE}
+	if b, err := encap.AppendCPF(prefix, []encap.Item{{Type: 1}, {Type: 1, Data: make([]byte, 65536)}}); !errors.Is(err, encap.ErrTooLarge) || !bytes.Equal(b, prefix) {
+		t.Errorf("item of 65536: %v, % X", err, b)
+	}
+	if b, err := encap.AppendCPF(nil, []encap.Item{{Type: 1, Data: make([]byte, 65535)}}); err != nil || len(b) != 2+4+65535 {
+		t.Errorf("item of 65535: %v, %d octets", err, len(b))
 	}
 
 	cases := []struct {

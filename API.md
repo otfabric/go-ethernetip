@@ -84,7 +84,8 @@ timeout rules.
 
 `Parse`, `ParseString`, `File` (`Section`, `Device`, `Params`,
 `Assemblies`, `Connections`, `Format`), `Validate`, `Issue`, `Build`,
-`Spec`, `GenerateGo`, `GenerateOptions`, `ParseEPATH`, `FormatEPATH`. See
+`Spec`, `GenerateGo`, `GenerateOptions`, `ParseEPATH`, `FormatEPATH`,
+`MaxAssemblySize`. See
 [docs/EDS.md](docs/EDS.md).
 
 ## Codecs: `cip`, `encap`, `implicit`

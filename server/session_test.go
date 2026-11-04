@@ -5,6 +5,7 @@ package server
 import (
 	"bytes"
 	"encoding/binary"
+	"math"
 	"net"
 	"net/netip"
 	"testing"
@@ -310,6 +311,16 @@ func TestDiscoveryDelay(t *testing.T) {
 			t.Fatalf("delay %v outside the requested 5 ms", d)
 		}
 		binary.LittleEndian.PutUint16(li.Context[:], 0)
+	}
+	// crypto/rand into an array: no allocation per reply.
+	if n := testing.AllocsPerRun(100, func() { _ = s.discoveryDelay(li) }); n != 0 {
+		t.Errorf("discoveryDelay allocates %v times", n)
+	}
+	// Delays too large for microseconds in 32 bits (not reachable through
+	// WithDiscoveryDelay) give no delay.
+	s.opts.discoveryDelayMax = time.Duration(math.MaxUint32+1) * time.Microsecond
+	if d := s.discoveryDelay(li); d != 0 {
+		t.Errorf("delay %v beyond the 32-bit range", d)
 	}
 }
 

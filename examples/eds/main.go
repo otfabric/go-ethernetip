@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"path/filepath"
 
 	"github.com/otfabric/go-ethernetip/eds"
 )
@@ -19,7 +20,18 @@ func main() {
 	if len(os.Args) > 1 {
 		path = os.Args[1]
 	}
-	fh, err := os.Open(path)
+	// The file is opened through a root of its directory, so a name that
+	// is a symbolic link out of that directory is refused.
+	dir, name := filepath.Split(filepath.Clean(path))
+	if dir == "" {
+		dir = "."
+	}
+	root, err := os.OpenRoot(dir)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer func() { _ = root.Close() }()
+	fh, err := root.Open(name)
 	if err != nil {
 		log.Fatal(err)
 	}

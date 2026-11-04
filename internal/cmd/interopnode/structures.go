@@ -58,8 +58,11 @@ func addTemplates(ts *logix.TagServer, fts []FixtureTemplate) (templates, error)
 // memberType returns the symbol type and the info word of a member.
 func (byName templates) memberType(m FixtureMember) (logix.SymbolType, uint16, error) {
 	dims, info := 0, uint16(0)
-	if m.Count > 0 {
-		dims, info = 1, uint16(m.Count)
+	if n := m.Count; n > 0 {
+		if n > math.MaxUint16 {
+			return 0, 0, fmt.Errorf("member %s: %d elements, at most %d", m.Name, n, math.MaxUint16)
+		}
+		dims, info = 1, uint16(n)
 	}
 	switch tn := strings.ToUpper(m.Type); {
 	case tn == "STRING":
@@ -75,7 +78,14 @@ func (byName templates) memberType(m FixtureMember) (logix.SymbolType, uint16, e
 		if dims > 0 {
 			return 0, 0, fmt.Errorf("BOOL array members are not supported")
 		}
-		return logix.NewAtomicType(t, 0, m.Bit), uint16(m.Bit), nil
+		bit := m.Bit
+		if bit < 0 {
+			return 0, 0, fmt.Errorf("member %s: bit %d", m.Name, bit)
+		}
+		if bit > 7 {
+			return 0, 0, fmt.Errorf("member %s: bit %d, a BOOL member is bit 0 to 7 of its host octet", m.Name, bit)
+		}
+		return logix.NewAtomicType(t, 0, bit), uint16(bit), nil
 	}
 	return logix.NewAtomicType(t, dims, 0), info, nil
 }

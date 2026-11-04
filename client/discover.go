@@ -90,8 +90,7 @@ func Discover(ctx context.Context, opts DiscoverOptions) ([]Device, error) {
 	h.Command = encap.CommandListIdentity
 	_, _ = rand.Read(h.Context[2:])
 	if opts.MaxDelay > 0 {
-		ms := min(opts.MaxDelay.Milliseconds(), 0xFFFF)
-		binary.LittleEndian.PutUint16(h.Context[:], uint16(ms))
+		binary.LittleEndian.PutUint16(h.Context[:], maxDelayField(opts.MaxDelay))
 	}
 	req, _ := encap.Packet{Header: h}.Encode()
 	if _, err := conn.WriteToUDPAddrPort(req, dst); err != nil {
@@ -150,6 +149,19 @@ func ListIdentity(ctx context.Context, addr string) (Device, error) {
 		return Device{}, fmt.Errorf("%w: no ListIdentity reply from %s", ethernetip.ErrTimeout, addr)
 	}
 	return devs[0], nil
+}
+
+// maxDelayField returns the maximum response delay of ListIdentity in
+// milliseconds, clamped to the 16 bits of the sender context that carry it.
+func maxDelayField(d time.Duration) uint16 {
+	ms := d.Milliseconds()
+	if ms < 0 {
+		return 0
+	}
+	if ms > 0xFFFF {
+		return 0xFFFF
+	}
+	return uint16(ms)
 }
 
 // listenBroadcast opens a UDP socket that may send to broadcast addresses.

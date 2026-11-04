@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/binary"
 	"fmt"
+	"math"
 	"sort"
 	"strings"
 	"sync"
@@ -122,10 +123,14 @@ func (ts *TagServer) OnWrite(f func(name string)) {
 }
 
 // AddTemplate adds a structure template. Its ID (1 to 0x0FFF) and handle
-// must be unique and its members must fit its size.
+// must be unique, it has at most 65535 members (attribute 2 is 16 bits)
+// and its members must fit its size.
 func (ts *TagServer) AddTemplate(t Template) error {
 	if t.ID == 0 || t.ID > 0x0FFF || t.Size == 0 || t.Name == "" {
 		return fmt.Errorf("%w: template %q id %d size %d", ethernetip.ErrInvalidOption, t.Name, t.ID, t.Size)
+	}
+	if n := len(t.Members); n > 0xFFFF {
+		return fmt.Errorf("%w: template %q of %d members, above 65535", ethernetip.ErrInvalidOption, t.Name, n)
 	}
 	ts.mu.Lock()
 	defer ts.mu.Unlock()
@@ -142,7 +147,7 @@ func (ts *TagServer) AddTemplate(t Template) error {
 		if err != nil {
 			return fmt.Errorf("%w: template %q member %q: %w", ethernetip.ErrInvalidOption, t.Name, m.Name, err)
 		}
-		if uint64(m.Offset)+uint64(n) > uint64(t.Size) {
+		if int64(m.Offset)+n > int64(t.Size) {
 			return fmt.Errorf("%w: template %q member %q beyond its size %d", ethernetip.ErrInvalidOption, t.Name, m.Name, t.Size)
 		}
 	}
@@ -153,10 +158,10 @@ func (ts *TagServer) AddTemplate(t Template) error {
 
 // memberSize returns the octets a member occupies, as resolve addresses
 // it; structure members need their template added first. ts.mu is held.
-func (ts *TagServer) memberSize(m Member) (int, error) {
-	count := 1
+func (ts *TagServer) memberSize(m Member) (int64, error) {
+	count := int64(1)
 	if m.Type.Dims() > 0 {
-		count = int(m.Info)
+		count = int64(m.Info)
 	}
 	switch {
 	case m.Type.IsStruct():
@@ -165,23 +170,33 @@ func (ts *TagServer) memberSize(m Member) (int, error) {
 			return 0, fmt.Errorf("no template %d", m.Type.Template())
 		}
 		if m.Info > 0 {
-			count = int(m.Info)
+			count = int64(m.Info)
 		}
-		return int(sub.Size) * count, nil
+		return int64(sub.Size) * count, nil
 	case m.Type.Atomic() == cip.TypeBOOL:
 		if m.Type.Dims() == 0 && m.Info < 8 {
 			return 1, nil
 		}
-		return (int(m.Info) + 31) / 32 * 4, nil
+		return (int64(m.Info) + 31) / 32 * 4, nil
 	}
 	size := m.Type.Atomic().Size()
 	if !m.Type.Atomic().Known() || size == 0 {
 		return 0, fmt.Errorf("type %s", m.Type)
 	}
 	if m.Info > 0 {
-		count = int(m.Info)
+		count = int64(m.Info)
 	}
-	return size * count, nil
+	return int64(size) * count, nil
+}
+
+// offsetOf returns the 32-bit offset of a fragmented service as an int;
+// on a 32-bit platform an offset above MaxInt is clamped, which is beyond
+// any tag.
+func offsetOf(u uint32) int {
+	if int64(u) > math.MaxInt {
+		return math.MaxInt
+	}
+	return int(u)
 }
 
 func splitProgram(name string) (program, tag string, err error) {
@@ -522,7 +537,7 @@ func (ts *TagServer) read(t target, r *server.Request) cip.Response {
 	count := int(rd.Uint16())
 	var offset int
 	if r.Service == cip.ServiceReadTagFragmented {
-		offset = int(rd.Uint32())
+		offset = offsetOf(rd.Uint32())
 	}
 	if rd.Err() != nil {
 		return cip.Response{Status: cip.StatusNotEnoughData}
@@ -562,17 +577,17 @@ func (ts *TagServer) read(t target, r *server.Request) cip.Response {
 
 func (ts *TagServer) write(t target, r *server.Request) cip.Response {
 	rd := cip.NewReader(r.Data)
-	typ, handle := decodeType(rd)
+	typ, handle, ok := decodeType(rd)
 	count := int(rd.Uint16())
 	var offset int
 	if r.Service == cip.ServiceWriteTagFragmented {
-		offset = int(rd.Uint32())
+		offset = offsetOf(rd.Uint32())
 	}
 	if rd.Err() != nil {
 		return cip.Response{Status: cip.StatusNotEnoughData}
 	}
 	data := rd.Rest()
-	if typ != t.typ || (typ == 0 && handle != t.handle) {
+	if !ok || typ != t.typ || (typ == 0 && handle != t.handle) {
 		return errType
 	}
 	if count < 1 || count > t.avail {
@@ -603,7 +618,7 @@ func (ts *TagServer) write(t target, r *server.Request) cip.Response {
 		// and controllers accept it.
 		data = data[:total]
 	}
-	if offset < 0 || offset+len(data) > total {
+	if offset < 0 || offset > total-len(data) {
 		return cip.Response{Status: cip.StatusTooMuchData}
 	}
 	copy(t.e.data[t.off+offset:], data)
@@ -669,7 +684,7 @@ func (ts *TagServer) listTags(r *server.Request) cip.Response {
 	if len(path) < 1 {
 		return errBadPath
 	}
-	if c, ok := path[0].(cip.LogicalSegment); !ok || c.Type != cip.LogicalClass || cip.Class(c.Value) != cip.ClassSymbol {
+	if c, ok := path[0].(cip.LogicalSegment); !ok || c.Type != cip.LogicalClass || c.Value != uint32(cip.ClassSymbol) {
 		return errBadPath
 	}
 	if len(path) > 1 {
@@ -762,10 +777,14 @@ type templateObject struct{ ts *TagServer }
 func (o *templateObject) Class() cip.Class { return cip.ClassTemplate }
 
 func (o *templateObject) ServeCIP(_ context.Context, r *server.Request) cip.Response {
+	inst := r.Instance
+	if inst > 0xFFFF {
+		return errNoTag
+	}
 	o.ts.mu.RLock()
-	t := o.ts.templates[uint16(r.Instance)]
+	t := o.ts.templates[uint16(inst)]
 	o.ts.mu.RUnlock()
-	if t == nil || r.Instance > 0xFFFF {
+	if t == nil {
 		return errNoTag
 	}
 	def := t.definition()
@@ -773,11 +792,11 @@ func (o *templateObject) ServeCIP(_ context.Context, r *server.Request) cip.Resp
 	switch r.Service {
 	case cip.ServiceGetAttributeList:
 		rd := cip.NewReader(r.Data)
-		n := int(rd.Uint16())
-		if rd.Err() != nil || n == 0 || n > rd.Len()/2 {
+		n := rd.Uint16()
+		if rd.Err() != nil || n == 0 || int(n) > rd.Len()/2 {
 			return cip.Response{Status: cip.StatusNotEnoughData}
 		}
-		out := cip.AppendUint16(nil, uint16(n))
+		out := cip.AppendUint16(nil, n)
 		st := cip.StatusSuccess
 		for range n {
 			id := rd.Uint16()
@@ -786,7 +805,7 @@ func (o *templateObject) ServeCIP(_ context.Context, r *server.Request) cip.Resp
 			case 1:
 				out = cip.AppendUint16(cip.AppendUint16(out, 0), t.Handle)
 			case 2:
-				out = cip.AppendUint16(cip.AppendUint16(out, 0), uint16(len(t.Members)))
+				out = cip.AppendUint16(cip.AppendUint16(out, 0), t.memberCount())
 			case 4:
 				out = cip.AppendUint32(cip.AppendUint16(out, 0), words)
 			case 5:
@@ -799,7 +818,7 @@ func (o *templateObject) ServeCIP(_ context.Context, r *server.Request) cip.Resp
 		return cip.Response{Status: st, Data: out}
 	case cip.ServiceReadTemplate:
 		rd := cip.NewReader(r.Data)
-		off := int(rd.Uint32())
+		off := offsetOf(rd.Uint32())
 		n := int(rd.Uint16())
 		if rd.Err() != nil {
 			return cip.Response{Status: cip.StatusNotEnoughData}

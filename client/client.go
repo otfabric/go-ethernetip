@@ -539,7 +539,9 @@ func ctxErr(ctx context.Context) error {
 	return ctx.Err()
 }
 
-func (c *Client) nextSerial() uint16 { return uint16(c.serial.Add(1)) }
+// nextSerial returns the next connection serial number; the 32-bit
+// counter wraps into the 16-bit field on purpose.
+func (c *Client) nextSerial() uint16 { return uint16(c.serial.Add(1) & 0xFFFF) }
 
 // RemoteAddr returns the address of the target's end of the session's TCP
 // connection, or nil when not connected.

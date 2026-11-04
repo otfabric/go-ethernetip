@@ -122,7 +122,7 @@ func (cm *connectionManager) openIO(ex *exchange, fo cip.ForwardOpen, parts open
 			return reply, nil, connFailure(cip.ConnStatusInvalidConfigurationAppPath)
 		}
 		if len(parts.config) != cfg.size {
-			return reply, nil, connFailure(cip.ConnStatusInvalidConfigurationSize, uint16(cfg.size/2))
+			return reply, nil, connFailure(cip.ConnStatusInvalidConfigurationSize, saturate16(cfg.size/2))
 		}
 	}
 	class := fo.Transport.Class()
@@ -137,10 +137,10 @@ func (cm *connectionManager) openIO(ex *exchange, fo cip.ForwardOpen, parts open
 	}
 	otFmt, toFmt := cm.s.formats(out.kind)
 	if want := out.size + otFmt.Overhead(class); !sizeOK(fo.OTParams, want) {
-		return reply, nil, connFailure(cip.ConnStatusInvalidOTSize, uint16(want))
+		return reply, nil, connFailure(cip.ConnStatusInvalidOTSize, saturate16(want))
 	}
 	if want := in.size + toFmt.Overhead(class); !sizeOK(fo.TOParams, want) {
-		return reply, nil, connFailure(cip.ConnStatusInvalidTOSize, uint16(want))
+		return reply, nil, connFailure(cip.ConnStatusInvalidTOSize, saturate16(want))
 	}
 	listenOnly := out.kind == AssemblyListenOnly
 	if listenOnly && fo.TOParams.Type != cip.ConnectionMulticast {
@@ -163,6 +163,12 @@ func (cm *connectionManager) openIO(ex *exchange, fo cip.ForwardOpen, parts open
 	if _, dup := cm.conns[fo.Triad]; dup {
 		cm.mu.Unlock()
 		return reply, nil, connFailure(cip.ConnStatusInUse)
+	}
+	if len(cm.conns) >= cm.s.opts.maxConnections {
+		// Checked again where the connection is added: concurrent
+		// Forward_Opens on other sessions passed the first check too.
+		cm.mu.Unlock()
+		return reply, nil, connFailure(cip.ConnStatusOutOfConnections)
 	}
 	prod := cm.productions[toPoint]
 	if listenOnly && (prod == nil || len(prod.owners) == 0) {

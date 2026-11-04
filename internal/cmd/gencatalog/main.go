@@ -73,12 +73,19 @@ func main() {
 }
 
 func run(check bool) error {
+	// The files are read and written under the working directory, the
+	// repository root, and nowhere else.
+	root, err := os.OpenRoot(".")
+	if err != nil {
+		return err
+	}
+	defer func() { _ = root.Close() }()
 	var cat Catalog
-	if err := readJSON("cip/catalog.json", &cat); err != nil {
+	if err := readJSON(root, "cip/catalog.json", &cat); err != nil {
 		return err
 	}
 	var vend Vendors
-	if err := readJSON("cip/vendors.json", &vend); err != nil {
+	if err := readJSON(root, "cip/vendors.json", &vend); err != nil {
 		return err
 	}
 	if err := validate(&cat, &vend); err != nil {
@@ -93,13 +100,13 @@ func run(check bool) error {
 	var stale []string
 	for _, name := range []string{"cip/catalog_gen.go", "CATALOG.md"} {
 		if check {
-			have, err := os.ReadFile(name)
+			have, err := root.ReadFile(name)
 			if err != nil || !bytes.Equal(have, files[name]) {
 				stale = append(stale, name)
 			}
 			continue
 		}
-		if err := os.WriteFile(name, files[name], 0o644); err != nil {
+		if err := root.WriteFile(name, files[name], 0o600); err != nil {
 			return err
 		}
 	}
@@ -109,8 +116,8 @@ func run(check bool) error {
 	return nil
 }
 
-func readJSON(name string, v any) error {
-	b, err := os.ReadFile(name)
+func readJSON(root *os.Root, name string, v any) error {
+	b, err := root.ReadFile(name)
 	if err != nil {
 		return err
 	}

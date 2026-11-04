@@ -138,7 +138,7 @@ func DecodeNetworkParams32(v uint32) NetworkParams {
 		Type:           ConnectionType(v >> 29 & 3),
 		Priority:       Priority(v >> 26 & 3),
 		Variable:       v&(1<<25) != 0,
-		Size:           uint16(v),
+		Size:           uint16(v & 0xFFFF),
 	}
 }
 
@@ -234,7 +234,7 @@ func Ticks(d time.Duration) (priorityTick, ticks uint8) {
 	ms := max(d.Milliseconds(), 1)
 	for tick := range uint8(16) {
 		n := (ms + (1<<tick - 1)) >> tick
-		if n <= math.MaxUint8 {
+		if n >= 0 && n <= math.MaxUint8 {
 			return tick, uint8(n)
 		}
 	}
@@ -299,7 +299,8 @@ func (f ForwardOpen) Encode() ([]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("connection path: %w", err)
 	}
-	if len(path)/2 > math.MaxUint8 {
+	pathWords, ok := words8(len(path))
+	if !ok {
 		return nil, fmt.Errorf("%w: connection path of %d octets", ErrTooLarge, len(path))
 	}
 	b := make([]byte, 0, 46+len(path))
@@ -329,7 +330,7 @@ func (f ForwardOpen) Encode() ([]byte, error) {
 			b = AppendUint16(b, v)
 		}
 	}
-	b = append(b, byte(f.Transport), byte(len(path)/2))
+	b = append(b, byte(f.Transport), pathWords)
 	return append(b, path...), nil
 }
 
@@ -388,7 +389,8 @@ type ForwardOpenReply struct {
 
 // Encode returns the response data.
 func (f ForwardOpenReply) Encode() ([]byte, error) {
-	if len(f.AppReply)%2 != 0 || len(f.AppReply)/2 > math.MaxUint8 {
+	replyWords, ok := words8(len(f.AppReply))
+	if !ok {
 		return nil, fmt.Errorf("%w: application reply of %d octets", ErrMalformed, len(f.AppReply))
 	}
 	b := make([]byte, 0, 26+len(f.AppReply))
@@ -399,7 +401,7 @@ func (f ForwardOpenReply) Encode() ([]byte, error) {
 	b = AppendUint32(b, f.OriginatorSerial)
 	b = AppendUint32(b, f.OTAPI)
 	b = AppendUint32(b, f.TOAPI)
-	b = append(b, byte(len(f.AppReply)/2), 0)
+	b = append(b, replyWords, 0)
 	return append(b, f.AppReply...), nil
 }
 
@@ -474,7 +476,8 @@ func (f ForwardClose) Encode() ([]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("connection path: %w", err)
 	}
-	if len(path)/2 > math.MaxUint8 {
+	pathWords, ok := words8(len(path))
+	if !ok {
 		return nil, fmt.Errorf("%w: connection path of %d octets", ErrTooLarge, len(path))
 	}
 	b := make([]byte, 0, 12+len(path))
@@ -482,7 +485,7 @@ func (f ForwardClose) Encode() ([]byte, error) {
 	b = AppendUint16(b, f.Serial)
 	b = AppendUint16(b, f.VendorID)
 	b = AppendUint32(b, f.OriginatorSerial)
-	b = append(b, byte(len(path)/2), 0)
+	b = append(b, pathWords, 0)
 	return append(b, path...), nil
 }
 
@@ -517,14 +520,15 @@ type ForwardCloseReply struct {
 
 // Encode returns the response data.
 func (f ForwardCloseReply) Encode() ([]byte, error) {
-	if len(f.AppReply)%2 != 0 || len(f.AppReply)/2 > math.MaxUint8 {
+	replyWords, ok := words8(len(f.AppReply))
+	if !ok {
 		return nil, fmt.Errorf("%w: application reply of %d octets", ErrMalformed, len(f.AppReply))
 	}
 	b := make([]byte, 0, 10+len(f.AppReply))
 	b = AppendUint16(b, f.Serial)
 	b = AppendUint16(b, f.VendorID)
 	b = AppendUint32(b, f.OriginatorSerial)
-	b = append(b, byte(len(f.AppReply)/2), 0)
+	b = append(b, replyWords, 0)
 	return append(b, f.AppReply...), nil
 }
 
@@ -562,24 +566,26 @@ func (u UnconnectedSend) Encode() ([]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("embedded request: %w", err)
 	}
-	if len(msg) > math.MaxUint16 {
+	msgLen, ok := len16(len(msg))
+	if !ok {
 		return nil, fmt.Errorf("%w: embedded request of %d octets", ErrTooLarge, len(msg))
 	}
 	route, err := u.Route.Encode()
 	if err != nil {
 		return nil, fmt.Errorf("route path: %w", err)
 	}
-	if len(route)/2 > math.MaxUint8 {
+	routeWords, ok := words8(len(route))
+	if !ok {
 		return nil, fmt.Errorf("%w: route path of %d octets", ErrTooLarge, len(route))
 	}
 	b := make([]byte, 0, 8+len(msg)+len(route))
 	b = append(b, u.PriorityTick, u.TimeoutTicks)
-	b = AppendUint16(b, uint16(len(msg)))
+	b = AppendUint16(b, msgLen)
 	b = append(b, msg...)
 	if len(msg)%2 != 0 {
 		b = append(b, 0)
 	}
-	b = append(b, byte(len(route)/2), 0)
+	b = append(b, routeWords, 0)
 	return append(b, route...), nil
 }
 

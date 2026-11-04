@@ -22,6 +22,11 @@ and `\\` escaped); empty fields (`,,`); datasets `{...}`; tokens for numbers
 references (`Param3`, `Assem100`). Limits: 16 MiB, 4096 fields per entry,
 262144 entries.
 
+The typed views reject a number that does not fit its field, naming the
+line and keyword (`eds: line 2: [Device] VendCode: not a 16-bit number:
+70000`), instead of truncating it; an assembly member is at most
+`8*MaxAssemblySize` bits.
+
 The grammar follows eds_pie (MIT) and published EDS files; the ODVA EDS
 specification is not available to this project. Validation checks the
 structure and consistency; it is not ODVA's EZ-EDS conformance check.

@@ -7,11 +7,13 @@ import (
 	"crypto/tls"
 	"errors"
 	"fmt"
+	"math"
 	"net"
 	"net/netip"
 	"slices"
 	"strconv"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	ethernetip "github.com/otfabric/go-ethernetip"
@@ -42,6 +44,7 @@ type Server struct {
 	objects   map[cip.Class]Object
 	symbols   SymbolHandler
 	sessions  map[uint32]*session
+	conns     map[*session]bool // every TCP connection, registered or not
 	tcp       net.Listener
 	udp       *net.UDPConn
 	io        *implicit.Endpoint
@@ -56,6 +59,9 @@ type Server struct {
 	tcpip      *StandardObject
 	ttl        uint8
 	inactivity time.Duration
+
+	// pendingDiscovery counts the delayed UDP replies waiting in timers.
+	pendingDiscovery atomic.Int32
 }
 
 // New returns a server with the standard objects: Identity, Message Router,
@@ -76,6 +82,7 @@ func New(opts ...Option) (*Server, error) {
 		cancel:     cancel,
 		objects:    map[cip.Class]Object{},
 		sessions:   map[uint32]*session{},
+		conns:      map[*session]bool{},
 		ttl:        1,
 		inactivity: o.inactivity,
 	}
@@ -312,8 +319,10 @@ func (s *Server) Close() error {
 	s.closed = true
 	s.cancel()
 	l, udp, ep, own := s.tcp, s.udp, s.io, s.ownIO
-	sessions := make([]*session, 0, len(s.sessions))
-	for _, ss := range s.sessions {
+	// Every TCP connection, not only the registered ones: one that never
+	// registers would otherwise hold Close until its inactivity timeout.
+	sessions := make([]*session, 0, len(s.conns))
+	for ss := range s.conns {
 		sessions = append(sessions, ss)
 	}
 	s.mu.Unlock()
@@ -332,6 +341,18 @@ func (s *Server) Close() error {
 	}
 	s.wg.Wait()
 	return nil
+}
+
+// maxTCPConns returns the limit of open TCP connections: room for the
+// registered sessions, as many connections again that have not registered
+// (ListIdentity over TCP, a session being refused or closing) and some
+// headroom for small limits.
+func (s *Server) maxTCPConns() int {
+	n := s.opts.maxSessions
+	if n > (math.MaxInt-16)/2 {
+		return math.MaxInt
+	}
+	return 2*n + 16
 }
 
 // Sessions returns the number of registered sessions.
@@ -387,6 +408,11 @@ func (s *Server) route(ctx context.Context, req cip.Request, remote net.Addr, co
 			return cip.Response{Status: cip.StatusPathSegmentError}
 		}
 		r.Attribute, r.HasAttribute = uint16(v), true
+	}
+	if class > math.MaxUint16 {
+		// Class codes are 16-bit: a 32-bit class segment beyond them
+		// addresses no object (truncated, it would address another one).
+		return cip.Response{Status: cip.StatusPathDestinationUnknown}
 	}
 	r.Rest = req.Path[i:]
 	s.mu.Lock()

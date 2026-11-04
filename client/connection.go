@@ -211,12 +211,25 @@ func classThreeTiming(d time.Duration) (uint8, uint32) {
 	for mult := uint8(0); mult <= 7; mult++ {
 		rpi := d / time.Duration(4<<mult)
 		if rpi <= 10*time.Second {
-			return mult, uint32(rpi / time.Microsecond)
+			return mult, microseconds(rpi)
 		}
 	}
 	// The RPI is a 32-bit count of microseconds: longer timeouts are
 	// clamped to the largest (about 610 hours).
-	return 7, uint32(min(d/512/time.Microsecond, math.MaxUint32))
+	return 7, microseconds(d / 512)
+}
+
+// microseconds returns d as the 32-bit count of microseconds of an RPI,
+// clamped to 0 and to the largest the field holds.
+func microseconds(d time.Duration) uint32 {
+	us := int64(d / time.Microsecond)
+	if us < 0 {
+		return 0
+	}
+	if us > math.MaxUint32 {
+		return math.MaxUint32
+	}
+	return uint32(us)
 }
 
 // Info returns the connection's IDs, triad and intervals.

@@ -42,8 +42,12 @@ func main() {
 		<-ctx.Done()
 		_ = srv.Close()
 	}()
-	log.Printf("serving on %s", addr)
-	if err := srv.ListenAndServe(addr); err != nil && err != ethernetip.ErrClosed {
+	if err := srv.Listen(addr); err != nil {
+		log.Fatal(err)
+	}
+	// The bound address, not the argument: ":0" shows the port it got.
+	log.Printf("serving on %s", srv.Addr())
+	if err := srv.Serve(); err != nil && err != ethernetip.ErrClosed {
 		log.Fatal(err)
 	}
 }

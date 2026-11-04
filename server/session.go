@@ -9,7 +9,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"io"
-	mrand "math/rand"
+	"math"
 	"net"
 	"net/netip"
 	"sync"
@@ -58,6 +58,18 @@ func exchangeOf(ctx context.Context) *exchange {
 func (s *Server) serveConn(c net.Conn) {
 	defer s.wg.Done()
 	ss := &session{s: s, conn: c, remote: c.RemoteAddr(), local: c.LocalAddr()}
+	s.mu.Lock()
+	if s.closed || len(s.conns) >= s.maxTCPConns() {
+		closed := s.closed
+		s.mu.Unlock()
+		_ = c.Close()
+		if !closed {
+			s.log.Warn("too many TCP connections: connection closed", "remote", ss.remote.String(), "limit", s.maxTCPConns())
+		}
+		return
+	}
+	s.conns[ss] = true
+	s.mu.Unlock()
 	if m := s.opts.metrics; m != nil {
 		m.OnConnect(ss.remote)
 	}
@@ -90,6 +102,7 @@ func (ss *session) close() {
 	ss.once.Do(func() {
 		_ = ss.conn.Close()
 		ss.s.mu.Lock()
+		delete(ss.s.conns, ss)
 		for h, x := range ss.s.sessions {
 			if x == ss {
 				delete(ss.s.sessions, h)
@@ -269,17 +282,25 @@ func (ss *session) sendRRData(pkt encap.Packet) {
 	ctx := context.WithValue(ss.s.ctx, exchangeKey{}, ex)
 	resp := ss.s.handleMessage(ctx, msg.Data, ss.remote, false)
 	b, err := resp.Encode()
-	if err != nil {
-		ss.s.log.Warn("response not encoded", "error", err)
-		return
+	if err == nil {
+		items := append([]encap.Item{{Type: encap.ItemNullAddress}, {Type: encap.ItemUnconnectedData, Data: b}}, ex.addItems...)
+		var data []byte
+		if data, err = (encap.RRData{Items: items}).Encode(); err == nil && len(data) <= encap.MaxData {
+			ss.replyData(pkt.Header, data)
+			return
+		}
 	}
-	items := append([]encap.Item{{Type: encap.ItemNullAddress}, {Type: encap.ItemUnconnectedData, Data: b}}, ex.addItems...)
-	data, err := encap.RRData{Items: items}.Encode()
-	if err != nil {
-		ss.s.log.Warn("reply not encoded", "error", err)
-		return
-	}
+	// The reply does not fit an encapsulation packet: the originator is
+	// told so rather than left to time out.
+	ss.s.log.Warn("reply too large", "error", err, "octets", len(b))
+	b, _ = tooLarge(resp.Service).Encode()
+	data, _ := encap.RRData{Items: []encap.Item{{Type: encap.ItemNullAddress}, {Type: encap.ItemUnconnectedData, Data: b}}}.Encode()
 	ss.replyData(pkt.Header, data)
+}
+
+// tooLarge is the response of service svc whose reply does not fit.
+func tooLarge(svc cip.Service) cip.Response {
+	return cip.Response{Service: svc, Status: cip.StatusReplyDataTooLarge}
 }
 
 // handleMessage decodes and dispatches a message; a message that does not
@@ -304,6 +325,12 @@ func (s *Server) handleMessage(ctx context.Context, b []byte, remote net.Addr, c
 	}
 	return s.dispatch(ctx, req, remote, connected)
 }
+
+// maxConnectedReply is the largest reply a SendUnitData carries: the
+// encapsulation data less the interface handle (4), timeout (2), item
+// count (2), the connected address item (4 + 4), the data item header (4)
+// and the sequence count (2).
+const maxConnectedReply = encap.MaxData - 4 - 2 - 2 - 8 - 4 - 2
 
 func (ss *session) sendUnitData(pkt encap.Packet) {
 	rr, err := encap.DecodeRRData(pkt.Data)
@@ -331,10 +358,11 @@ func (ss *session) sendUnitData(pkt encap.Packet) {
 		ctx := context.WithValue(ss.s.ctx, exchangeKey{}, &exchange{sess: ss, items: rr.Items, maxReply: max(cn.toSize-6, 0)})
 		r := ss.s.handleMessage(ctx, data.Data[2:], ss.remote, true)
 		b, err := r.Encode()
-		if err != nil {
-			ss.s.log.Warn("response not encoded", "error", err)
-			return nil
+		if err == nil && len(b) <= maxConnectedReply {
+			return b
 		}
+		ss.s.log.Warn("response not encoded", "error", err, "octets", len(b))
+		b, _ = tooLarge(r.Service).Encode()
 		return b
 	})
 	if !ok {
@@ -357,7 +385,7 @@ func (s *Server) listIdentity(local net.Addr) []byte {
 	s.mu.Lock()
 	if s.tcp != nil {
 		if ta, ok := s.tcp.Addr().(*net.TCPAddr); ok {
-			port = uint16(ta.Port)
+			port = ta.AddrPort().Port()
 		}
 	}
 	s.mu.Unlock()
@@ -418,9 +446,22 @@ func (s *Server) serveUDP(c *net.UDPConn) {
 			_, _ = c.WriteToUDPAddrPort(out, from)
 			continue
 		}
-		time.AfterFunc(delay, func() { _, _ = c.WriteToUDPAddrPort(out, from) })
+		// Delayed replies wait in timers: a flood of requests asking for
+		// a delay is bounded by dropping those beyond maxPendingDiscovery.
+		if s.pendingDiscovery.Add(1) > maxPendingDiscovery {
+			s.pendingDiscovery.Add(-1)
+			continue
+		}
+		time.AfterFunc(delay, func() {
+			defer s.pendingDiscovery.Add(-1)
+			_, _ = c.WriteToUDPAddrPort(out, from)
+		})
 	}
 }
+
+// maxPendingDiscovery bounds the delayed UDP ListIdentity replies waiting
+// to be sent; requests beyond it are not answered.
+const maxPendingDiscovery = 256
 
 // discoveryDelay returns the random delay before a UDP ListIdentity reply:
 // up to the maximum the request asks for in the first two octets of its
@@ -433,7 +474,16 @@ func (s *Server) discoveryDelay(pkt encap.Packet) time.Duration {
 	if maxD == 0 || maxD > s.opts.discoveryDelayMax {
 		maxD = s.opts.discoveryDelayMax
 	}
-	return time.Duration(mrand.Int63n(int64(maxD)))
+	us := int64(maxD / time.Microsecond)
+	if us <= 0 || us > math.MaxUint32 {
+		return 0
+	}
+	// Spreading replies needs no unpredictability, only no shared seed;
+	// crypto/rand into an array costs no allocation. A failed read gives
+	// 0, an immediate reply.
+	var b [4]byte
+	_, _ = rand.Read(b[:])
+	return time.Duration(binary.LittleEndian.Uint32(b[:])%uint32(us)) * time.Microsecond
 }
 
 // replyAddr returns the local address of a UDP socket as seen by from: a

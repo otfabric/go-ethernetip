@@ -90,13 +90,18 @@ func (v Value) appendType(b []byte) []byte {
 	return binary.LittleEndian.AppendUint16(b, uint16(v.Type))
 }
 
-// decodeType reads the type field of a Read Tag reply.
-func decodeType(r *cip.Reader) (cip.DataType, uint16) {
+// decodeType reads the type field of a Read Tag reply or a write request:
+// an atomic type code (one octet in a 16-bit field) or the structure type
+// code and a handle. ok is false for a code that is neither.
+func decodeType(r *cip.Reader) (t cip.DataType, handle uint16, ok bool) {
 	code := r.Uint16()
 	if code == StructTypeCode {
-		return 0, r.Uint16()
+		return 0, r.Uint16(), true
 	}
-	return cip.DataType(code), 0
+	if code > 0xFF {
+		return 0, 0, false
+	}
+	return cip.DataType(code), 0, true
 }
 
 func (v Value) elem(i int) ([]byte, error) {
@@ -122,13 +127,15 @@ func (v Value) Int(i int) (int64, error) {
 		}
 		return 0, nil
 	case cip.TypeSINT:
-		return int64(int8(b[0])), nil
+		return int64(b[0]) - int64(b[0]&0x80)<<1, nil
 	case cip.TypeINT, cip.TypeITIME:
-		return int64(int16(binary.LittleEndian.Uint16(b))), nil
+		u := binary.LittleEndian.Uint16(b)
+		return int64(u) - int64(u&0x8000)<<1, nil
 	case cip.TypeDINT, cip.TypeSTIME, cip.TypeFTIME, cip.TypeTIME:
-		return int64(int32(binary.LittleEndian.Uint32(b))), nil
+		u := binary.LittleEndian.Uint32(b)
+		return int64(u) - int64(u&0x80000000)<<1, nil
 	case cip.TypeLINT, cip.TypeLTIME:
-		return int64(binary.LittleEndian.Uint64(b)), nil
+		return signed64(binary.LittleEndian.Uint64(b)), nil
 	default:
 		// Unsigned types below.
 	}
@@ -211,8 +218,8 @@ func (v Value) Text(i int) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	n := int(int32(binary.LittleEndian.Uint32(b)))
-	if n < 0 || n > StringCapacity {
+	n := binary.LittleEndian.Uint32(b)
+	if n > StringCapacity {
 		return "", fmt.Errorf("%w: STRING length %d", ErrType, n)
 	}
 	return string(b[4 : 4+n]), nil
@@ -244,7 +251,7 @@ func Ints(t cip.DataType, vs ...int64) (Value, error) {
 			return Value{}, fmt.Errorf("%w: %d does not fit %s", ErrType, x, t)
 		}
 		var w [8]byte
-		binary.LittleEndian.PutUint64(w[:], uint64(x))
+		binary.LittleEndian.PutUint64(w[:], unsigned64(x))
 		data = append(data, w[:size]...)
 	}
 	return Value{Type: t, Count: len(vs), Data: data}, nil
@@ -272,13 +279,32 @@ func Floats(t cip.DataType, vs ...float64) (Value, error) {
 func Strings(vs ...string) (Value, error) {
 	data := make([]byte, 0, StringSize*len(vs))
 	for _, s := range vs {
-		if len(s) > StringCapacity {
-			return Value{}, fmt.Errorf("%w: STRING of %d characters", ErrType, len(s))
+		n := len(s)
+		if n > StringCapacity {
+			return Value{}, fmt.Errorf("%w: STRING of %d characters", ErrType, n)
 		}
 		var e [StringSize]byte
-		binary.LittleEndian.PutUint32(e[:], uint32(len(s)))
+		binary.LittleEndian.PutUint32(e[:], uint32(n))
 		copy(e[4:], s)
 		data = append(data, e[:]...)
 	}
 	return Value{Handle: StringHandle, Count: len(vs), Data: data}, nil
+}
+
+// signed64 reinterprets the two's complement bits of u as an int64.
+func signed64(u uint64) int64 {
+	x := int64(u & math.MaxInt64)
+	if u>>63 != 0 {
+		x += math.MinInt64
+	}
+	return x
+}
+
+// unsigned64 returns the two's complement bits of x.
+func unsigned64(x int64) uint64 {
+	u := uint64(x & math.MaxInt64)
+	if x < 0 {
+		u |= 1 << 63
+	}
+	return u
 }

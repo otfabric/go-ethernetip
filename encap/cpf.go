@@ -6,7 +6,6 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
-	"math"
 	"net/netip"
 
 	"github.com/otfabric/go-ethernetip/cip"
@@ -65,16 +64,19 @@ const MaxItems = 64
 
 // AppendCPF appends a common packet format: the item count and the items.
 func AppendCPF(b []byte, items []Item) ([]byte, error) {
-	if len(items) > MaxItems {
-		return b, fmt.Errorf("%w: %d items", ErrTooLarge, len(items))
+	count := len(items)
+	if count > MaxItems {
+		return b, fmt.Errorf("%w: %d items", ErrTooLarge, count)
 	}
-	b = binary.LittleEndian.AppendUint16(b, uint16(len(items)))
+	start := len(b)
+	b = binary.LittleEndian.AppendUint16(b, uint16(max(count, 0)))
 	for _, it := range items {
-		if len(it.Data) > math.MaxUint16 {
-			return b, fmt.Errorf("%w: %s item of %d octets", ErrTooLarge, it.Type, len(it.Data))
+		n, ok := len16(len(it.Data))
+		if !ok {
+			return b[:start], fmt.Errorf("%w: %s item of %d octets", ErrTooLarge, it.Type, len(it.Data))
 		}
 		b = binary.LittleEndian.AppendUint16(b, uint16(it.Type))
-		b = binary.LittleEndian.AppendUint16(b, uint16(len(it.Data)))
+		b = binary.LittleEndian.AppendUint16(b, n)
 		b = append(b, it.Data...)
 	}
 	return b, nil
@@ -313,7 +315,7 @@ func DecodeSequencedAddress(b []byte) (SequencedAddress, error) {
 	if len(b) != 8 {
 		return SequencedAddress{}, fmt.Errorf("%w: sequenced address of %d octets", ErrMalformed, len(b))
 	}
-	return SequencedAddress{binary.LittleEndian.Uint32(b), binary.LittleEndian.Uint32(b[4:])}, nil
+	return SequencedAddress{ConnID: binary.LittleEndian.Uint32(b), Sequence: binary.LittleEndian.Uint32(b[4:])}, nil
 }
 
 // ConnectedAddress returns a Connected Address item for a connection ID.

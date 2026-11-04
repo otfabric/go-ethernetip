@@ -7,6 +7,7 @@ import (
 	"crypto/rand"
 	"encoding/binary"
 	"errors"
+	"math"
 	"net"
 	"net/netip"
 	"sort"
@@ -43,7 +44,7 @@ type connectionManager struct {
 	productions map[uint32]*production   // multicast productions, by T->O point
 	ids         map[uint32]bool          // connection IDs in use
 	counters    [numCounters]uint16
-	nextGroup   int
+	nextGroup   uint32
 }
 
 // conn is an open connection of the registry.
@@ -303,6 +304,11 @@ func (cm *connectionManager) parsePath(p cip.Path) (openParts, *failure) {
 				if gotClass {
 					return op, connFailure(cip.ConnStatusInvalidSegment)
 				}
+				if s.Value > math.MaxUint16 {
+					// A class beyond the 16-bit codes is not one of ours;
+					// truncating it would address another class.
+					return op, connFailure(cip.ConnStatusInvalidSegment)
+				}
 				op.class, gotClass = cip.Class(s.Value), true
 			case cip.LogicalInstance, cip.LogicalConnectionPoint:
 				if !gotClass {
@@ -405,6 +411,12 @@ func (cm *connectionManager) openExplicit(ex *exchange, fo cip.ForwardOpen, part
 		cm.mu.Unlock()
 		return cip.ForwardOpenReply{}, nil, connFailure(cip.ConnStatusInUse)
 	}
+	if len(cm.conns) >= cm.s.opts.maxConnections {
+		// Checked again where the connection is added: concurrent
+		// Forward_Opens on other sessions passed the first check too.
+		cm.mu.Unlock()
+		return cip.ForwardOpenReply{}, nil, connFailure(cip.ConnStatusOutOfConnections)
+	}
 	ot := cm.newID()
 	ec.info = ethernetip.ConnectionInfo{
 		Class: 3, OTConnID: ot, TOConnID: fo.TOConnID,
@@ -505,8 +517,10 @@ func (cm *connectionManager) unconnectedSend(ctx context.Context, r *Request) ci
 	}
 	route, f := cm.localPath(us.Route)
 	if f != nil || len(route) != 0 {
+		// The remaining path size, in words (a USINT; Words fails, giving
+		// 0, for a route that does not fit one).
 		words, _ := us.Route.Words()
-		return cip.Response{Status: cip.StatusConnectionFailure, Extended: []uint16{uint16(cip.ConnStatusPortNotAvailable)}, Data: []byte{byte(words), 0}}
+		return cip.Response{Status: cip.StatusConnectionFailure, Extended: []uint16{uint16(cip.ConnStatusPortNotAvailable)}, Data: []byte{saturate8(words), 0}}
 	}
 	if c, _ := us.Request.Path.Class(); us.Request.Service == cip.ServiceUnconnectedSend && c == cip.ClassConnectionManager {
 		return cip.Response{Status: cip.StatusConnectionFailure, Extended: []uint16{uint16(cip.ConnStatusUnconnectedParameterError)}}

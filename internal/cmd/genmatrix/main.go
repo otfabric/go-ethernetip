@@ -56,7 +56,14 @@ var names = map[string]string{"opener": "OpENer", "eipscanner": "EIPScanner", "p
 	"nodeeip": "node-ethernet-ip", "eeip": "EEIP.NET", "lokieip": "loki-os go-ethernet-ip"}
 
 func run(check bool) error {
-	b, err := os.ReadFile(results)
+	// The files are read and written under the working directory, the
+	// repository root, and nowhere else.
+	root, err := os.OpenRoot(".")
+	if err != nil {
+		return err
+	}
+	defer func() { _ = root.Close() }()
+	b, err := root.ReadFile(results)
 	if err != nil {
 		return err
 	}
@@ -144,7 +151,7 @@ func run(check bool) error {
 	}
 	p("%s", end)
 
-	d, err := os.ReadFile(doc)
+	d, err := root.ReadFile(doc)
 	if err != nil {
 		return err
 	}
@@ -159,5 +166,5 @@ func run(check bool) error {
 		}
 		return nil
 	}
-	return os.WriteFile(doc, updated, 0o644)
+	return root.WriteFile(doc, updated, 0o600)
 }

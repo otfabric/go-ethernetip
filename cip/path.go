@@ -205,7 +205,8 @@ func (s PortSegment) appendTo(b []byte, packed bool) ([]byte, error) {
 	if s.Port == 0 {
 		return b, fmt.Errorf("%w: port 0", ErrMalformed)
 	}
-	if len(s.Link) == 0 || len(s.Link) > math.MaxUint8 {
+	linkLen, ok := len8(len(s.Link))
+	if !ok || linkLen == 0 {
 		return b, fmt.Errorf("%w: port segment link of %d octets", ErrMalformed, len(s.Link))
 	}
 	start := len(b)
@@ -221,7 +222,7 @@ func (s PortSegment) appendTo(b []byte, packed bool) ([]byte, error) {
 	}
 	b = append(b, head)
 	if ext {
-		b = append(b, byte(len(s.Link)))
+		b = append(b, linkLen)
 	}
 	if s.Port >= 15 {
 		b = AppendUint16(b, s.Port)
@@ -243,10 +244,11 @@ type SymbolSegment struct {
 func (s SymbolSegment) String() string { return "symbol " + s.Name }
 
 func (s SymbolSegment) appendTo(b []byte, packed bool) ([]byte, error) {
-	if len(s.Name) == 0 || len(s.Name) > math.MaxUint8 {
+	n, ok := len8(len(s.Name))
+	if !ok || n == 0 {
 		return b, fmt.Errorf("%w: symbol of %d octets", ErrMalformed, len(s.Name))
 	}
-	b = append(b, 0x91, byte(len(s.Name)))
+	b = append(b, 0x91, n)
 	b = append(b, s.Name...)
 	if !packed && len(s.Name)%2 != 0 {
 		b = append(b, 0)
@@ -264,10 +266,11 @@ type DataSegment struct {
 func (s DataSegment) String() string { return "data " + hex.EncodeToString(s.Data) }
 
 func (s DataSegment) appendTo(b []byte, _ bool) ([]byte, error) {
-	if len(s.Data)%2 != 0 || len(s.Data)/2 > math.MaxUint8 {
+	words, ok := words8(len(s.Data))
+	if !ok {
 		return b, fmt.Errorf("%w: data segment of %d octets", ErrMalformed, len(s.Data))
 	}
-	b = append(b, 0x80, byte(len(s.Data)/2))
+	b = append(b, 0x80, words)
 	return append(b, s.Data...), nil
 }
 
@@ -298,10 +301,11 @@ func (s NetworkSegment) appendTo(b []byte, _ bool) ([]byte, error) {
 		}
 		return append(b, 0x40|s.Subtype, s.Data[0]), nil
 	}
-	if len(s.Data)%2 != 0 || len(s.Data)/2 > math.MaxUint8 {
+	words, ok := words8(len(s.Data))
+	if !ok {
 		return b, fmt.Errorf("%w: network segment of %d octets", ErrMalformed, len(s.Data))
 	}
-	b = append(b, 0x40|s.Subtype, byte(len(s.Data)/2))
+	b = append(b, 0x40|s.Subtype, words)
 	return append(b, s.Data...), nil
 }
 
@@ -395,24 +399,35 @@ func (p Path) logical(t LogicalType) (uint32, bool) {
 }
 
 // Class returns the first class ID of the path, or [ClassSymbol] for a path
-// that starts with a symbol.
+// that starts with a symbol. A 32-bit class ID above 0xFFFF, which [Class]
+// cannot hold, reports false rather than a truncated ID.
 func (p Path) Class() (Class, bool) {
 	if len(p) > 0 {
 		if _, ok := p[0].(SymbolSegment); ok {
 			return ClassSymbol, true
 		}
 	}
-	v, ok := p.logical(LogicalClass)
+	v, ok := p.logical16(LogicalClass)
 	return Class(v), ok
 }
 
 // Instance returns the first instance ID of the path.
 func (p Path) Instance() (uint32, bool) { return p.logical(LogicalInstance) }
 
-// Attribute returns the first attribute ID of the path.
+// Attribute returns the first attribute ID of the path. An ID above 0xFFFF
+// reports false rather than a truncated ID.
 func (p Path) Attribute() (uint16, bool) {
-	v, ok := p.logical(LogicalAttribute)
-	return uint16(v), ok
+	return p.logical16(LogicalAttribute)
+}
+
+// logical16 is [Path.logical] for the 16-bit IDs: a value that does not fit
+// is not reported as a truncated ID.
+func (p Path) logical16(t LogicalType) (uint16, bool) {
+	v, ok := p.logical(t)
+	if !ok || v > math.MaxUint16 {
+		return 0, false
+	}
+	return uint16(v), true
 }
 
 // Member returns the first member ID of the path.

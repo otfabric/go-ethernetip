@@ -5,6 +5,7 @@ package eds
 import (
 	"encoding/hex"
 	"fmt"
+	"math"
 	"sort"
 	"strconv"
 	"strings"
@@ -35,6 +36,90 @@ func parseUint(f Field, bits int) (uint64, error) {
 	return v, nil
 }
 
+// parseWide reads an unsigned number of up to 64 bits; the callers check
+// it against the width of their field, named by bits in the error.
+func parseWide(f Field, bits int) (uint64, error) {
+	if f.Kind != FieldToken {
+		return 0, fmt.Errorf("not a number: %s", f)
+	}
+	v, err := strconv.ParseUint(strings.TrimSpace(f.Value), 0, 64)
+	if err != nil {
+		return 0, fmt.Errorf("not a %d-bit number: %s", bits, f.Value)
+	}
+	return v, nil
+}
+
+// parseU8, parseU16 and parseU32 read a number of a field of that width;
+// a value out of range is an error, never truncated.
+func parseU8(f Field) (uint8, error) {
+	v, err := parseWide(f, 8)
+	if err != nil {
+		return 0, err
+	}
+	if v > math.MaxUint8 {
+		return 0, fmt.Errorf("not a 8-bit number: %s", f.Value)
+	}
+	return uint8(v), nil
+}
+
+func parseU16(f Field) (uint16, error) {
+	v, err := parseWide(f, 16)
+	if err != nil {
+		return 0, err
+	}
+	if v > math.MaxUint16 {
+		return 0, fmt.Errorf("not a 16-bit number: %s", f.Value)
+	}
+	return uint16(v), nil
+}
+
+func parseU32(f Field) (uint32, error) {
+	v, err := parseWide(f, 32)
+	if err != nil {
+		return 0, err
+	}
+	if v > math.MaxUint32 {
+		return 0, fmt.Errorf("not a 32-bit number: %s", f.Value)
+	}
+	return uint32(v), nil
+}
+
+// parseSize reads a size field of a bits-wide field whose values above
+// limit (at most math.MaxInt32) are rejected, as an int.
+func parseSize(f Field, bits int, limit uint64) (int, error) {
+	v, err := parseWide(f, bits)
+	if err != nil {
+		return 0, err
+	}
+	if v>>bits != 0 {
+		return 0, fmt.Errorf("not a %d-bit number: %s", bits, f.Value)
+	}
+	if v > limit || v > math.MaxInt32 {
+		return 0, fmt.Errorf("%s is above %d", f.Value, limit)
+	}
+	return int(v & math.MaxInt32), nil
+}
+
+// signExtend returns the low bits of u as a two's complement number of
+// that width: 0xFFFF of 16 bits is -1. bits is 1 to 64.
+func signExtend(u uint64, bits int) int64 {
+	if bits < 64 {
+		u &= 1<<bits - 1
+		if u&(1<<(bits-1)) != 0 {
+			u |= ^uint64(0) << bits
+		}
+	}
+	if u > math.MaxInt64 {
+		// Negative: -(^u) - 1, where ^u is at most MaxInt64.
+		n := ^u
+		if n > math.MaxInt64 {
+			return 0
+		}
+		return -int64(n) - 1
+	}
+	return int64(u)
+}
+
 func parseInt(f Field) (int64, error) {
 	if f.Kind != FieldToken {
 		return 0, fmt.Errorf("not a number: %s", f)
@@ -42,20 +127,41 @@ func parseInt(f Field) (int64, error) {
 	s := strings.TrimSpace(f.Value)
 	if strings.HasPrefix(s, "0x") || strings.HasPrefix(s, "0X") {
 		v, err := strconv.ParseUint(s[2:], 16, 64)
-		return int64(v), err
+		return signExtend(v, 64), err
 	}
 	return strconv.ParseInt(s, 10, 64)
 }
 
-// keyUint reads an unsigned entry of a section.
-func keyUint(s *Section, kw string, bits int) (uint64, error) {
+// keyEntry returns the entry kw of a section.
+func keyEntry(s *Section, kw string) (Entry, error) {
 	e, ok := s.Entry(kw)
 	if !ok {
-		return 0, fmt.Errorf("[%s] has no %s", s.Name, kw)
+		return Entry{}, fmt.Errorf("[%s] has no %s", s.Name, kw)
 	}
-	v, err := parseUint(e.Field(0), bits)
+	return e, nil
+}
+
+// keyU8 and keyU16 read an unsigned entry of a section.
+func keyU8(s *Section, kw string) (uint8, error) {
+	e, err := keyEntry(s, kw)
 	if err != nil {
-		return 0, fmt.Errorf("[%s] %s: %w", s.Name, kw, err)
+		return 0, err
+	}
+	v, err := parseU8(e.Field(0))
+	if err != nil {
+		return 0, fmt.Errorf("line %d: [%s] %s: %w", e.Line, s.Name, kw, err)
+	}
+	return v, nil
+}
+
+func keyU16(s *Section, kw string) (uint16, error) {
+	e, err := keyEntry(s, kw)
+	if err != nil {
+		return 0, err
+	}
+	v, err := parseU16(e.Field(0))
+	if err != nil {
+		return 0, fmt.Errorf("line %d: [%s] %s: %w", e.Line, s.Name, kw, err)
 	}
 	return v, nil
 }
@@ -73,19 +179,27 @@ func (f *File) Device() (Device, error) {
 	}
 	var d Device
 	var err error
-	var v uint64
-	get := func(kw string, bits int) uint64 {
+	u16 := func(kw string) uint16 {
 		if err != nil {
 			return 0
 		}
-		v, err = keyUint(s, kw, bits)
+		var v uint16
+		v, err = keyU16(s, kw)
 		return v
 	}
-	d.VendorID = uint16(get("VendCode", 16))
-	d.DeviceType = cip.DeviceType(get("ProdType", 16))
-	d.ProductCode = uint16(get("ProdCode", 16))
-	d.Revision.Major = uint8(get("MajRev", 8))
-	d.Revision.Minor = uint8(get("MinRev", 8))
+	u8 := func(kw string) uint8 {
+		if err != nil {
+			return 0
+		}
+		var v uint8
+		v, err = keyU8(s, kw)
+		return v
+	}
+	d.VendorID = u16("VendCode")
+	d.DeviceType = cip.DeviceType(u16("ProdType"))
+	d.ProductCode = u16("ProdCode")
+	d.Revision.Major = u8("MajRev")
+	d.Revision.Minor = u8("MinRev")
 	if err != nil {
 		return d, fmt.Errorf("eds: %w", err)
 	}
@@ -189,22 +303,22 @@ func (f *File) Params() ([]Param, error) {
 			}
 		}
 		if d := e.Field(paramDescriptor); d.Kind == FieldToken {
-			v, err := parseUint(d, 16)
+			v, err := parseU16(d)
 			if err != nil {
 				return nil, fmt.Errorf("eds: line %d: Param%d descriptor: %w", e.Line, ne.n, err)
 			}
-			p.Descriptor = uint16(v)
+			p.Descriptor = v
 		}
-		t, err := parseUint(e.Field(paramType), 8)
+		t, err := parseU8(e.Field(paramType))
 		if err != nil {
 			return nil, fmt.Errorf("eds: line %d: Param%d data type: %w", e.Line, ne.n, err)
 		}
 		p.Type = cip.DataType(t)
-		sz, err := parseUint(e.Field(paramSize), 16)
+		sz, err := parseSize(e.Field(paramSize), 16, math.MaxUint16)
 		if err != nil {
 			return nil, fmt.Errorf("eds: line %d: Param%d data size: %w", e.Line, ne.n, err)
 		}
-		p.Size = int(sz)
+		p.Size = sz
 		out = append(out, p)
 	}
 	return out, nil
@@ -248,6 +362,11 @@ type AssemblyMember struct {
 	Ref string
 }
 
+// MaxAssemblySize is the largest assembly size, in octets, an EDS can
+// declare: the size field is 16 bits. A member larger than that, in bits
+// 8*MaxAssemblySize, is rejected.
+const MaxAssemblySize = 0xFFFF
+
 // Assembly is an AssemN entry of the [Assembly] section.
 type Assembly struct {
 	Number int
@@ -277,27 +396,27 @@ func (f *File) Assemblies() ([]Assembly, error) {
 			a.Path = path
 		}
 		if sz := e.Field(2); sz.Kind == FieldToken {
-			v, err := parseUint(sz, 16)
+			v, err := parseSize(sz, 16, MaxAssemblySize)
 			if err != nil {
 				return nil, fmt.Errorf("eds: line %d: Assem%d size: %w", e.Line, ne.n, err)
 			}
-			a.Size = int(v)
+			a.Size = v
 		}
 		if d := e.Field(3); d.Kind == FieldToken {
-			v, err := parseUint(d, 16)
+			v, err := parseU16(d)
 			if err != nil {
 				return nil, fmt.Errorf("eds: line %d: Assem%d descriptor: %w", e.Line, ne.n, err)
 			}
-			a.Descriptor = uint16(v)
+			a.Descriptor = v
 		}
 		for i := 6; i+1 < len(e.Fields); i += 2 {
 			bits := 0
 			if e.Fields[i].Kind == FieldToken {
-				v, err := parseUint(e.Fields[i], 32)
+				v, err := parseSize(e.Fields[i], 32, 8*MaxAssemblySize)
 				if err != nil {
 					return nil, fmt.Errorf("eds: line %d: Assem%d member size: %w", e.Line, ne.n, err)
 				}
-				bits = int(v)
+				bits = v
 			}
 			a.Members = append(a.Members, AssemblyMember{Bits: bits, Ref: e.Fields[i+1].Value})
 		}
@@ -340,11 +459,11 @@ func (f *File) Connections() ([]Connection, error) {
 			ConfigSize: e.Field(10).Value, ConfigFormat: e.Field(11).Value,
 			Name: e.Field(12).Value, Help: e.Field(13).Value, PathText: e.Field(14).Value}
 		for i, dst := range []*uint32{&c.TriggerTransport, &c.Params} {
-			v, err := parseUint(e.Field(i), 32)
+			v, err := parseU32(e.Field(i))
 			if err != nil {
 				return nil, fmt.Errorf("eds: line %d: Connection%d field %d: %w", e.Line, ne.n, i+1, err)
 			}
-			*dst = uint32(v)
+			*dst = v
 		}
 		if p, err := ParseEPATH(c.PathText); err == nil {
 			c.Path = p

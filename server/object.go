@@ -4,6 +4,7 @@ package server
 
 import (
 	"context"
+	"math"
 	"net"
 	"slices"
 	"sync"
@@ -106,8 +107,8 @@ func NewObject(c cip.Class, rev uint16) *StandardObject {
 		services:   map[cip.Service]ServiceFunc{},
 	}
 	o.classAttrs[1] = Attribute{Get: func() []byte { return cip.AppendUint16(nil, o.revision) }, InGetAll: true}
-	o.classAttrs[2] = Attribute{Get: func() []byte { return cip.AppendUint16(nil, uint16(o.maxInstance())) }, InGetAll: true}
-	o.classAttrs[3] = Attribute{Get: func() []byte { return cip.AppendUint16(nil, uint16(o.numInstances())) }, InGetAll: true}
+	o.classAttrs[2] = Attribute{Get: func() []byte { return cip.AppendUint16(nil, saturate16(o.maxInstance())) }, InGetAll: true}
+	o.classAttrs[3] = Attribute{Get: func() []byte { return cip.AppendUint16(nil, saturate16(o.numInstances())) }, InGetAll: true}
 	o.classAttrs[6] = Attribute{Get: func() []byte { return cip.AppendUint16(nil, o.maxAttr(0)) }, InGetAll: true}
 	o.classAttrs[7] = Attribute{Get: func() []byte { return cip.AppendUint16(nil, o.maxAttr(1)) }, InGetAll: true}
 	return o
@@ -174,6 +175,30 @@ func (o *StandardObject) HandleService(s cip.Service, f ServiceFunc) {
 	o.mu.Lock()
 	defer o.mu.Unlock()
 	o.services[s] = f
+}
+
+// saturate16 returns n as a UINT attribute value: 0 when negative, 0xFFFF
+// when larger (instance IDs and counts are 32-bit here, the class
+// attributes that report them 16-bit).
+func saturate16[T int | uint32](n T) uint16 {
+	if n <= 0 {
+		return 0
+	}
+	if n >= math.MaxUint16 {
+		return math.MaxUint16
+	}
+	return uint16(n)
+}
+
+// saturate8 is saturate16 for a USINT.
+func saturate8(n int) uint8 {
+	if n <= 0 {
+		return 0
+	}
+	if n >= math.MaxUint8 {
+		return math.MaxUint8
+	}
+	return uint8(n)
 }
 
 func (o *StandardObject) maxInstance() uint32 {

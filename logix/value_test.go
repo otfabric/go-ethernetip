@@ -236,12 +236,20 @@ func TestValueStringAndElemSize(t *testing.T) {
 	if string(b) != "\xa0\x02\xef\xbe" {
 		t.Fatalf("struct type code %x", b)
 	}
-	typ, h := decodeType(cip.NewReader(b))
-	if typ != 0 || h != 0xBEEF {
+	typ, h, ok := decodeType(cip.NewReader(b))
+	if !ok || typ != 0 || h != 0xBEEF {
 		t.Fatalf("decodeType %v %x", typ, h)
 	}
-	typ, h = decodeType(cip.NewReader(v.appendType(nil)))
-	if typ != cip.TypeDINT || h != 0 {
+	typ, h, ok = decodeType(cip.NewReader(v.appendType(nil)))
+	if !ok || typ != cip.TypeDINT || h != 0 {
 		t.Fatalf("decodeType %v %x", typ, h)
+	}
+	// An atomic type code is one octet: 0x00FF is the largest, 0x01C4 is
+	// not DINT.
+	if typ, _, ok = decodeType(cip.NewReader([]byte{0xFF, 0x00})); !ok || typ != 0xFF {
+		t.Fatalf("decodeType 0x00FF: %v %v", typ, ok)
+	}
+	if _, _, ok = decodeType(cip.NewReader([]byte{0xC4, 0x01})); ok {
+		t.Fatal("decodeType accepted 0x01C4")
 	}
 }

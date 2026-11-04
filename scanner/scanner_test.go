@@ -225,6 +225,7 @@ func TestIOConfigValidation(t *testing.T) {
 		"input too big":  func(c *IOConfig) { c.InputSize = 65001 },
 		"multiplier":     func(c *IOConfig) { c.TimeoutMultiplier = 8 },
 		"odd config":     func(c *IOConfig) { c.ConfigData = []byte{1, 2, 3} },
+		"rpi below 1 µs": func(c *IOConfig) { c.RPI = 500 * time.Nanosecond },
 	}
 	for name, mod := range cases {
 		t.Run(name, func(t *testing.T) {

@@ -1,5 +1,70 @@
 # go-ethernetip Releases
 
+## v0.4.0
+
+**Date:** 2026-11-04
+**Previous release:** v0.3.4
+
+## Summary
+
+Hardening after a full SAST review (gosec and opengrep at low/low, 119
+findings to 0, fixed in code) and new hostile-peer, chaos and fuzz tests.
+Several values that were silently truncated to 8 or 16 bits are now refused,
+and a hostile peer can no longer hang `Server.Close`, exhaust connections or
+make a client loop or allocate without bound. Go 1.26 is the minimum.
+
+## Changes
+
+- **Go 1.26** minimum (CI on 1.26 and 1.27); `go fix` applied.
+- **cip**: `Path.Class` and `Path.Attribute` return `false` for a logical
+  value above 0xFFFF instead of its low 16 bits; `AppendString2` and the
+  other Append encoders leave the buffer unchanged on error.
+- **encap**: `AppendCPF` leaves the buffer unchanged when an item is longer
+  than 65535 octets.
+- **server**: a request for a class above 0xFFFF gets 0x05 (path
+  destination unknown) or, in a Forward_Open path, 0x01/0x0315, instead of
+  reaching the class with the same low 16 bits. `Close` now closes TCP
+  connections that never registered a session (it waited for their
+  inactivity timeout, forever with `WithInactivityTimeout(0)`). Connections
+  without a session are capped at 2 × `WithMaxSessions` + 16. The
+  `WithMaxConnections` limit holds under concurrent Forward_Opens.
+  `WithMaxConnections` above 65535 is `ErrInvalidOption`. At most 256 delayed
+  ListIdentity replies wait at once. A reply too large for its packet is
+  answered with 0x11 (reply data too large) instead of no reply. Class
+  attributes 2 and 3 and the Message Router counts saturate at 0xFFFF. The
+  ListIdentity reply delay uses crypto/rand.
+- **client**: `Reset` with a type above 255 and `GetAttributeList` with more
+  than 65535 attributes or a negative size are `ErrInvalidOption`; an
+  attribute status above 0xFF in a Get_Attribute_List reply is
+  `ErrProtocol` (it was cut to a byte, so 0x0100 read as success).
+- **scanner**: an RPI above 0 and below 1 µs is `ErrInvalidOption` (it was
+  sent as 0).
+- **logix**: a type code above one octet (e.g. 0x01C4) is `ErrProtocol` in
+  the client and a type mismatch (0xFF/0x2107) in `TagServer`; it read as
+  the type of its low octet. A fragmented read stops at 65536 fragments, at
+  count × element size, and on a fragment of another type or handle; a
+  template reply with an unrequested or repeated attribute is
+  `ErrProtocol`; `AddTemplate` refuses more than 65535 members;
+  `Template.Decode` copies its input once and its fields share it (a hostile
+  template allocated 153 MiB). `TagServer` offsets cannot go negative on
+  32-bit platforms, and a 32-bit class in a tag-list path no longer matches
+  the Symbol class.
+- **eds**: [Device] errors name the line; an assembly member above 524280
+  bits is refused (new constant `MaxAssemblySize`); `GenerateGo` writes no
+  struct for a layout above 65535 octets.
+- **Tests**: hostile-originator and hostile-adapter suites
+  (`server/hostile_test.go`, `client/hostile_test.go`,
+  `logix/hostile_test.go`, `e2e/hostile_test.go`), a truncating chaos proxy,
+  boundary tests for every length field, and fuzz targets
+  `FuzzServerStream`, `FuzzClientReply` and `FuzzReadReplies`.
+- **Interop**: the twelve reference images of ethernetip-interop v0.6.1,
+  pinned by digest (upstream pins unchanged); shared CI v3.3.1.
+- **Internal tools**: generators read and write through `os.Root` and write
+  0600; the interop node rejects out-of-range flags, revisions and members
+  instead of truncating them.
+
+---
+
 ## v0.3.4
 
 **Date:** 2026-10-31

@@ -129,7 +129,8 @@ FUZZ_TARGETS := \
 	cip:FuzzDecodePath cip:FuzzDecodeRequest cip:FuzzDecodeResponse cip:FuzzSplitMultiple \
 	cip:FuzzDecodeForwardOpen cip:FuzzDecodeUnconnectedSend cip:FuzzDecodeIdentity \
 	encap:FuzzDecodeHeader encap:FuzzReadPacket encap:FuzzDecodeCPF encap:FuzzDecodeIdentityItem \
-	implicit:FuzzDecodeImplicit eds:FuzzParse logix:FuzzServeSymbol logix:FuzzTemplateDecode
+	implicit:FuzzDecodeImplicit eds:FuzzParse logix:FuzzServeSymbol logix:FuzzTemplateDecode logix:FuzzReadReplies \
+	client:FuzzClientReply server:FuzzServerStream
 
 fuzz: ## Run every fuzz target for FUZZTIME each (default 30s)
 	@echo "Fuzzing (FUZZTIME=$(FUZZTIME))"

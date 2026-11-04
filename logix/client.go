@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"strings"
 	"sync"
 
@@ -76,7 +77,11 @@ func (c *Client) Read(ctx context.Context, tag string, count int) (Value, error)
 }
 
 func (c *Client) read(ctx context.Context, path cip.Path, count int) (Value, error) {
-	resp, err := c.d.Do(ctx, cip.Request{Service: cip.ServiceReadTag, Path: path, Data: cip.AppendUint16(nil, uint16(count))})
+	cnt, err := elementCount(count)
+	if err != nil {
+		return Value{}, err
+	}
+	resp, err := c.d.Do(ctx, cip.Request{Service: cip.ServiceReadTag, Path: path, Data: cip.AppendUint16(nil, cnt)})
 	partial := err != nil && resp.Status == cip.StatusPartialTransfer
 	if err != nil && !partial {
 		return Value{}, err
@@ -86,38 +91,89 @@ func (c *Client) read(ctx context.Context, path cip.Path, count int) (Value, err
 		return Value{}, err
 	}
 	v.Count = count
-	for partial {
-		req := cip.AppendUint16(nil, uint16(count))
-		req = cip.AppendUint32(req, uint32(len(data)))
+	// want is the size of the elements when the type gives it: a reply
+	// beyond it ends the read at once.
+	want := 0
+	if n := v.ElemSize(); !v.IsStruct() && n > 0 {
+		want = n * count
+	}
+	for fragments := 1; partial; fragments++ {
+		if want > 0 && len(data) > want {
+			break
+		}
+		if fragments >= maxReadFragments {
+			return Value{}, fmt.Errorf("%w: fragmented read of more than %d fragments", ethernetip.ErrProtocol, maxReadFragments)
+		}
+		off, err := fragmentOffset(len(data))
+		if err != nil {
+			return Value{}, err
+		}
+		req := cip.AppendUint16(nil, cnt)
+		req = cip.AppendUint32(req, off)
 		resp, err = c.d.Do(ctx, cip.Request{Service: cip.ServiceReadTagFragmented, Path: path, Data: req})
 		partial = err != nil && resp.Status == cip.StatusPartialTransfer
 		if err != nil && !partial {
 			return Value{}, err
 		}
-		_, more, err := decodeRead(resp.Data)
+		fv, more, err := decodeRead(resp.Data)
 		if err != nil {
 			return Value{}, err
+		}
+		if fv.Type != v.Type || fv.Handle != v.Handle {
+			return Value{}, fmt.Errorf("%w: fragment of %s in a read of %s", ethernetip.ErrProtocol, fv, v)
 		}
 		if len(more) == 0 && partial {
 			return Value{}, fmt.Errorf("%w: empty partial transfer", ethernetip.ErrProtocol)
 		}
 		data = append(data, more...)
-		if len(data) > 1<<24 {
-			return Value{}, fmt.Errorf("%w: fragmented read beyond 16 MiB", ethernetip.ErrProtocol)
-		}
 	}
 	v.Data = data
-	if n := v.ElemSize(); !v.IsStruct() && n > 0 && len(data) != n*count {
+	if want > 0 && len(data) != want {
 		return v, fmt.Errorf("%w: %d octets for %d elements of %s", ethernetip.ErrProtocol, len(data), count, v.Type)
 	}
 	return v, nil
 }
 
+// maxReadData bounds the data of a fragmented read: a controller that
+// keeps answering with partial transfers cannot make it grow without end.
+const maxReadData = 1 << 24
+
+// maxReadFragments bounds the replies of a fragmented read, so that a
+// controller sending tiny fragments cannot keep the client asking: 16 MiB
+// in fragments of 480 octets (unconnected messaging) takes about 35000.
+const maxReadFragments = 1 << 16
+
+// elementCount returns the element count of a tag service, 1 to 65535.
+func elementCount(n int) (uint16, error) {
+	if n < 1 {
+		return 0, fmt.Errorf("%w: count %d", ethernetip.ErrInvalidOption, n)
+	}
+	if n > 0xFFFF {
+		return 0, fmt.Errorf("%w: count %d", ethernetip.ErrInvalidOption, n)
+	}
+	return uint16(n), nil
+}
+
+// fragmentOffset returns the offset of a fragmented read, which stops at
+// maxReadData octets.
+func fragmentOffset(n int) (uint32, error) {
+	if n < 0 {
+		return 0, fmt.Errorf("%w: fragment offset %d", ethernetip.ErrInvalidOption, n)
+	}
+	if n > maxReadData {
+		return 0, fmt.Errorf("%w: fragmented read beyond 16 MiB", ethernetip.ErrProtocol)
+	}
+	return uint32(n), nil
+}
+
 func decodeRead(b []byte) (Value, []byte, error) {
 	r := cip.NewReader(b)
-	t, h := decodeType(r)
+	t, h, ok := decodeType(r)
 	if err := r.Err(); err != nil {
 		return Value{}, nil, fmt.Errorf("%w: Read Tag reply: %w", ethernetip.ErrProtocol, err)
+	}
+	if !ok {
+		return Value{}, nil, fmt.Errorf("%w: Read Tag reply: type code 0x%02X%02X", ethernetip.ErrProtocol, b[1], b[0])
 	}
 	return Value{Type: t, Handle: h}, append([]byte(nil), r.Rest()...), nil
 }
@@ -134,11 +190,12 @@ func (c *Client) Write(ctx context.Context, tag string, v Value) error {
 }
 
 func (c *Client) write(ctx context.Context, path cip.Path, v Value) error {
-	if v.Count < 1 || v.Count > 0xFFFF || len(v.Data) == 0 {
+	cnt, err := elementCount(v.Count)
+	if err != nil || len(v.Data) == 0 {
 		return fmt.Errorf("%w: value %s", ethernetip.ErrInvalidOption, v)
 	}
 	if len(v.Data) <= c.maxData {
-		req := cip.AppendUint16(v.appendType(nil), uint16(v.Count))
+		req := cip.AppendUint16(v.appendType(nil), cnt)
 		_, err := c.d.Do(ctx, cip.Request{Service: cip.ServiceWriteTag, Path: path, Data: append(req, v.Data...)})
 		return err
 	}
@@ -148,13 +205,29 @@ func (c *Client) write(ctx context.Context, path cip.Path, v Value) error {
 	}
 	for off := 0; off < len(v.Data); off += step {
 		end := min(off+step, len(v.Data))
-		req := cip.AppendUint16(v.appendType(nil), uint16(v.Count))
-		req = cip.AppendUint32(req, uint32(off))
+		o, err := writeOffset(off)
+		if err != nil {
+			return err
+		}
+		req := cip.AppendUint16(v.appendType(nil), cnt)
+		req = cip.AppendUint32(req, o)
 		if _, err := c.d.Do(ctx, cip.Request{Service: cip.ServiceWriteTagFragmented, Path: path, Data: append(req, v.Data[off:end]...)}); err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+// writeOffset returns the offset of a fragmented write, which the request
+// carries in 32 bits.
+func writeOffset(n int) (uint32, error) {
+	if n < 0 {
+		return 0, fmt.Errorf("%w: fragment offset %d", ethernetip.ErrInvalidOption, n)
+	}
+	if int64(n) > math.MaxUint32 {
+		return 0, fmt.Errorf("%w: fragment offset %d above 32 bits", ethernetip.ErrInvalidOption, n)
+	}
+	return uint32(n), nil
 }
 
 // WriteBit sets or clears one bit of an integer tag with Read-Modify-Write
@@ -178,7 +251,11 @@ func (c *Client) WriteBit(ctx context.Context, tag string, size int, set bool) e
 	} else {
 		and[tp.Bit/8] &^= 1 << (tp.Bit % 8)
 	}
-	data := cip.AppendUint16(nil, uint16(size))
+	mask, err := elementCount(size)
+	if err != nil {
+		return err
+	}
+	data := cip.AppendUint16(nil, mask)
 	data = append(append(data, or...), and...)
 	_, err = c.d.Do(ctx, cip.Request{Service: cip.ServiceReadModifyWriteTag, Path: tp.Path, Data: data})
 	return err
@@ -344,33 +421,26 @@ func (c *Client) Template(ctx context.Context, id uint16) (*Template, error) {
 	if err != nil {
 		return nil, err
 	}
-	r := cip.NewReader(resp.Data)
-	if n := r.Uint16(); n != 4 && r.Err() == nil {
-		return nil, fmt.Errorf("%w: template attributes: %d of 4", ethernetip.ErrProtocol, n)
-	}
-	attrs := map[uint16]uint32{}
-	for i := 0; i < 4 && r.Err() == nil; i++ {
-		id, st := r.Uint16(), r.Uint16()
-		if st != 0 {
-			return nil, fmt.Errorf("%w: template attribute %d: status 0x%02X", ethernetip.ErrProtocol, id, st)
-		}
-		if id == 4 || id == 5 {
-			attrs[id] = r.Uint32()
-		} else {
-			attrs[id] = uint32(r.Uint16())
-		}
-	}
-	if err := r.Err(); err != nil {
+	attrs, err := decodeTemplateAttributes(resp.Data)
+	if err != nil {
 		return nil, fmt.Errorf("%w: template attributes: %w", ethernetip.ErrProtocol, err)
 	}
-	total := definitionLen(attrs[4])
-	if total <= 0 || total > 1<<20 {
-		return nil, fmt.Errorf("%w: template definition of %d words", ethernetip.ErrProtocol, attrs[4])
+	total := definitionLen(attrs.words)
+	if total <= 0 || total > maxDefinition {
+		return nil, fmt.Errorf("%w: template definition of %d words", ethernetip.ErrProtocol, attrs.words)
 	}
 	var def []byte
 	for len(def) < total {
-		req := cip.AppendUint32(nil, uint32(len(def)))
-		req = cip.AppendUint16(req, uint16(min(total-len(def), 0xFFFF)))
+		off, err := fragmentOffset(len(def))
+		if err != nil {
+			return nil, err
+		}
+		size, err := elementCount(min(total-len(def), 0xFFFF))
+		if err != nil {
+			return nil, err
+		}
+		req := cip.AppendUint32(nil, off)
+		req = cip.AppendUint16(req, size)
 		resp, err := c.d.Do(ctx, cip.Request{Service: cip.ServiceReadTemplate, Path: path, Data: req})
 		partial := err != nil && resp.Status == cip.StatusPartialTransfer
 		if err != nil && !partial {
@@ -384,15 +454,68 @@ func (c *Client) Template(ctx context.Context, id uint16) (*Template, error) {
 			break
 		}
 	}
-	name, members, err := parseDefinition(def, int(attrs[2]))
+	name, members, err := parseDefinition(def, int(attrs.members))
 	if err != nil {
 		return nil, fmt.Errorf("%w: %w", ethernetip.ErrProtocol, err)
 	}
-	t = &Template{ID: id, Name: name, Handle: uint16(attrs[1]), Size: attrs[5], Members: members}
+	t = &Template{ID: id, Name: name, Handle: attrs.handle, Size: attrs.size, Members: members}
 	c.mu.Lock()
 	c.templates[id] = t
 	c.mu.Unlock()
 	return t, nil
+}
+
+// maxDefinition bounds the template definition the client reads, in
+// octets.
+const maxDefinition = 1 << 20
+
+// templateAttributes are the attributes of a Template instance that
+// Template reads: 1 the structure handle, 2 the member count, 4 the
+// definition size in 32-bit words and 5 the structure size in octets.
+type templateAttributes struct {
+	handle, members uint16
+	words, size     uint32
+}
+
+// decodeTemplateAttributes decodes the Get_Attribute_List reply for the
+// attributes 4, 5, 2 and 1 of a Template instance: each exactly once, with
+// success.
+func decodeTemplateAttributes(b []byte) (templateAttributes, error) {
+	var a templateAttributes
+	r := cip.NewReader(b)
+	if n := r.Uint16(); n != 4 && r.Err() == nil {
+		return a, fmt.Errorf("%d of 4", n)
+	}
+	var seen [6]bool
+	for i := 0; i < 4 && r.Err() == nil; i++ {
+		id, st := r.Uint16(), r.Uint16()
+		if r.Err() != nil {
+			break
+		}
+		if st != 0 {
+			return a, fmt.Errorf("attribute %d: status 0x%02X", id, st)
+		}
+		switch id {
+		case 1:
+			a.handle = r.Uint16()
+		case 2:
+			a.members = r.Uint16()
+		case 4:
+			a.words = r.Uint32()
+		case 5:
+			a.size = r.Uint32()
+		default:
+			return a, fmt.Errorf("attribute %d not requested", id)
+		}
+		if seen[id] {
+			return a, fmt.Errorf("attribute %d twice", id)
+		}
+		seen[id] = true
+	}
+	if err := r.Err(); err != nil {
+		return a, err
+	}
+	return a, nil
 }
 
 // DecodeStruct decodes the first element of a structure value, reading

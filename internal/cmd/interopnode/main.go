@@ -20,6 +20,7 @@ import (
 	"net"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"sync/atomic"
@@ -115,8 +116,20 @@ func (t FixtureTag) Value(i int) float64 {
 	return 0
 }
 
+// loadFixture reads the fixture at path through a root of its
+// directory: a fixture name that is a symbolic link out of the directory
+// is refused.
 func loadFixture(path string) (*Fixture, error) {
-	b, err := os.ReadFile(path)
+	dir, name := filepath.Split(filepath.Clean(path))
+	if dir == "" {
+		dir = "."
+	}
+	root, err := os.OpenRoot(dir)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = root.Close() }()
+	b, err := root.ReadFile(name)
 	if err != nil {
 		return nil, err
 	}
@@ -127,11 +140,21 @@ func loadFixture(path string) (*Fixture, error) {
 	return &f, nil
 }
 
-func revision(s string) cip.Revision {
+// revision parses a "major.minor" revision; each part is 0 to 255.
+func revision(s string) (cip.Revision, error) {
 	a, b, _ := strings.Cut(s, ".")
-	ma, _ := strconv.Atoi(a)
-	mi, _ := strconv.Atoi(b)
-	return cip.Revision{Major: uint8(ma), Minor: uint8(mi)}
+	ma, err := strconv.ParseUint(a, 10, 8)
+	if err != nil {
+		return cip.Revision{}, fmt.Errorf("revision %q: major: %w", s, err)
+	}
+	mi, err := strconv.ParseUint(b, 10, 8)
+	if err != nil {
+		return cip.Revision{}, fmt.Errorf("revision %q: minor: %w", s, err)
+	}
+	if ma > math.MaxUint8 || mi > math.MaxUint8 {
+		return cip.Revision{}, fmt.Errorf("revision %q: above 255", s)
+	}
+	return cip.Revision{Major: uint8(ma), Minor: uint8(mi)}, nil
 }
 
 func event(w io.Writer, fields map[string]any) {
@@ -154,9 +177,14 @@ func serve(args []string, stdout, stderr io.Writer) int {
 		_, _ = fmt.Fprintln(stderr, err)
 		return 4
 	}
+	rev, err := revision(f.Identity.Revision)
+	if err != nil {
+		_, _ = fmt.Fprintf(stderr, "fixture %s: %v\n", *fixture, err)
+		return 4
+	}
 	id := cip.Identity{
 		VendorID: f.Identity.VendorID, DeviceType: cip.DeviceType(f.Identity.DeviceType), ProductCode: f.Identity.ProductCode,
-		Revision: revision(f.Identity.Revision), SerialNumber: f.Identity.SerialNumber, ProductName: f.Identity.ProductName, State: 3,
+		Revision: rev, SerialNumber: f.Identity.SerialNumber, ProductName: f.Identity.ProductName, State: 3,
 	}
 	srv, err := server.New(server.WithIdentity(id), server.WithSlot(f.Slot),
 		server.WithIOAddress(net.JoinHostPort("0.0.0.0", strconv.Itoa(*ioPort))),
@@ -214,7 +242,7 @@ func serve(args []string, stdout, stderr io.Writer) int {
 	done := make(chan error, 1)
 	go func() { done <- srv.Serve() }()
 	if *ready != "" {
-		_ = os.WriteFile(*ready, nil, 0o644)
+		_ = os.WriteFile(*ready, nil, 0o600)
 	}
 	event(stdout, map[string]any{"event": "ready", "adapter": "go-ethernetip", "address": srv.Addr().String(), "fixture": f.Name})
 	select {
@@ -258,7 +286,10 @@ func addTag(ts *logix.TagServer, t FixtureTag) error {
 			}
 		}
 		for i := range words {
-			words[i] = int64(int32(uint32(words[i])))
+			// DINT is signed: bit 31 set is a negative word.
+			if words[i] >= 1<<31 {
+				words[i] -= 1 << 32
+			}
 		}
 		v, err = logix.Ints(cip.TypeDWORD, words...)
 		if err != nil {
@@ -334,17 +365,19 @@ func clientOp(op string, args []string, stdout, stderr io.Writer) int {
 	port := fs.Int("port", 44818, "target port")
 	timeout := fs.Int("timeout-ms", 5000, "request timeout")
 	transport := fs.String("transport", "tcp", "list-identity transport: tcp or udp")
-	class := fs.Uint("class", 0, "class")
-	instance := fs.Uint("instance", 0, "instance")
-	attribute := fs.Uint("attribute", 0, "attribute")
+	var class, attribute u16Flag
+	var instance, cfgInst, outInst, inInst, listenOnly u32Flag
+	fs.Var(&class, "class", "class")
+	fs.Var(&instance, "instance", "instance")
+	fs.Var(&attribute, "attribute", "attribute")
 	data := fs.String("data", "", "hex data")
 	connected := fs.Bool("connected", false, "use a Class 3 connection")
 	route := fs.String("route", "", "route path, for example 1/0")
 	var paths multiFlag
 	fs.Var(&paths, "path", "@class/instance/attribute (repeatable)")
-	cfgInst := fs.Uint("config", 0, "configuration assembly")
-	outInst := fs.Uint("output", 0, "O->T assembly")
-	inInst := fs.Uint("input", 0, "T->O assembly")
+	fs.Var(&cfgInst, "config", "configuration assembly")
+	fs.Var(&outInst, "output", "O->T assembly")
+	fs.Var(&inInst, "input", "T->O assembly")
 	outSize := fs.Int("output-size", 0, "O->T data size")
 	inSize := fs.Int("input-size", 0, "T->O data size")
 	rpi := fs.Int("rpi-ms", 10, "RPI in ms")
@@ -353,7 +386,7 @@ func clientOp(op string, args []string, stdout, stderr io.Writer) int {
 	large := fs.Bool("large", false, "Large_Forward_Open")
 	multicast := fs.Bool("multicast", false, "T->O multicast")
 	cfgData := fs.String("config-data", "", "hex configuration data of the Forward_Open")
-	listenOnly := fs.Uint("listen-only", 0, "listen-only connection point opened next to the (multicast) owner")
+	fs.Var(&listenOnly, "listen-only", "listen-only connection point opened next to the (multicast) owner")
 	tag := fs.String("tag", "", "tag name")
 	count := fs.Int("count", 1, "elements")
 	typ := fs.String("type", "", "tag type")
@@ -445,10 +478,10 @@ func clientOp(op string, args []string, stdout, stderr io.Writer) int {
 		res["services"] = out
 		res["ok"] = true
 	case "get-attribute", "get-attributes-all", "set-attribute":
-		req := cip.Request{Service: cip.ServiceGetAttributeSingle, Path: cip.AttributePath(cip.Class(*class), uint32(*instance), uint16(*attribute))}
+		req := cip.Request{Service: cip.ServiceGetAttributeSingle, Path: cip.AttributePath(cip.Class(class), uint32(instance), uint16(attribute))}
 		switch op {
 		case "get-attributes-all":
-			req = cip.Request{Service: cip.ServiceGetAttributesAll, Path: cip.ObjectPath(cip.Class(*class), uint32(*instance))}
+			req = cip.Request{Service: cip.ServiceGetAttributesAll, Path: cip.ObjectPath(cip.Class(class), uint32(instance))}
 		case "set-attribute":
 			b, err := hex.DecodeString(*data)
 			if err != nil {
@@ -494,10 +527,10 @@ func clientOp(op string, args []string, stdout, stderr io.Writer) int {
 			return 2
 		}
 		return ioOp(ctx, c, res, write, fail, scanner.IOConfig{
-			ConfigInstance: uint32(*cfgInst), OutputInstance: uint32(*outInst), InputInstance: uint32(*inInst),
+			ConfigInstance: uint32(cfgInst), OutputInstance: uint32(outInst), InputInstance: uint32(inInst),
 			OutputSize: *outSize, InputSize: *inSize, RPI: time.Duration(*rpi) * time.Millisecond,
 			Large: *large, Multicast: *multicast, ConfigData: cd,
-		}, *outData, uint32(*listenOnly), time.Duration(*dur)*time.Millisecond)
+		}, *outData, uint32(listenOnly), time.Duration(*dur)*time.Millisecond)
 	case "read-tag":
 		v, err := logix.NewClient(d, logix.WithMaxData(maxData(*connected, *large))).Read(ctx, *tag, *count)
 		var ce *ethernetip.CIPError
@@ -753,6 +786,40 @@ func parseValues(t cip.DataType, s string) (logix.Value, error) {
 }
 
 type multiFlag []string
+
+// u16Flag and u32Flag are unsigned flags of a CIP field's width: a value
+// that does not fit is a usage error, not truncated.
+type u16Flag uint16
+
+func (f *u16Flag) String() string { return strconv.FormatUint(uint64(*f), 10) }
+
+func (f *u16Flag) Set(s string) error {
+	v, err := strconv.ParseUint(s, 0, 16)
+	if err != nil {
+		return err
+	}
+	if v > math.MaxUint16 {
+		return fmt.Errorf("%s is above %d", s, math.MaxUint16)
+	}
+	*f = u16Flag(v)
+	return nil
+}
+
+type u32Flag uint32
+
+func (f *u32Flag) String() string { return strconv.FormatUint(uint64(*f), 10) }
+
+func (f *u32Flag) Set(s string) error {
+	v, err := strconv.ParseUint(s, 0, 32)
+	if err != nil {
+		return err
+	}
+	if v > math.MaxUint32 {
+		return fmt.Errorf("%s is above %d", s, math.MaxUint32)
+	}
+	*f = u32Flag(v)
+	return nil
+}
 
 func (m *multiFlag) String() string     { return strings.Join(*m, ",") }
 func (m *multiFlag) Set(s string) error { *m = append(*m, s); return nil }
