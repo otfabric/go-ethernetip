@@ -4,7 +4,9 @@ package server
 
 import (
 	"context"
+	"crypto/rand"
 	"crypto/tls"
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"math"
@@ -36,6 +38,8 @@ type Server struct {
 	opts options
 	log  *logx.Logger
 	sm   ethernetip.ServerMetrics
+
+	jitterState atomic.Uint64 // see jitter
 
 	ctx    context.Context
 	cancel context.CancelFunc
@@ -75,6 +79,8 @@ func New(opts ...Option) (*Server, error) {
 		}
 	}
 	ctx, cancel := context.WithCancel(context.Background())
+	var seed [8]byte
+	_, _ = rand.Read(seed[:])
 	s := &Server{
 		opts:       o,
 		log:        logx.New(o.logger, "server"),
@@ -98,6 +104,7 @@ func New(opts ...Option) (*Server, error) {
 	s.tcpip = newTCPIPObject(s)
 	s.objects[cip.ClassTCPIPInterface] = s.tcpip
 	s.objects[cip.ClassEthernetLink] = newEthernetLinkObject(s)
+	s.jitterState.Store(binary.LittleEndian.Uint64(seed[:]))
 	return s, nil
 }
 

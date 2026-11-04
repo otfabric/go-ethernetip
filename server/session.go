@@ -485,12 +485,18 @@ func (s *Server) discoveryDelay(pkt encap.Packet) time.Duration {
 	if us <= 0 || us > math.MaxUint32 {
 		return 0
 	}
-	// Spreading replies needs no unpredictability, only no shared seed;
-	// crypto/rand into an array costs no allocation. A failed read gives
-	// 0, an immediate reply.
-	var b [4]byte
-	_, _ = rand.Read(b[:])
-	return time.Duration(binary.LittleEndian.Uint32(b[:])%uint32(us)) * time.Microsecond
+	return time.Duration(uint32(s.jitter()&0xFFFFFFFF)%uint32(us)) * time.Microsecond
+}
+
+// jitter returns the next value of a splitmix64 sequence whose state is
+// seeded from crypto/rand when the server is made. Spreading discovery
+// replies needs no unpredictability, only no seed shared between devices,
+// and no allocation per reply (crypto/rand.Read allocates on Linux).
+func (s *Server) jitter() uint64 {
+	z := s.jitterState.Add(0x9E3779B97F4A7C15)
+	z = (z ^ z>>30) * 0xBF58476D1CE4E5B9
+	z = (z ^ z>>27) * 0x94D049BB133111EB
+	return z ^ z>>31
 }
 
 // replyAddr returns the local address of a UDP socket as seen by from: a

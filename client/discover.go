@@ -49,6 +49,10 @@ type DiscoverOptions struct {
 	MaxDevices int
 }
 
+// maxDiscoverErrors is how many read errors in a row end a ListIdentity
+// collection.
+const maxDiscoverErrors = 16
+
 // Discover sends one ListIdentity request over UDP and returns the devices
 // that answered, in the order of their replies, each address once. It
 // sends exactly one datagram: it does not scan.
@@ -107,6 +111,7 @@ func Discover(ctx context.Context, opts DiscoverOptions) ([]Device, error) {
 	seen := map[netip.AddrPort]bool{}
 	var out []Device
 	buf := make([]byte, 1500)
+	failed := 0
 	for len(out) < opts.MaxDevices {
 		n, from, err := conn.ReadFromUDPAddrPort(buf)
 		if err != nil {
@@ -114,8 +119,17 @@ func Discover(ctx context.Context, opts DiscoverOptions) ([]Device, error) {
 			if errors.As(err, &ne) && ne.Timeout() {
 				break
 			}
-			return out, fmt.Errorf("%w: %w", ethernetip.ErrConnectionLost, err)
+			// One bad datagram does not end the collection: Windows
+			// reports a datagram larger than the buffer (WSAEMSGSIZE) or
+			// an ICMP port unreachable from a host that got the broadcast
+			// (WSAECONNRESET) as a read error. Only a socket that keeps
+			// failing does.
+			if failed++; errors.Is(err, net.ErrClosed) || failed > maxDiscoverErrors {
+				return out, fmt.Errorf("%w: %w", ethernetip.ErrConnectionLost, err)
+			}
+			continue
 		}
+		failed = 0
 		pkt, err := encap.Decode(buf[:n])
 		if err != nil || pkt.Command != encap.CommandListIdentity || pkt.Context != h.Context || pkt.Status != encap.StatusSuccess {
 			continue

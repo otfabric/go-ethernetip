@@ -39,11 +39,16 @@ make a client loop or allocate without bound. Go 1.26 is the minimum.
   limits the connections (Class 0, 1 and 3) of one originator address,
   refused beyond it with 0x01/0x0113; off by default. Class
   attributes 2 and 3 and the Message Router counts saturate at 0xFFFF. The
-  ListIdentity reply delay uses crypto/rand.
+  ListIdentity reply delay comes from a sequence seeded from crypto/rand per
+  server, with no allocation per reply.
 - **client**: `Reset` with a type above 255 and `GetAttributeList` with more
   than 65535 attributes or a negative size are `ErrInvalidOption`; an
   attribute status above 0xFF in a Get_Attribute_List reply is
   `ErrProtocol` (it was cut to a byte, so 0x0100 read as success).
+  `Discover` skips a datagram it cannot read instead of failing with
+  `ErrConnectionLost`: on Windows a reply larger than 1500 octets
+  (WSAEMSGSIZE) or an ICMP port unreachable (WSAECONNRESET) ended the
+  collection and lost the devices still to answer.
 - **scanner**: an RPI above 0 and below 1 µs is `ErrInvalidOption` (it was
   sent as 0).
 - **logix**: a type code above one octet (e.g. 0x01C4) is `ErrProtocol` in

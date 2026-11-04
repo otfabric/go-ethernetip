@@ -312,7 +312,7 @@ func TestDiscoveryDelay(t *testing.T) {
 		}
 		binary.LittleEndian.PutUint16(li.Context[:], 0)
 	}
-	// crypto/rand into an array: no allocation per reply.
+	// No allocation per reply.
 	if n := testing.AllocsPerRun(100, func() { _ = s.discoveryDelay(li) }); n != 0 {
 		t.Errorf("discoveryDelay allocates %v times", n)
 	}
