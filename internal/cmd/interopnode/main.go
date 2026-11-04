@@ -815,7 +815,7 @@ func (f *u32Flag) Set(s string) error {
 		return err
 	}
 	if v > math.MaxUint32 {
-		return fmt.Errorf("%s is above %d", s, math.MaxUint32)
+		return fmt.Errorf("%s is above %d", s, uint64(math.MaxUint32))
 	}
 	*f = u32Flag(v)
 	return nil
