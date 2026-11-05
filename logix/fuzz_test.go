@@ -165,3 +165,24 @@ func FuzzTemplateDecode(f *testing.F) {
 		}
 	})
 }
+
+// FuzzReadReplies drives the client's reply decoders: a Read Tag reply
+// (type and data) and the Get_Attribute_List reply of a template. They
+// must not panic, and an accepted reply must be consistent.
+func FuzzReadReplies(f *testing.F) {
+	inner, _ := testTemplates()
+	f.Add([]byte{0xC4, 0, 1, 2, 3, 4})
+	f.Add([]byte{0xA0, 0x02, 0xCE, 0x0F, 0, 0})
+	f.Add([]byte{0xC4, 0x01, 0})
+	f.Add(templateAttrs(&inner).Data)
+	f.Fuzz(func(t *testing.T, b []byte) {
+		if v, data, err := decodeRead(b); err == nil {
+			if len(data) > len(b) || (v.Type != 0 && v.Handle != 0) {
+				t.Fatalf("decodeRead %x: %+v %d octets", b, v, len(data))
+			}
+		}
+		if a, err := decodeTemplateAttributes(b); err == nil && len(b) < 2+4*(4+2)+2*2 {
+			t.Fatalf("attributes from %d octets: %+v", len(b), a)
+		}
+	})
+}

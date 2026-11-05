@@ -107,7 +107,7 @@ func TestIORefusals(t *testing.T) {
 		})
 	}
 	// Two input-only connections fill the limit of three.
-	for i := 0; i < 2; i++ {
+	for i := range 2 {
 		cfg := exclusiveOwner(10 * time.Millisecond)
 		cfg.OutputInstance, cfg.OutputSize = asmInputOnly, 0
 		if _, err := s.Open(ctx, cfg); err != nil {

@@ -49,6 +49,10 @@ type DiscoverOptions struct {
 	MaxDevices int
 }
 
+// maxDiscoverErrors is how many read errors in a row end a ListIdentity
+// collection.
+const maxDiscoverErrors = 16
+
 // Discover sends one ListIdentity request over UDP and returns the devices
 // that answered, in the order of their replies, each address once. It
 // sends exactly one datagram: it does not scan.
@@ -90,11 +94,7 @@ func Discover(ctx context.Context, opts DiscoverOptions) ([]Device, error) {
 	h.Command = encap.CommandListIdentity
 	_, _ = rand.Read(h.Context[2:])
 	if opts.MaxDelay > 0 {
-		ms := opts.MaxDelay.Milliseconds()
-		if ms > 0xFFFF {
-			ms = 0xFFFF
-		}
-		binary.LittleEndian.PutUint16(h.Context[:], uint16(ms))
+		binary.LittleEndian.PutUint16(h.Context[:], maxDelayField(opts.MaxDelay))
 	}
 	req, _ := encap.Packet{Header: h}.Encode()
 	if _, err := conn.WriteToUDPAddrPort(req, dst); err != nil {
@@ -108,20 +108,45 @@ func Discover(ctx context.Context, opts DiscoverOptions) ([]Device, error) {
 	stop := context.AfterFunc(ctx, func() { _ = conn.SetReadDeadline(time.Unix(1, 0)) })
 	defer stop()
 
+	out, err := collect(conn, h.Context, opts.MaxDevices)
+	if err == nil && ctx.Err() != nil && !errors.Is(ctx.Err(), context.DeadlineExceeded) {
+		err = ctx.Err()
+	}
+	return out, err
+}
+
+// datagramReader is the receive side of the discovery socket.
+type datagramReader interface {
+	ReadFromUDPAddrPort(b []byte) (int, netip.AddrPort, error)
+}
+
+// collect reads ListIdentity replies to the request with sender context
+// ctx until the read deadline, max devices, or a socket that keeps failing.
+func collect(conn datagramReader, ctx [8]byte, limit int) ([]Device, error) {
 	seen := map[netip.AddrPort]bool{}
 	var out []Device
 	buf := make([]byte, 1500)
-	for len(out) < opts.MaxDevices {
+	failed := 0
+	for len(out) < limit {
 		n, from, err := conn.ReadFromUDPAddrPort(buf)
 		if err != nil {
 			var ne net.Error
 			if errors.As(err, &ne) && ne.Timeout() {
 				break
 			}
-			return out, fmt.Errorf("%w: %w", ethernetip.ErrConnectionLost, err)
+			// One bad datagram does not end the collection: Windows
+			// reports a datagram larger than the buffer (WSAEMSGSIZE) or
+			// an ICMP port unreachable from a host that got the broadcast
+			// (WSAECONNRESET) as a read error. Only a socket that keeps
+			// failing does.
+			if failed++; errors.Is(err, net.ErrClosed) || failed > maxDiscoverErrors {
+				return out, fmt.Errorf("%w: %w", ethernetip.ErrConnectionLost, err)
+			}
+			continue
 		}
+		failed = 0
 		pkt, err := encap.Decode(buf[:n])
-		if err != nil || pkt.Command != encap.CommandListIdentity || pkt.Context != h.Context || pkt.Status != encap.StatusSuccess {
+		if err != nil || pkt.Command != encap.CommandListIdentity || pkt.Context != ctx || pkt.Status != encap.StatusSuccess {
 			continue
 		}
 		id, err := decodeListIdentity(pkt.Data)
@@ -130,9 +155,6 @@ func Discover(ctx context.Context, opts DiscoverOptions) ([]Device, error) {
 		}
 		seen[from] = true
 		out = append(out, Device{Addr: from, Identity: id})
-	}
-	if ctx.Err() != nil && !errors.Is(ctx.Err(), context.DeadlineExceeded) {
-		return out, ctx.Err()
 	}
 	return out, nil
 }
@@ -153,6 +175,19 @@ func ListIdentity(ctx context.Context, addr string) (Device, error) {
 		return Device{}, fmt.Errorf("%w: no ListIdentity reply from %s", ethernetip.ErrTimeout, addr)
 	}
 	return devs[0], nil
+}
+
+// maxDelayField returns the maximum response delay of ListIdentity in
+// milliseconds, clamped to the 16 bits of the sender context that carry it.
+func maxDelayField(d time.Duration) uint16 {
+	ms := d.Milliseconds()
+	if ms < 0 {
+		return 0
+	}
+	if ms > 0xFFFF {
+		return 0xFFFF
+	}
+	return uint16(ms)
 }
 
 // listenBroadcast opens a UDP socket that may send to broadcast addresses.

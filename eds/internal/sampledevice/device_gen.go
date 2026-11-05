@@ -172,7 +172,7 @@ type AssemblyConfigurationData struct {
 func (d AssemblyConfigurationData) Encode() []byte {
 	b := make([]byte, 10)
 	binary.LittleEndian.PutUint16(b[0:], uint16(d.SpeedSetpoint))
-	b[2] = byte(d.Mode)
+	b[2] = byte(int16(d.Mode) & 0xFF)
 	b[3] = d.Padding
 	binary.LittleEndian.PutUint32(b[4:], math.Float32bits(d.Temperature))
 	return b
@@ -185,7 +185,7 @@ func DecodeAssemblyConfiguration(b []byte) (AssemblyConfigurationData, error) {
 		return d, fmt.Errorf("AssemblyConfiguration: %d octets, want 10", len(b))
 	}
 	d.SpeedSetpoint = cip.NewReader(b[0:]).Uint16()
-	d.Mode = int8(b[2])
+	d.Mode = cip.NewReader(b[2:]).Int8()
 	d.Padding = b[3]
 	d.Temperature = cip.NewReader(b[4:]).Float32()
 	return d, nil

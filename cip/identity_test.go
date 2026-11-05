@@ -62,7 +62,7 @@ func TestIdentityErrors(t *testing.T) {
 		t.Errorf("long name: %v", err)
 	}
 	b, _ := openerIdentity().AppendAttributes(nil)
-	for n := 0; n < len(b); n++ {
+	for n := range b {
 		if _, err := cip.DecodeIdentity(b[:n]); !errors.Is(err, cip.ErrTruncated) {
 			t.Fatalf("truncated to %d: %v", n, err)
 		}

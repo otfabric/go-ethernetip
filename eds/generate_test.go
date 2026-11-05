@@ -59,8 +59,8 @@ func structFields(t testing.TB, scope *types.Scope, name string) string {
 	}
 	st := tn.Type().Underlying().(*types.Struct)
 	var parts []string
-	for i := 0; i < st.NumFields(); i++ {
-		parts = append(parts, st.Field(i).Name()+" "+st.Field(i).Type().String())
+	for field := range st.Fields() {
+		parts = append(parts, field.Name()+" "+field.Type().String())
 	}
 	return strings.Join(parts, ", ")
 }

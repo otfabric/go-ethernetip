@@ -57,7 +57,7 @@ func openFDs() int {
 // filterStacks keeps the goroutines that run code of this module.
 func filterStacks(all string) string {
 	var out []string
-	for _, g := range strings.Split(all, "\n\n") {
+	for g := range strings.SplitSeq(all, "\n\n") {
 		if strings.Contains(g, "otfabric/go-ethernetip/") && !strings.Contains(g, "TestMain") {
 			out = append(out, g)
 		}

@@ -40,9 +40,9 @@ func (s *Server) multicastBase() netip.Addr {
 }
 
 // multicastGroup returns the n-th multicast address of the server.
-func (s *Server) multicastGroup(n int) netip.Addr {
+func (s *Server) multicastGroup(n uint32) netip.Addr {
 	b := s.multicastBase().As4()
-	v := binary.BigEndian.Uint32(b[:]) + uint32(n%multicastAddresses)
+	v := binary.BigEndian.Uint32(b[:]) + n%multicastAddresses
 	binary.BigEndian.PutUint32(b[:], v)
 	return netip.AddrFrom4(b)
 }

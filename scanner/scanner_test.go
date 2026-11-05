@@ -225,6 +225,7 @@ func TestIOConfigValidation(t *testing.T) {
 		"input too big":  func(c *IOConfig) { c.InputSize = 65001 },
 		"multiplier":     func(c *IOConfig) { c.TimeoutMultiplier = 8 },
 		"odd config":     func(c *IOConfig) { c.ConfigData = []byte{1, 2, 3} },
+		"rpi below 1 µs": func(c *IOConfig) { c.RPI = 500 * time.Nanosecond },
 	}
 	for name, mod := range cases {
 		t.Run(name, func(t *testing.T) {
@@ -494,9 +495,7 @@ func newFakeTarget(t *testing.T, fo func(req cip.ForwardOpen) (cip.ForwardOpenRe
 	f := &fakeTarget{ln: ln}
 	var mu sync.Mutex
 	var conns []net.Conn
-	f.wg.Add(1)
-	go func() {
-		defer f.wg.Done()
+	f.wg.Go(func() {
 		for {
 			conn, err := ln.Accept()
 			if err != nil {
@@ -505,14 +504,12 @@ func newFakeTarget(t *testing.T, fo func(req cip.ForwardOpen) (cip.ForwardOpenRe
 			mu.Lock()
 			conns = append(conns, conn)
 			mu.Unlock()
-			f.wg.Add(1)
-			go func() {
-				defer f.wg.Done()
+			f.wg.Go(func() {
 				defer func() { _ = conn.Close() }()
 				f.serve(t, conn, fo)
-			}()
+			})
 		}
-	}()
+	})
 	t.Cleanup(func() {
 		_ = ln.Close()
 		mu.Lock()

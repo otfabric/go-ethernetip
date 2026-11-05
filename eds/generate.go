@@ -247,7 +247,7 @@ func literal(v, gt string) (string, bool) {
 	if err != nil {
 		if u, err2 := strconv.ParseUint(strings.TrimPrefix(strings.TrimPrefix(v, "0x"), "0X"), 16, bits); base(v) == 16 && err2 == nil {
 			// A hex literal of a signed type is its two's complement.
-			return strconv.FormatInt(int64(u)<<(64-bits)>>(64-bits), 10), true
+			return strconv.FormatInt(signExtend(u, bits), 10), true
 		}
 		return "", false
 	}
@@ -372,7 +372,9 @@ func (g *gen) layout(a Assembly) ([]field, int, bool) {
 		out = append(out, field{name: name, gt: gt, offset: off, size: m.Bits / 8})
 		off += m.Bits / 8
 	}
-	if a.Size > 0 && off != a.Size {
+	if (a.Size > 0 && off != a.Size) || off > MaxAssemblySize {
+		// Members beyond the largest assembly would make Encode allocate
+		// what no assembly carries.
 		return nil, 0, false
 	}
 	return out, off, true
@@ -431,7 +433,7 @@ func putField(f field) string {
 	case "uint8":
 		return fmt.Sprintf("b[%d] = d.%s", f.offset, f.name)
 	case "int8":
-		return fmt.Sprintf("b[%d] = byte(d.%s)", f.offset, f.name)
+		return fmt.Sprintf("b[%d] = byte(int16(d.%s) & 0xFF)", f.offset, f.name)
 	case "uint16", "int16":
 		return fmt.Sprintf("binary.LittleEndian.PutUint16(%s, uint16(d.%s))", at, f.name)
 	case "uint32", "int32":
@@ -451,7 +453,7 @@ func getField(f field) string {
 	case "uint8":
 		return fmt.Sprintf("d.%s = b[%d]", f.name, f.offset)
 	case "int8":
-		return fmt.Sprintf("d.%s = int8(b[%d])", f.name, f.offset)
+		return fmt.Sprintf("d.%s = %s.Int8()", f.name, r)
 	case "uint16":
 		return fmt.Sprintf("d.%s = %s.Uint16()", f.name, r)
 	case "int16":
@@ -522,7 +524,7 @@ func (g *gen) connectionDecls(conns []Connection) {
 			}
 			switch l.Type {
 			case cip.LogicalClass:
-				cls = cip.Class(l.Value) == cip.ClassAssembly
+				cls = l.Value == uint32(cip.ClassAssembly)
 			case cip.LogicalInstance, cip.LogicalConnectionPoint:
 				points = append(points, l.Value)
 			default:

@@ -7,6 +7,7 @@ import (
 	"crypto/rand"
 	"encoding/binary"
 	"errors"
+	"math"
 	"net"
 	"net/netip"
 	"sort"
@@ -43,7 +44,7 @@ type connectionManager struct {
 	productions map[uint32]*production   // multicast productions, by T->O point
 	ids         map[uint32]bool          // connection IDs in use
 	counters    [numCounters]uint16
-	nextGroup   int
+	nextGroup   uint32
 }
 
 // conn is an open connection of the registry.
@@ -65,8 +66,7 @@ func newConnectionManager(s *Server) *connectionManager {
 		ids:            map[uint32]bool{},
 	}
 	in := cm.AddInstance(1)
-	for i := 0; i < numCounters; i++ {
-		i := i
+	for i := range numCounters {
 		in.SetAttribute(uint16(i+1), Attribute{Get: func() []byte {
 			cm.mu.Lock()
 			defer cm.mu.Unlock()
@@ -304,6 +304,11 @@ func (cm *connectionManager) parsePath(p cip.Path) (openParts, *failure) {
 				if gotClass {
 					return op, connFailure(cip.ConnStatusInvalidSegment)
 				}
+				if s.Value > math.MaxUint16 {
+					// A class beyond the 16-bit codes is not one of ours;
+					// truncating it would address another class.
+					return op, connFailure(cip.ConnStatusInvalidSegment)
+				}
 				op.class, gotClass = cip.Class(s.Value), true
 			case cip.LogicalInstance, cip.LogicalConnectionPoint:
 				if !gotClass {
@@ -328,15 +333,14 @@ func (cm *connectionManager) open(ex *exchange, fo cip.ForwardOpen, remote net.A
 	if fo.TimeoutMultiplier > 7 {
 		return reply, nil, connFailure(cip.ConnStatusTimeoutMultiplierNotAcceptable)
 	}
+	// The connection limits are checked where the connection is added,
+	// under the lock: an earlier check would race with Forward_Opens on
+	// other sessions anyway.
 	cm.mu.Lock()
 	_, dup := cm.conns[fo.Triad]
-	n := len(cm.conns)
 	cm.mu.Unlock()
 	if dup {
 		return reply, nil, connFailure(cip.ConnStatusInUse)
-	}
-	if n >= cm.s.opts.maxConnections {
-		return reply, nil, connFailure(cip.ConnStatusOutOfConnections)
 	}
 	path, f := cm.localPath(fo.Path)
 	if f != nil {
@@ -360,6 +364,32 @@ func (cm *connectionManager) open(ex *exchange, fo cip.ForwardOpen, remote net.A
 	default:
 		return reply, nil, connFailure(cip.ConnStatusTransportClassNotSupported)
 	}
+}
+
+// The smallest Class 3 connection sizes: the sequence count and a request
+// of a service and its path size (O->T), or a reply header (T->O).
+const (
+	minClass3OT = 2 + 2
+	minClass3TO = 2 + 4
+)
+
+// full reports whether the connection limits leave no room for another
+// connection from orig. cm.mu is held.
+func (cm *connectionManager) full(orig netip.Addr) bool {
+	if len(cm.conns) >= cm.s.opts.maxConnections {
+		return true
+	}
+	limit := cm.s.opts.maxPerOriginator
+	if limit == 0 {
+		return false
+	}
+	n := 0
+	for _, c := range cm.conns {
+		if c.originator() == orig {
+			n++
+		}
+	}
+	return n >= limit
 }
 
 // explicitConn is a Class 3 connection: requests in SendUnitData on the
@@ -391,6 +421,16 @@ func (cm *connectionManager) openExplicit(ex *exchange, fo cip.ForwardOpen, part
 	if fo.Transport.Trigger() != cip.TriggerApplication && fo.Transport.Trigger() != cip.TriggerCyclic {
 		return cip.ForwardOpenReply{}, nil, connFailure(cip.ConnStatusTriggerNotSupported)
 	}
+	// Each Class 3 message carries the 16-bit sequence count: a connection
+	// smaller than that plus the smallest request (service and path size)
+	// or the smallest reply (its four-octet header) cannot carry one. The
+	// additional status is the smallest size accepted.
+	if int(fo.OTParams.Size) < minClass3OT {
+		return cip.ForwardOpenReply{}, nil, connFailure(cip.ConnStatusInvalidOTSize, minClass3OT)
+	}
+	if int(fo.TOParams.Size) < minClass3TO {
+		return cip.ForwardOpenReply{}, nil, connFailure(cip.ConnStatusInvalidTOSize, minClass3TO)
+	}
 	if ex.sess == nil {
 		return cip.ForwardOpenReply{}, nil, connFailure(cip.ConnStatusMiscellaneous)
 	}
@@ -405,6 +445,10 @@ func (cm *connectionManager) openExplicit(ex *exchange, fo cip.ForwardOpen, part
 	if _, dup := cm.conns[fo.Triad]; dup {
 		cm.mu.Unlock()
 		return cip.ForwardOpenReply{}, nil, connFailure(cip.ConnStatusInUse)
+	}
+	if cm.full(ec.orig) {
+		cm.mu.Unlock()
+		return cip.ForwardOpenReply{}, nil, connFailure(cip.ConnStatusOutOfConnections)
 	}
 	ot := cm.newID()
 	ec.info = ethernetip.ConnectionInfo{
@@ -506,8 +550,10 @@ func (cm *connectionManager) unconnectedSend(ctx context.Context, r *Request) ci
 	}
 	route, f := cm.localPath(us.Route)
 	if f != nil || len(route) != 0 {
+		// The remaining path size, in words (a USINT; Words fails, giving
+		// 0, for a route that does not fit one).
 		words, _ := us.Route.Words()
-		return cip.Response{Status: cip.StatusConnectionFailure, Extended: []uint16{uint16(cip.ConnStatusPortNotAvailable)}, Data: []byte{byte(words), 0}}
+		return cip.Response{Status: cip.StatusConnectionFailure, Extended: []uint16{uint16(cip.ConnStatusPortNotAvailable)}, Data: []byte{saturate8(words), 0}}
 	}
 	if c, _ := us.Request.Path.Class(); us.Request.Service == cip.ServiceUnconnectedSend && c == cip.ClassConnectionManager {
 		return cip.Response{Status: cip.StatusConnectionFailure, Extended: []uint16{uint16(cip.ConnStatusUnconnectedParameterError)}}

@@ -5,6 +5,7 @@ package server
 import (
 	"crypto/tls"
 	"fmt"
+	"math"
 	"net"
 	"net/netip"
 	"time"
@@ -37,6 +38,7 @@ type options struct {
 	tls               *tls.Config
 	maxSessions       int
 	maxConnections    int
+	maxPerOriginator  int
 	maxPacket         int
 	inactivity        time.Duration
 	ioAddr            string
@@ -121,7 +123,9 @@ func WithTLS(cfg *tls.Config) Option {
 }
 
 // WithMaxSessions limits the registered sessions; RegisterSession beyond
-// it is refused with insufficient memory. Default 64.
+// it is refused with insufficient memory. Default 64. It bounds the TCP
+// connections too, registered or not: beyond 2*n+16 a new connection is
+// closed as soon as it is accepted.
 func WithMaxSessions(n int) Option {
 	return func(o *options) error {
 		if n < 1 {
@@ -133,13 +137,31 @@ func WithMaxSessions(n int) Option {
 }
 
 // WithMaxConnections limits the open CIP connections (Class 0, 1 and 3);
-// Forward_Open beyond it is refused with 0x01/0x0113. Default 128.
+// Forward_Open beyond it is refused with 0x01/0x0113. Default 128, at
+// most 65535 (the Message Router reports it as a UINT).
 func WithMaxConnections(n int) Option {
 	return func(o *options) error {
-		if n < 1 {
+		if n < 1 || n > math.MaxUint16 {
 			return invalidOption("max connections %d", n)
 		}
 		o.maxConnections = n
+		return nil
+	}
+}
+
+// WithMaxConnectionsPerOriginator limits the open CIP connections (Class
+// 0, 1 and 3) of one originator, by IP address, so that one originator
+// cannot take every connection of WithMaxConnections; Forward_Open beyond
+// it is refused with 0x01/0x0113 (out of connections). Class 3 connections
+// end with their session, I/O connections do not, so the originator, not
+// the session, is what is counted. Default 0: no limit beyond
+// WithMaxConnections (originators behind one NAT address share it).
+func WithMaxConnectionsPerOriginator(n int) Option {
+	return func(o *options) error {
+		if n < 0 || n > math.MaxUint16 {
+			return invalidOption("max connections per originator %d", n)
+		}
+		o.maxPerOriginator = n
 		return nil
 	}
 }

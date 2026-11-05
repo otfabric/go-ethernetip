@@ -5,6 +5,7 @@ package server
 import (
 	"context"
 	"encoding/binary"
+	"math"
 	"sync"
 
 	"github.com/otfabric/go-ethernetip/cip"
@@ -83,14 +84,17 @@ func newMessageRouter(s *Server) *StandardObject {
 	in := o.AddInstance(1)
 	in.SetAttribute(1, Attribute{Get: func() []byte {
 		cs := s.Classes()
-		b := cip.AppendUint16(nil, uint16(len(cs)))
+		// A UINT count: the list stops at 0xFFFF classes (every class code
+		// but one).
+		cs = cs[:min(len(cs), math.MaxUint16)]
+		b := cip.AppendUint16(nil, saturate16(len(cs)))
 		for _, c := range cs {
 			b = cip.AppendUint16(b, uint16(c))
 		}
 		return b
 	}, InGetAll: true})
-	in.SetAttribute(2, Attribute{Get: func() []byte { return cip.AppendUint16(nil, uint16(s.opts.maxConnections)) }, InGetAll: true})
-	in.SetAttribute(3, Attribute{Get: func() []byte { return cip.AppendUint16(nil, uint16(len(s.cm.list()))) }, InGetAll: true})
+	in.SetAttribute(2, Attribute{Get: func() []byte { return cip.AppendUint16(nil, saturate16(s.opts.maxConnections)) }, InGetAll: true})
+	in.SetAttribute(3, Attribute{Get: func() []byte { return cip.AppendUint16(nil, saturate16(len(s.cm.list()))) }, InGetAll: true})
 	o.HandleService(cip.ServiceMultipleServicePacket, func(ctx context.Context, r *Request) cip.Response {
 		if r.Instance != 1 {
 			return cip.Response{Status: cip.StatusServiceNotSupported}
@@ -147,7 +151,7 @@ func newPortObject(s *Server) *StandardObject {
 	in.SetAttribute(2, Attribute{Get: func() []byte { return cip.AppendUint16(nil, 2) }, InGetAll: true})
 	in.SetAttribute(3, Attribute{Get: func() []byte {
 		p, _ := cip.ObjectPath(cip.ClassTCPIPInterface, 1).Encode()
-		return append(cip.AppendUint16(nil, uint16(len(p)/2)), p...)
+		return append(cip.AppendUint16(nil, saturate16(len(p)/2)), p...)
 	}, InGetAll: true})
 	in.SetAttribute(4, Attribute{Get: func() []byte {
 		b, _ := cip.AppendShortString(nil, "EtherNet/IP")
@@ -186,7 +190,7 @@ func newTCPIPObject(s *Server) *StandardObject {
 	in.SetAttribute(3, Attribute{Get: func() []byte { return cip.AppendUint32(nil, 0) }, InGetAll: true})    // static
 	in.SetAttribute(4, Attribute{Get: func() []byte {
 		p, _ := cip.ObjectPath(cip.ClassEthernetLink, 1).Encode()
-		return append(cip.AppendUint16(nil, uint16(len(p)/2)), p...)
+		return append(cip.AppendUint16(nil, saturate16(len(p)/2)), p...)
 	}, InGetAll: true})
 	in.SetAttribute(5, Attribute{Get: func() []byte {
 		i := s.opts.iface

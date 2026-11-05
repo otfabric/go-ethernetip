@@ -110,7 +110,7 @@ func TestChaosExchange(t *testing.T) {
 	}
 	defer ca.Close()
 
-	for i := 0; i < 150; i++ {
+	for range 150 {
 		mu.Lock()
 		counter++
 		mu.Unlock()

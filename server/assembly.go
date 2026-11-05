@@ -198,7 +198,7 @@ func (s *Server) AddAssembly(instance uint32, kind AssemblyKind, size int) (*Ass
 		}
 	}
 	in.SetAttribute(3, attr)
-	in.SetAttribute(4, Attribute{Get: func() []byte { return cip.AppendUint16(nil, uint16(size)) }})
+	in.SetAttribute(4, Attribute{Get: func() []byte { return cip.AppendUint16(nil, saturate16(size)) }})
 	return a, nil
 }
 

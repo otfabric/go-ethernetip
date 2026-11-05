@@ -212,9 +212,40 @@ func TestAppendStringErrors(t *testing.T) {
 	if _, err := cip.AppendString2(nil, strings.Repeat("x", math.MaxUint16+1)); !errors.Is(err, cip.ErrTooLarge) {
 		t.Errorf("STRING2 of 65536: %v", err)
 	}
-	// U+1F600 is outside the BMP: UCS-2 cannot carry it.
-	if _, err := cip.AppendString2(nil, "a\U0001F600"); !errors.Is(err, cip.ErrMalformed) {
-		t.Errorf("STRING2 non-BMP: %v", err)
+	if _, err := cip.AppendString(nil, strings.Repeat("x", math.MaxUint16)); err != nil {
+		t.Errorf("STRING of 65535: %v", err)
+	}
+	if b, err := cip.AppendString2(nil, strings.Repeat("x", math.MaxUint16)); err != nil || len(b) != 2+2*math.MaxUint16 {
+		t.Errorf("STRING2 of 65535: %v, %d octets", err, len(b))
+	}
+	// U+1F600 is outside the BMP: UCS-2 cannot carry it. The failed append
+	// leaves b as it was.
+	if b, err := cip.AppendString2(prefix, "a\U0001F600"); !errors.Is(err, cip.ErrMalformed) || !bytes.Equal(b, prefix) {
+		t.Errorf("STRING2 non-BMP: %v, % X", err, b)
+	}
+}
+
+func TestSignedReaders(t *testing.T) {
+	r := cip.NewReader(unhex(t, "7F 80 FF 0080 FF7F FFFF 00000080 FFFFFF7F FFFFFFFF 0000000000000080 FFFFFFFFFFFFFF7F FFFFFFFFFFFFFFFF"))
+	got := []int64{
+		int64(r.Int8()), int64(r.Int8()), int64(r.Int8()),
+		int64(r.Int16()), int64(r.Int16()), int64(r.Int16()),
+		int64(r.Int32()), int64(r.Int32()), int64(r.Int32()),
+		r.Int64(), r.Int64(), r.Int64(),
+	}
+	want := []int64{
+		math.MaxInt8, math.MinInt8, -1,
+		math.MinInt16, math.MaxInt16, -1,
+		math.MinInt32, math.MaxInt32, -1,
+		math.MinInt64, math.MaxInt64, -1,
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Errorf("value %d = %d, want %d", i, got[i], want[i])
+		}
+	}
+	if r.Err() != nil || r.Len() != 0 {
+		t.Errorf("err %v, %d left", r.Err(), r.Len())
 	}
 }
 

@@ -27,6 +27,9 @@ func FuzzParse(f *testing.F) {
 		valid + "[Params]\n" + param("1", "0xC3", "2", `"n"`, "0xFF9C, 0x64, 0xFFFF") + "\tEnum1 = 0, \"a\", 0, \"b\";\n",
 		valid + "[Assembly]\n\tAssem1 = \"a\", \"20 04 24 01\", 2, 0, ,, 8, Param1, 8, ;\n",
 		valid + "[Connection Manager]\n\tConnection1 = 1, 0, 1e30, Assem1, , , , , , , , , \"c\", \"\", \"20 04 2C 01 2C 02\";\n",
+		"[Device]\nVendCode=65536;ProdType=0xFFFF;ProdCode=0;MajRev=256;MinRev=0xFF;",
+		valid + "[Assembly]\n\tAssem1 = \"a\", \"20 04 24 01\", 0, 0, ,, 524280, , 4294967295, ;\n",
+		valid + "[Params]\n" + param("1", "0xC2", "65536", `"n"`, "0x80, 0x7F, 0xFFFFFFFFFFFFFFFF"),
 	} {
 		f.Add(s)
 	}

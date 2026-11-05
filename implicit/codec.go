@@ -177,7 +177,13 @@ func SplitPayload(b []byte, class uint8, f Format) (Payload, error) {
 
 // SeqNewer reports whether 32-bit sequence number a follows b in serial
 // number arithmetic: a is newer when a-b, as a signed number, is positive.
-func SeqNewer(a, b uint32) bool { return int32(a-b) > 0 }
+func SeqNewer(a, b uint32) bool {
+	d := a - b
+	return d != 0 && d < 1<<31
+}
 
 // SeqNewer16 is [SeqNewer] for the 16-bit Class 1 sequence count.
-func SeqNewer16(a, b uint16) bool { return int16(a-b) > 0 }
+func SeqNewer16(a, b uint16) bool {
+	d := a - b
+	return d != 0 && d < 1<<15
+}

@@ -36,9 +36,9 @@ No work in progress: every branch is merged.
 
 GitHub CI green on the merged commits: go-ethernetip on Linux, macOS and
 Windows (amd64 and arm64; race detector everywhere but Windows arm64), Go
-1.23-1.26, 90% coverage gate (98.7%), lint, fuzz, chaos (with the chaos
+1.26-1.27, 90% coverage gate (98.6%), lint, fuzz, chaos (with the chaos
 monkey) and stress; interop on amd64 and arm64 against the pinned
-ethernetip-interop v0.5.0 images (twelve references): 184 pass, 0 fail, 146 N/A
+ethernetip-interop v0.6.1 images (twelve references): 184 pass, 0 fail, 146 N/A
 ([matrix](INTEROPERABILITY.md#interop-matrix)). ethernetip-interop native
 amd64/arm64 build, smoke and self-test (52 pass, 0 fail). ethernetipctl
 reusable CI and 32-bit typecheck.

@@ -333,6 +333,29 @@ func TestPathAccessors(t *testing.T) {
 		t.Error("empty Symbolic")
 	}
 
+	// 32-bit IDs: 0xFFFF fits Class and Attribute; 0x10000 must not be
+	// reported as a truncated ID 0.
+	wide := cip.Path{
+		cip.LogicalSegment{Type: cip.LogicalClass, Value: 0xFFFF, Format: cip.Format32},
+		cip.LogicalSegment{Type: cip.LogicalAttribute, Value: 0xFFFF, Format: cip.Format32},
+	}
+	if c, ok := wide.Class(); c != 0xFFFF || !ok {
+		t.Errorf("Class 0xFFFF = %v, %v", c, ok)
+	}
+	if a, ok := wide.Attribute(); a != 0xFFFF || !ok {
+		t.Errorf("Attribute 0xFFFF = %v, %v", a, ok)
+	}
+	wider := cip.Path{
+		cip.LogicalSegment{Type: cip.LogicalClass, Value: 0x10001, Format: cip.Format32},
+		cip.LogicalSegment{Type: cip.LogicalAttribute, Value: 0x10003, Format: cip.Format32},
+	}
+	if c, ok := wider.Class(); ok {
+		t.Errorf("Class 0x10001 = %v, true", c)
+	}
+	if a, ok := wider.Attribute(); ok {
+		t.Errorf("Attribute 0x10003 = %v, true", a)
+	}
+
 	sym := cip.Path{cip.SymbolSegment{Name: "Tag"}, cip.MemberSegment(1)}
 	if c, ok := sym.Class(); c != cip.ClassSymbol || !ok {
 		t.Errorf("symbolic Class = %v, %v", c, ok)

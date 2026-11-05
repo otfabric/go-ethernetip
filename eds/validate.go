@@ -288,7 +288,7 @@ func limitValue(s string, t cip.DataType) (float64, error) {
 	if bits < 64 && u >= 1<<bits {
 		return x, nil
 	}
-	return float64(int64(u<<(64-bits)) >> (64 - bits)), nil
+	return float64(signExtend(u, bits)), nil
 }
 
 func (v *validator) assemblies() {

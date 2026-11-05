@@ -61,7 +61,9 @@ The server bounds what a peer can make it hold:
 
 - packets above `WithMaxPacket` (4096 octets by default) close the
   session; sessions are limited by `WithMaxSessions` (64), connections by
-  `WithMaxConnections` (128); idle TCP connections close after the
+  `WithMaxConnections` (128), and per originator address by
+  `WithMaxConnectionsPerOriginator` (off by default); Class 3 replies are
+  bounded by the connection's T->O size; idle TCP connections close after the
   encapsulation inactivity timeout (120 s);
 - every count in a message (items, services, segments, attributes, tag
   list entries) is checked against the octets that carry it before memory

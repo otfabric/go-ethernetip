@@ -65,7 +65,7 @@ func (c *Client) doUnreported(ctx context.Context, req cip.Request, extra []enca
 		return cip.Response{}, nil, fmt.Errorf("%w: %w", ethernetip.ErrInvalidOption, err)
 	}
 	items := append([]encap.Item{{Type: encap.ItemNullAddress}, {Type: encap.ItemUnconnectedData, Data: msg}}, extra...)
-	timeout := uint16(c.opts.timeout / time.Second)
+	timeout := encapTimeout(c.opts.timeout)
 	data, err := encap.RRData{Timeout: timeout, Items: items}.Encode()
 	if err != nil {
 		return cip.Response{}, nil, fmt.Errorf("%w: %w", ethernetip.ErrInvalidOption, err)
@@ -165,6 +165,9 @@ func (c *Client) SetAttributesAll(ctx context.Context, class cip.Class, instance
 func (c *Client) Reset(ctx context.Context, class cip.Class, instance uint32, resetType int) error {
 	var data []byte
 	if resetType >= 0 {
+		if resetType > 0xFF {
+			return fmt.Errorf("%w: reset type %d above 255", ethernetip.ErrInvalidOption, resetType)
+		}
 		data = []byte{byte(resetType)}
 	}
 	_, err := c.Do(ctx, cip.Request{Service: cip.ServiceReset, Path: cip.ObjectPath(class, instance), Data: data})
@@ -185,10 +188,19 @@ type AttributeValue struct {
 // for the attributes that were read: the result is returned together with
 // the error.
 func (c *Client) GetAttributeList(ctx context.Context, class cip.Class, instance uint32, ids []uint16, sizes []int) ([]AttributeValue, error) {
-	if len(ids) == 0 || len(ids) != len(sizes) {
-		return nil, fmt.Errorf("%w: %d attributes with %d sizes", ethernetip.ErrInvalidOption, len(ids), len(sizes))
+	n := len(ids)
+	if n == 0 || n != len(sizes) {
+		return nil, fmt.Errorf("%w: %d attributes with %d sizes", ethernetip.ErrInvalidOption, n, len(sizes))
 	}
-	data := cip.AppendUint16(nil, uint16(len(ids)))
+	if n > 0xFFFF {
+		return nil, fmt.Errorf("%w: %d attributes, above 65535", ethernetip.ErrInvalidOption, n)
+	}
+	for i, size := range sizes {
+		if size < 0 {
+			return nil, fmt.Errorf("%w: size %d of attribute %d", ethernetip.ErrInvalidOption, size, ids[i])
+		}
+	}
+	data := cip.AppendUint16(nil, uint16(n))
 	for _, id := range ids {
 		data = cip.AppendUint16(data, id)
 	}
@@ -203,6 +215,19 @@ func (c *Client) GetAttributeList(ctx context.Context, class cip.Class, instance
 	return vals, err
 }
 
+// encapTimeout returns d as the whole seconds of the timeout field of
+// SendRRData, clamped to the largest the field holds.
+func encapTimeout(d time.Duration) uint16 {
+	s := int64(d / time.Second)
+	if s < 0 {
+		return 0
+	}
+	if s > 0xFFFF {
+		return 0xFFFF
+	}
+	return uint16(s)
+}
+
 func decodeAttributeList(b []byte, sizes []int) ([]AttributeValue, error) {
 	r := cip.NewReader(b)
 	n := int(r.Uint16())
@@ -211,7 +236,12 @@ func decodeAttributeList(b []byte, sizes []int) ([]AttributeValue, error) {
 	}
 	out := make([]AttributeValue, 0, n)
 	for i := 0; i < n && r.Err() == nil; i++ {
-		v := AttributeValue{ID: r.Uint16(), Status: cip.GeneralStatus(r.Uint16())}
+		id, st := r.Uint16(), r.Uint16()
+		if st > 0xFF {
+			// The status is a general status code, which is one octet.
+			return nil, fmt.Errorf("attribute %d: status 0x%04X is not a general status", id, st)
+		}
+		v := AttributeValue{ID: id, Status: cip.GeneralStatus(st)}
 		if v.Status == cip.StatusSuccess {
 			size := sizes[i]
 			if size == 0 {

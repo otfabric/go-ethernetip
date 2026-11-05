@@ -87,7 +87,7 @@ func TestChaosMonkey(t *testing.T) {
 	seed := chaosSeed(t)
 	a, ts := startLogix(t)
 	const workers = 4
-	for i := 0; i < workers; i++ {
+	for i := range workers {
 		must(t, ts.AddTag(fmt.Sprintf("Monkey%d", i), cip.TypeDINT))
 	}
 	p := newChaosProxy(t, a.addr, seed, false)
@@ -98,7 +98,7 @@ func TestChaosMonkey(t *testing.T) {
 	tags := make([]*monkeyTag, workers)
 	errc := make(chan error, workers)
 	var wg sync.WaitGroup
-	for w := 0; w < workers; w++ {
+	for w := range workers {
 		tags[w] = &monkeyTag{name: fmt.Sprintf("Monkey%d", w)}
 		wg.Add(1)
 		go func(w int) {

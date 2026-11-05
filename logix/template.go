@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
+	"math"
 	"strings"
 
 	"github.com/otfabric/go-ethernetip/cip"
@@ -103,6 +104,16 @@ type Template struct {
 	Members []Member
 }
 
+// memberCount returns attribute 2, the number of members; AddTemplate
+// keeps it at most 65535.
+func (t *Template) memberCount() uint16 {
+	n := len(t.Members)
+	if n > 0xFFFF {
+		return 0xFFFF
+	}
+	return uint16(n)
+}
+
 // definition returns the template's definition as Read_Template returns
 // it: 8 octets per member, then the name ("Name;n...") and each member's
 // name, NUL-terminated.
@@ -132,10 +143,28 @@ func (t *Template) definition() []byte {
 // 32-bit words: reading the definition takes words×4 − 23 octets (Logix
 // 5000 Controllers Data Access, 1756-PM020), so n octets need
 // ⌈(n + 23) / 4⌉ words.
-func definitionWords(n int) uint32 { return uint32((n + 23 + 3) / 4) }
+// A definition beyond the 32-bit field is clamped (AddTemplate keeps a
+// served definition far below it).
+func definitionWords(n int) uint32 {
+	if n < 0 {
+		return 0
+	}
+	w := int64(n/4) + int64((n%4+26)/4)
+	if w > math.MaxUint32 {
+		return math.MaxUint32
+	}
+	return uint32(w)
+}
 
-// definitionLen returns the octets of a definition of words words.
-func definitionLen(words uint32) int { return int(words)*4 - 23 }
+// definitionLen returns the octets of a definition of words words; it
+// does not overflow on 32-bit platforms (a size above 1 GiB, which no
+// caller accepts, is returned as 1 GiB).
+func definitionLen(words uint32) int {
+	if words > 1<<28 {
+		return 1 << 30
+	}
+	return int(words)*4 - 23
+}
 
 // parseDefinition decodes a template definition of members members.
 func parseDefinition(b []byte, members int) (string, []Member, error) {
@@ -190,10 +219,12 @@ type Field struct {
 // Decode decodes one element of the structure from data (at least Size
 // octets). Members of structure type are decoded with lookup when it finds
 // their template, and are otherwise left raw in Value. Hidden members are
-// left out.
+// left out. The fields' data is one copy of data, shared by members that
+// overlap: what a Decode allocates grows with data and the number of
+// members, not with their product.
 func (t *Template) Decode(data []byte, lookup func(id uint16) *Template) ([]Field, error) {
 	budget := maxFields
-	return t.decode(data, lookup, 0, &budget)
+	return t.decode(append([]byte(nil), data...), lookup, 0, &budget)
 }
 
 // maxNesting bounds the nesting of structures Decode follows, so that a
@@ -209,7 +240,7 @@ func (t *Template) decode(data []byte, lookup func(id uint16) *Template, depth i
 	if depth > maxNesting {
 		return nil, fmt.Errorf("%w: structure %s nested more than %d deep", ErrType, t.Name, maxNesting)
 	}
-	if uint32(len(data)) < t.Size {
+	if int64(len(data)) < int64(t.Size) {
 		return nil, fmt.Errorf("%w: %d octets for structure %s of %d", ErrType, len(data), t.Name, t.Size)
 	}
 	var out []Field
@@ -245,7 +276,7 @@ func (t *Template) decode(data []byte, lookup func(id uint16) *Template, depth i
 				f.Struct = s
 			}
 		case m.Type.Atomic() == cip.TypeBOOL && m.Type.Dims() == 0:
-			if int(m.Offset) >= len(data) {
+			if int64(m.Offset) >= int64(len(data)) {
 				return nil, fmt.Errorf("%w: member %s beyond the structure", ErrType, m.Name)
 			}
 			bit := (data[m.Offset] >> (m.Info & 7)) & 1
@@ -272,14 +303,15 @@ func (t *Template) decode(data []byte, lookup func(id uint16) *Template, depth i
 }
 
 // tail returns n octets of data from off (or the rest when n is 0),
-// clamped to data.
+// clamped to data. The result shares data, with its capacity cut so that
+// an append to it does not write into data.
 func tail(data []byte, off uint32, n int) []byte {
-	if int(off) >= len(data) {
+	if int64(off) >= int64(len(data)) {
 		return nil
 	}
 	d := data[off:]
 	if n > 0 && n < len(d) {
 		d = d[:n]
 	}
-	return append([]byte(nil), d...)
+	return d[:len(d):len(d)]
 }

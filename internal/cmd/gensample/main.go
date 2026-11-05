@@ -30,7 +30,14 @@ func main() {
 }
 
 func run(check bool) error {
-	b, err := os.ReadFile(source)
+	// The files are read and written under the working directory, the
+	// repository root, and nowhere else.
+	root, err := os.OpenRoot(".")
+	if err != nil {
+		return err
+	}
+	defer func() { _ = root.Close() }()
+	b, err := root.ReadFile(source)
 	if err != nil {
 		return err
 	}
@@ -48,11 +55,11 @@ func run(check bool) error {
 		return err
 	}
 	if check {
-		have, err := os.ReadFile(target)
+		have, err := root.ReadFile(target)
 		if err != nil || !bytes.Equal(have, src) {
 			return fmt.Errorf("out of date, run make generate: %s", target)
 		}
 		return nil
 	}
-	return os.WriteFile(target, src, 0o644)
+	return root.WriteFile(target, src, 0o600)
 }

@@ -624,7 +624,7 @@ func TestConcurrentOwners(t *testing.T) {
 		peers[i] = dialPeer(t, s)
 		peers[i].register()
 	}
-	for round := 0; round < 20; round++ {
+	for round := range 20 {
 		var wg sync.WaitGroup
 		var ok atomic.Int32
 		fos := make([]cip.ForwardOpen, n)

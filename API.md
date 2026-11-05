@@ -64,7 +64,7 @@ timeout rules.
 | Symbol | |
 |---|---|
 | `New(opts...)` | a target with the standard objects |
-| `WithIdentity`, `WithIOAddress`, `WithSlot`, `WithMaxSessions`, `WithMaxConnections`, `WithMaxPacket`, `WithInactivityTimeout`, `WithRPIRange`, `WithRunIdleHeader`, `WithDiscoveryDelay`, `WithInterface`, `WithResetHandler`, `WithTLS`, `WithLogger`, `WithMetrics` | options |
+| `WithIdentity`, `WithIOAddress`, `WithSlot`, `WithMaxSessions`, `WithMaxConnections`, `WithMaxConnectionsPerOriginator`, `WithMaxPacket`, `WithInactivityTimeout`, `WithRPIRange`, `WithRunIdleHeader`, `WithDiscoveryDelay`, `WithInterface`, `WithResetHandler`, `WithTLS`, `WithLogger`, `WithMetrics` | options |
 | `ListenAndServe`, `Listen` + `Serve`, `UseListeners`, `Close`, `Addr`, `UDPAddr`, `IOAddr` | lifecycle |
 | `AddAssembly` → `*Assembly` (`SetData`, `Data`, `Run`, `OnWrite`, `Size`, `Kind`, `Instance`); `Assembly(instance)` | assemblies |
 | `RegisterObject`, `Object`, `Classes`, `HandleSymbols`, `Identity`, `SetIdentityStatus`, `Sessions`, `Connections` | objects and state |
@@ -84,7 +84,8 @@ timeout rules.
 
 `Parse`, `ParseString`, `File` (`Section`, `Device`, `Params`,
 `Assemblies`, `Connections`, `Format`), `Validate`, `Issue`, `Build`,
-`Spec`, `GenerateGo`, `GenerateOptions`, `ParseEPATH`, `FormatEPATH`. See
+`Spec`, `GenerateGo`, `GenerateOptions`, `ParseEPATH`, `FormatEPATH`,
+`MaxAssemblySize`. See
 [docs/EDS.md](docs/EDS.md).
 
 ## Codecs: `cip`, `encap`, `implicit`

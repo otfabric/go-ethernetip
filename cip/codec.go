@@ -100,16 +100,28 @@ func (r *Reader) Uint64() uint64 {
 }
 
 // Int8 reads a SINT.
-func (r *Reader) Int8() int8 { return int8(r.Uint8()) }
+func (r *Reader) Int8() int8 {
+	v := r.Uint8()
+	return int8(v&0x7F) + int8(v>>7)<<7
+}
 
 // Int16 reads an INT.
-func (r *Reader) Int16() int16 { return int16(r.Uint16()) }
+func (r *Reader) Int16() int16 {
+	v := r.Uint16()
+	return int16(v&0x7FFF) + int16(v>>15)<<15
+}
 
 // Int32 reads a DINT.
-func (r *Reader) Int32() int32 { return int32(r.Uint32()) }
+func (r *Reader) Int32() int32 {
+	v := r.Uint32()
+	return int32(v&0x7FFFFFFF) + int32(v>>31)<<31
+}
 
 // Int64 reads a LINT.
-func (r *Reader) Int64() int64 { return int64(r.Uint64()) }
+func (r *Reader) Int64() int64 {
+	v := r.Uint64()
+	return int64(v&0x7FFFFFFFFFFFFFFF) + int64(v>>63)<<63
+}
 
 // Float32 reads a REAL.
 func (r *Reader) Float32() float32 { return math.Float32frombits(r.Uint32()) }
@@ -180,19 +192,21 @@ func AppendFloat64(b []byte, v float64) []byte { return AppendUint64(b, math.Flo
 // AppendShortString appends a SHORT_STRING. It fails with [ErrTooLarge]
 // for more than 255 octets.
 func AppendShortString(b []byte, s string) ([]byte, error) {
-	if len(s) > math.MaxUint8 {
+	n, ok := len8(len(s))
+	if !ok {
 		return b, fmt.Errorf("%w: SHORT_STRING of %d octets", ErrTooLarge, len(s))
 	}
-	return append(append(b, uint8(len(s))), s...), nil
+	return append(append(b, n), s...), nil
 }
 
 // AppendString appends a STRING. It fails with [ErrTooLarge] for more than
 // 65535 octets.
 func AppendString(b []byte, s string) ([]byte, error) {
-	if len(s) > math.MaxUint16 {
+	n, ok := len16(len(s))
+	if !ok {
 		return b, fmt.Errorf("%w: STRING of %d octets", ErrTooLarge, len(s))
 	}
-	return append(AppendUint16(b, uint16(len(s))), s...), nil
+	return append(AppendUint16(b, n), s...), nil
 }
 
 // AppendString2 appends a STRING2, encoding s in UCS-2. It fails with
@@ -200,13 +214,15 @@ func AppendString(b []byte, s string) ([]byte, error) {
 // a character outside the Basic Multilingual Plane.
 func AppendString2(b []byte, s string) ([]byte, error) {
 	rs := []rune(s)
-	if len(rs) > math.MaxUint16 {
+	n, ok := len16(len(rs))
+	if !ok {
 		return b, fmt.Errorf("%w: STRING2 of %d characters", ErrTooLarge, len(rs))
 	}
-	b = AppendUint16(b, uint16(len(rs)))
+	start := len(b)
+	b = AppendUint16(b, n)
 	for _, c := range rs {
 		if c > 0xFFFF {
-			return b, fmt.Errorf("%w: character %U does not fit STRING2", ErrMalformed, c)
+			return b[:start], fmt.Errorf("%w: character %U does not fit STRING2", ErrMalformed, c)
 		}
 		b = AppendUint16(b, uint16(c))
 	}

@@ -8,6 +8,7 @@ import (
 	"crypto/tls"
 	"errors"
 	"net"
+	"slices"
 	"strconv"
 	"sync"
 	"sync/atomic"
@@ -305,10 +306,10 @@ func TestMaxPendingCorrelation(t *testing.T) {
 		got = nil
 		mu.Unlock()
 		// Answer in reverse order: each reply carries its attribute ID.
-		for i := len(all) - 1; i >= 0; i-- {
-			req := decodeRR(t, all[i])
+		for _, pkt := range slices.Backward(all) {
+			req := decodeRR(t, pkt)
 			a, _ := req.Path.Attribute()
-			rrReply(t, p, all[i], cip.Response{Service: req.Service, Data: cip.AppendUint16(nil, a)})
+			rrReply(t, p, pkt, cip.Response{Service: req.Service, Data: cip.AppendUint16(nil, a)})
 		}
 	})
 	c := dialT(t, f.addr(), WithMaxPending(n))
@@ -469,7 +470,7 @@ func TestSessionLostBeforeRequestFails(t *testing.T) {
 	f := newFakeTarget(t, func(p *peer, _ encap.Packet) { _ = p.conn.Close() })
 	c := dialT(t, f.addr(), WithAutoReconnect())
 	ctx := ctxT(t)
-	for i := 0; i < 200; i++ {
+	for i := range 200 {
 		if _, err := c.Identity(ctx); !errors.Is(err, ethernetip.ErrConnectionLost) {
 			t.Fatalf("round %d: %v, want ErrConnectionLost", i, err)
 		}
@@ -980,7 +981,7 @@ func TestConcurrentDeadlines(t *testing.T) {
 		t.Fatal("no session")
 	}
 	var wg sync.WaitGroup
-	for i := 0; i < 100; i++ {
+	for i := range 100 {
 		wg.Add(1)
 		go func(i int) {
 			defer wg.Done()
@@ -999,7 +1000,7 @@ func TestConcurrentDeadlines(t *testing.T) {
 
 	// Healthy requests alongside expiring ones all succeed.
 	errs := make(chan error, 200)
-	for i := 0; i < 200; i++ {
+	for i := range 200 {
 		wg.Add(1)
 		go func(i int) {
 			defer wg.Done()

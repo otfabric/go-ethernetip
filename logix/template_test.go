@@ -250,10 +250,12 @@ func TestTail(t *testing.T) {
 	if got := tail(d, 4, 1); got != nil {
 		t.Fatalf("%x", got)
 	}
-	got := tail(d, 0, 0)
-	got[0] = 9
-	if d[0] != 1 {
-		t.Fatal("tail aliases data")
+	// tail shares data (Decode copies its input once), but an append to
+	// the result does not write into data.
+	got := tail(d, 0, 2)
+	_ = append(got, 9)
+	if d[2] != 3 {
+		t.Fatal("append to tail wrote into data")
 	}
 }
 
@@ -263,7 +265,7 @@ func TestTemplateDecodeFieldBudget(t *testing.T) {
 	chain := make([]Template, 21)
 	for id := range chain {
 		chain[id] = Template{ID: uint16(id), Name: "Chain", Size: 4}
-		for i := 0; i < 8; i++ {
+		for range 8 {
 			m := Member{Name: "M", Type: NewStructType(uint16(id+1), 0)}
 			if id == len(chain)-1 {
 				m.Type = NewAtomicType(cip.TypeDINT, 0, 0)

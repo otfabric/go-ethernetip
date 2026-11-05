@@ -43,11 +43,11 @@ Status words, as in INTEROPERABILITY.md:
 | Unit, end-to-end, chaos, stress and leak suites with the race detector | [TESTING.md](../TESTING.md) |
 | Coverage of at least 90 % in total and per package | `make coverage-check coverage-pkg-check` |
 | 15 fuzz targets on the decoders and the server, in CI and in `fuzz.yml` | `make fuzz` |
-| Independent peers: ethernetip-interop v0.5.0, images pinned by digest | `interop/harness_test.go`, `interop.yml`, nightly |
+| Independent peers: ethernetip-interop v0.6.1, images pinned by digest | `interop/harness_test.go`, `interop.yml`, nightly |
 
 ## Platforms
 
 Tested natively on Linux, macOS and Windows, amd64 and arm64; FreeBSD and
 32-bit ARM Linux are built, not tested. The interop suite runs on Linux amd64
-and arm64. Multicast needs `IP_ADD_MEMBERSHIP` (Unix, Windows). Go 1.23 to 1.26
+and arm64. Multicast needs `IP_ADD_MEMBERSHIP` (Unix, Windows). Go 1.26 and 1.27
 in CI.

@@ -150,8 +150,7 @@ func (e *EncapError) Is(target error) bool {
 // StatusOf returns the CIP general status of err when it is or wraps a
 // *CIPError, and false otherwise.
 func StatusOf(err error) (cip.GeneralStatus, bool) {
-	var ce *CIPError
-	if errors.As(err, &ce) {
+	if ce, ok := errors.AsType[*CIPError](err); ok {
 		return ce.Status, true
 	}
 	return 0, false
