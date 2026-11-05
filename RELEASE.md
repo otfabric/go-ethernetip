@@ -25,6 +25,8 @@ with control characters.
 - **Tests**: `TestTargetTimesOutOriginator` waits for the output to leave
   run instead of checking it once. The connection leaves the registry just
   before it is shut down, so a single check could fail under load.
+  `TestScannerManyAdapters` uses a 20 ms RPI (5 ms connections timed out on
+  a loaded macOS runner).
 
 ---
 

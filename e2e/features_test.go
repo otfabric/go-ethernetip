@@ -151,7 +151,9 @@ func TestScannerManyAdapters(t *testing.T) {
 			t.Fatal(err)
 		}
 		t.Cleanup(func() { _ = s.Close(ctx) })
-		io, err := s.Open(ctx, exclusiveOwner(5*time.Millisecond))
+		// 20 ms, not 5: the test is about the shared endpoint, and three
+		// 5 ms connections timed out on a loaded macOS runner.
+		io, err := s.Open(ctx, exclusiveOwner(20*time.Millisecond))
 		if err != nil {
 			t.Fatal(err)
 		}
