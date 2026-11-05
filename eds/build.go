@@ -5,7 +5,9 @@ package eds
 import (
 	"fmt"
 	"strconv"
+	"strings"
 	"time"
+	"unicode"
 
 	"github.com/otfabric/go-ethernetip/cip"
 )
@@ -46,6 +48,9 @@ type SpecConnection struct {
 // are those of a Class 1 cyclic point-to-point connection with a fixed
 // size, as common EDS files have them; review them against your device.
 func Build(s Spec) (*File, error) {
+	if err := s.checkText(); err != nil {
+		return nil, err
+	}
 	if s.Date.IsZero() {
 		s.Date = time.Now()
 	}
@@ -140,4 +145,25 @@ func Build(s Spec) (*File, error) {
 	}
 	f.Sections = append(f.Sections, cm)
 	return f, nil
+}
+
+// checkText refuses a text with a control character: an EDS string is one
+// line of printable text, and a newline in it would give a file that does
+// not parse.
+func (s Spec) checkText() error {
+	texts := []struct{ what, v string }{
+		{"vendor name", s.VendorName}, {"description", s.Description}, {"product name", s.Identity.ProductName},
+	}
+	for _, a := range s.Assemblies {
+		texts = append(texts, struct{ what, v string }{"assembly name", a.Name})
+	}
+	for _, c := range s.Connections {
+		texts = append(texts, struct{ what, v string }{"connection name", c.Name})
+	}
+	for _, t := range texts {
+		if i := strings.IndexFunc(t.v, unicode.IsControl); i >= 0 {
+			return fmt.Errorf("eds: %s %q: control character at offset %d", t.what, t.v, i)
+		}
+	}
+	return nil
 }

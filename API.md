@@ -75,7 +75,7 @@ timeout rules.
 `NewClient(doer, WithMaxData)` with `Read`, `Write`, `WriteBit`,
 `ReadMany`, `ListTags`, `Template`, `DecodeStruct`, `ProgramName`;
 `ParseTag`; `Value` (`Int`, `Uint`, `Float`, `Bool`, `Text`) with `Ints`,
-`Floats`, `Strings`; `Template`, `Member`, `Field`, `SymbolType`;
+`Uints`, `Floats`, `Strings`; `Template`, `Member`, `Field`, `SymbolType`;
 `NewTagServer(WithProgramName, WithMaxReply)` with `AddTag`,
 `AddStructTag`, `AddTemplate`, `Get`, `Set`, `OnWrite`, `Attach`. See
 [docs/LOGIX.md](docs/LOGIX.md).

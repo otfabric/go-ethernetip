@@ -257,7 +257,30 @@ func Ints(t cip.DataType, vs ...int64) (Value, error) {
 	return Value{Type: t, Count: len(vs), Data: data}, nil
 }
 
-// Floats returns a REAL or LREAL value with the elements vs.
+// Uints returns a value of unsigned integer type t with the elements vs; a
+// value that does not fit t fails. It is [Ints] for the values of ULINT and
+// LWORD above the int64 range.
+func Uints(t cip.DataType, vs ...uint64) (Value, error) {
+	if !t.IsInteger() || t.IsSigned() {
+		return Value{}, fmt.Errorf("%w: %s is not an unsigned integer type", ErrType, t)
+	}
+	size := t.Size()
+	data := make([]byte, 0, size*len(vs))
+	for _, x := range vs {
+		if bits := uint(8 * size); bits < 64 && x > 1<<bits-1 {
+			return Value{}, fmt.Errorf("%w: %d does not fit %s", ErrType, x, t)
+		}
+		var w [8]byte
+		binary.LittleEndian.PutUint64(w[:], x)
+		data = append(data, w[:size]...)
+	}
+	return Value{Type: t, Count: len(vs), Data: data}, nil
+}
+
+// Floats returns a REAL or LREAL value with the elements vs. A finite value
+// outside the REAL range fails rather than becoming an infinity; infinities
+// and NaN are kept, and a value inside the range is rounded to the nearest
+// REAL.
 func Floats(t cip.DataType, vs ...float64) (Value, error) {
 	if t != cip.TypeREAL && t != cip.TypeLREAL {
 		return Value{}, fmt.Errorf("%w: %s is not REAL or LREAL", ErrType, t)
@@ -266,7 +289,11 @@ func Floats(t cip.DataType, vs ...float64) (Value, error) {
 	for _, x := range vs {
 		switch t {
 		case cip.TypeREAL:
-			data = cip.AppendFloat32(data, float32(x))
+			f := float32(x)
+			if math.IsInf(float64(f), 0) && !math.IsInf(x, 0) {
+				return Value{}, fmt.Errorf("%w: %g does not fit REAL", ErrType, x)
+			}
+			data = cip.AppendFloat32(data, f)
 		default:
 			data = cip.AppendFloat64(data, x)
 		}

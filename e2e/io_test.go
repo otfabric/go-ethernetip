@@ -169,10 +169,10 @@ func TestTargetTimesOutOriginator(t *testing.T) {
 	// The scanner's endpoint closes without Forward_Close: the server
 	// stops receiving O->T and times the connection out.
 	_ = s.Endpoint().Close()
+	// The connection leaves the registry just before it is shut down and
+	// the output leaves run: wait for both.
 	eventually(t, 15*time.Second, "server timeout", func() bool { return len(a.srv.Connections()) == 0 })
-	if a.out.Run() {
-		t.Fatal("output still in run after timeout")
-	}
+	eventually(t, 5*time.Second, "output out of run after timeout", func() bool { return !a.out.Run() })
 	ctr, err := c.GetAttributeSingle(ctx, cip.ClassConnectionManager, 1, 8)
 	if err != nil || ctr[0] != 1 {
 		t.Fatalf("timeouts counter %x %v", ctr, err)
