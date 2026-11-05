@@ -1,5 +1,35 @@
 # go-ethernetip Releases
 
+## v0.5.0
+
+**Date:** 2026-11-05
+**Previous release:** v0.4.0
+
+## Summary
+
+Three value and EDS fixes found while hardening ethernetipctl: REAL values
+out of range, ULINT and LWORD values above the int64 range, and EDS strings
+with control characters.
+
+## Changes
+
+- **logix**: `Floats(cip.TypeREAL, x)` fails with `ErrType` for a finite
+  value outside the REAL range; it wrote an infinity. Infinities and NaN are
+  still accepted; values inside the range are still rounded to the nearest
+  REAL. New `Uints(t, vs ...uint64)` builds unsigned values, including ULINT
+  and LWORD values above 2^63−1, which `Ints` cannot take.
+- **eds**: `Build` refuses a vendor name, description, product name,
+  assembly name or connection name with a control character. An EDS string
+  has no escape for a newline, so such a name gave a file that does not
+  parse.
+- **Tests**: `TestTargetTimesOutOriginator` waits for the output to leave
+  run instead of checking it once. The connection leaves the registry just
+  before it is shut down, so a single check could fail under load.
+  `TestScannerManyAdapters` uses a 20 ms RPI (5 ms connections timed out on
+  a loaded macOS runner).
+
+---
+
 ## v0.4.0
 
 **Date:** 2026-11-04

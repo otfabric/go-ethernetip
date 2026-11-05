@@ -60,7 +60,10 @@ type Field struct {
 	Value string
 }
 
-// String returns the field as it is written in a file.
+// String returns the field as it is written in a file. A string is quoted
+// with its quotes and backslashes escaped; an EDS string has no escape for a
+// newline, so a string field must hold one line ([Build] refuses control
+// characters).
 func (f Field) String() string {
 	switch f.Kind {
 	case FieldString:
