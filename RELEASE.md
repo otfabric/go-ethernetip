@@ -1,5 +1,34 @@
 # go-ethernetip Releases
 
+## v0.5.1
+
+**Date:** 2026-11-06
+**Previous release:** v0.5.0
+
+## Summary
+
+The scanner now always names the configuration instance in the Class 1
+connection path, as every other originator does. The interop suite can also
+run against OT Fabric's own image.
+
+## Changes
+
+- **scanner**: the Forward_Open (and Forward_Close) path is
+  `20 04 24 <ConfigInstance> 2C <O->T> 2C <T->O>`, also with
+  `ConfigInstance` 0. Before, 0 left the instance segment out. EEIP.NET,
+  eeip.py, python-ethernetip and cB-Sigma's enip send it, instance 0 included,
+  and cB-Sigma's adapter refuses the path without it (0x01 / 0x0315). Checked
+  on the wire with ConfigInstance 0: cB-Sigma's enip, gologix and
+  go-ethernetip's server open the connection. OpENer refuses configuration 0
+  in both forms (0x012F; its exclusive owner needs 151), so nothing changes
+  there. The server already accepted both forms. No API change.
+- **interop**: the opt-in `otfabric` adapter (`ethernetip-interop-otfabric`,
+  this library behind the harness contract), selected with
+  `ETHERNETIP_INTEROP_ADAPTERS`, and the manual **Self-interop** workflow.
+  Results against it are not independent evidence.
+
+---
+
 ## v0.5.0
 
 **Date:** 2026-11-05

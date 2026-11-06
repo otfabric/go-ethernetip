@@ -6,6 +6,7 @@
 [![CI Status](https://github.com/otfabric/go-ethernetip/actions/workflows/ci.yml/badge.svg)](https://github.com/otfabric/go-ethernetip/actions/workflows/ci.yml)
 [![Interop](https://github.com/otfabric/go-ethernetip/actions/workflows/interop.yml/badge.svg)](https://github.com/otfabric/go-ethernetip/actions/workflows/interop.yml)
 [![Code Coverage](https://codecov.io/gh/otfabric/go-ethernetip/graph/badge.svg)](https://codecov.io/gh/otfabric/go-ethernetip)
+[![Latest Release](https://img.shields.io/github/v/release/otfabric/go-ethernetip?label=release)](https://github.com/otfabric/go-ethernetip/releases)
 
 A pure Go implementation of EtherNet/IP and the Common Industrial Protocol
 (CIP), the industrial Ethernet protocol of programmable controllers, I/O
