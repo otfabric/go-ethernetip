@@ -11,6 +11,9 @@ run-name: "Self-interop against ethernetip-interop-otfabric:latest, by @${{ gith
 # a release. A pass is not independent verification (INTEROPERABILITY.md).
 on:
   workflow_dispatch:
+  # Temporary: runs the workflow once on this branch, removed before merging.
+  push:
+    branches: [ci/self-interop]
 
 permissions:
   contents: read
