@@ -23,6 +23,17 @@ No work in progress: every branch is merged.
 
 | Release | Date | Where |
 |---|---|---|
+| go-ethernetip v0.5.2 (interop pinned to ethernetip-interop v0.8.1: thirteen references, + cB-Sigma's enip) | 2026-11-06 | https://github.com/otfabric/go-ethernetip/releases/tag/v0.5.2 |
+| ethernetip-interop v0.8.1 (own-image waivers; documentation) | 2026-11-06 | https://github.com/otfabric/ethernetip-interop/releases/tag/v0.8.1 |
+| go-ethernetip v0.5.1 (the scanner names the configuration instance in the Class 1 path) | 2026-11-06 | https://github.com/otfabric/go-ethernetip/releases/tag/v0.5.1 |
+| ethernetip-interop v0.8.0 (13 images: + cB-Sigma's enip, reported upstream as cB-Sigma/enip#1–#8) | 2026-11-06 | https://github.com/otfabric/ethernetip-interop/releases/tag/v0.8.0 |
+| ethernetip-interop v0.7.0 (own image `ethernetip-interop-otfabric`, harness layout) | 2026-11-06 | https://github.com/otfabric/ethernetip-interop/releases/tag/v0.7.0 |
+| go-ethernetip v0.5.0 (REAL range, `logix.Uints`, EDS control characters) | 2026-11-05 | https://github.com/otfabric/go-ethernetip/releases/tag/v0.5.0 |
+| ethernetipctl v0.5.0, v0.5.1 (SAST hardening; on go-ethernetip v0.5.0) | 2026-11-05 | https://github.com/otfabric/ethernetipctl/releases |
+| go-ethernetip v0.4.0 (SAST hardening) | 2026-11-05 | https://github.com/otfabric/go-ethernetip/releases/tag/v0.4.0 |
+| ethernetip-interop v0.6.0, v0.6.1 (`results.json` interop-result-v1; policy 1.2) | 2026-10-31, 2026-11-01 | https://github.com/otfabric/ethernetip-interop/releases |
+| go-ethernetip v0.3.3, v0.3.4 (a request after a lost session) | 2026-10-30, 2026-10-31 | https://github.com/otfabric/go-ethernetip/releases |
+| ethernetipctl v0.3.0–v0.4.1 | 2026-10-30, 2026-10-31 | https://github.com/otfabric/ethernetipctl/releases |
 | go-ethernetip v0.3.0 (seven more references; template size, connection size, Multiple Service fixes) | 2026-10-26 | https://github.com/otfabric/go-ethernetip/releases/tag/v0.3.0 |
 | go-ethernetip v0.3.2 (interop pinned to ethernetip-interop v0.5.0) | 2026-10-27 | https://github.com/otfabric/go-ethernetip/releases/tag/v0.3.2 |
 | ethernetip-interop v0.5.0 (weekly upstream candidates check; OpENer 2.3-591) | 2026-10-26 | https://github.com/otfabric/ethernetip-interop/releases/tag/v0.5.0 |
@@ -38,7 +49,8 @@ GitHub CI green on the merged commits: go-ethernetip on Linux, macOS and
 Windows (amd64 and arm64; race detector everywhere but Windows arm64), Go
 1.26-1.27, 90% coverage gate (98.6%), lint, fuzz, chaos (with the chaos
 monkey) and stress; interop on amd64 and arm64 against the pinned
-ethernetip-interop v0.6.1 images (twelve references): 184 pass, 0 fail, 146 N/A
+ethernetip-interop v0.8.1 images (thirteen references): 221 pass, 0 fail, 160 N/A,
+2 skipped (the logix-structures fixture has no Counter or Samples)
 ([matrix](INTEROPERABILITY.md#interop-matrix)). ethernetip-interop native
 amd64/arm64 build, smoke and self-test (52 pass, 0 fail). ethernetipctl
 reusable CI and 32-bit typecheck.

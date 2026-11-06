@@ -19,8 +19,8 @@ import (
 // cpppo keep their own tests (opener_test.go, references_test.go), which
 // also check their documented quirks.
 var (
-	genericClients = []string{"libplctag", "gologix", "pylogix", "etherip", "eiprs", "nodeeip", "eeip", "lokieip"}
-	genericServers = []string{"libplctag", "gologix"}
+	genericClients = []string{"libplctag", "gologix", "pylogix", "etherip", "eiprs", "nodeeip", "eeip", "lokieip", "cbsigma"}
+	genericServers = []string{"libplctag", "gologix", "cbsigma"}
 )
 
 // knownLimits are cases a reference declares the features for but cannot
@@ -38,6 +38,9 @@ var knownLimits = map[string]map[string]string{
 	},
 	"lokieip": {
 		"Logix Write Tag": "reference limitation: go-ethernet-ip writes a tag only whole (all its elements, with the dimension bits in the type), not elements of an array",
+	},
+	"cbsigma": {
+		"Class 1 I/O, exclusive owner, point-to-point": "reference limitation: cB-Sigma's scanner sends no Forward_Close for an I/O connection (documented upstream as not yet done)",
 	},
 }
 
@@ -482,6 +485,9 @@ type fixtureDoc struct {
 		Count  int       `json:"count"`
 		Values []float64 `json:"values"`
 	} `json:"tags"`
+	Templates []struct {
+		Name string `json:"name"`
+	} `json:"templates"`
 }
 
 // TestGoClientToReferenceServers runs go-ethernetip's originator against
@@ -650,4 +656,34 @@ func serverCases(t *testing.T, name, dir, host string, c *caps, fx fixtureDoc) {
 			t.Fatalf("%v", r)
 		}
 	})
+	// A structure tag's type is named after its template, read from the
+	// Template object (0x6C): on a fixture with templates (logix-structures).
+	if len(fx.Templates) > 0 {
+		stepIf("Logix tag list with templates (0x6C)", []string{"tagList", "templates"}, func(t *testing.T) {
+			r := nodeClient(t, "tag-list", "--host", host)
+			got := map[string]string{}
+			tags, _ := r["tags"].([]any)
+			for _, x := range tags {
+				m := result(x.(map[string]any))
+				got[m.str("name")] = m.str("type")
+			}
+			isTemplate := map[string]bool{}
+			for _, tm := range fx.Templates {
+				isTemplate[tm.Name] = true
+			}
+			n := 0
+			for _, tg := range fx.Tags {
+				if !isTemplate[tg.Type] {
+					continue
+				}
+				if got[tg.Name] != tg.Type {
+					t.Fatalf("%s: type %q, want %q (%v)", tg.Name, got[tg.Name], tg.Type, r)
+				}
+				n++
+			}
+			if !r.ok() || n == 0 {
+				t.Fatalf("%v", r)
+			}
+		})
+	}
 }

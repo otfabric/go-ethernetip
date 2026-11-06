@@ -1,5 +1,33 @@
 # go-ethernetip Releases
 
+## v0.5.2
+
+**Date:** 2026-11-06
+**Previous release:** v0.5.1
+
+## Summary
+
+Qualified against thirteen independent implementations: the interop suite
+pins otfabric/ethernetip-interop v0.8.1, which adds cB-Sigma's enip v0.2.0.
+No library change.
+
+## Changes
+
+- **interop**: the images of ethernetip-interop v0.8.1, pinned by digest.
+  cB-Sigma's enip is a generic client and server: its originator against
+  go-ethernetip's target, and go-ethernetip's originator against its
+  Logix-style target with the `logix` and `logix-structures` fixtures. Its
+  scanner sends no Forward_Close, so its Class 1 case is a recorded limit.
+- **interop**: a new case, "Logix tag list with templates (0x6C)": against a
+  target that serves templates (cB-Sigma's), each structure tag's type is
+  named after its template, read with `logix.Client.Template`. The interop
+  node's `tag-list` reports types that way: the element type, and a
+  structure's template name instead of `struct 0x100`.
+- **Docs**: README (thirteen references, cB-Sigma's enip in the comparison),
+  INTEROPERABILITY.md (matrix of the run, cB-Sigma's quirks), PROGRESS.md.
+
+---
+
 ## v0.5.1
 
 **Date:** 2026-11-06
