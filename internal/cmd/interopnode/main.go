@@ -579,13 +579,30 @@ func clientOp(op string, args []string, stdout, stderr io.Writer) int {
 			res["status"] = int(ce.Status)
 		}
 	case "tag-list":
-		tags, err := logix.NewClient(d).ListTags(ctx, "")
+		lc := logix.NewClient(d)
+		tags, err := lc.ListTags(ctx, "")
 		if err != nil {
 			return fail(err)
 		}
+		// The type is the element type: an elementary type's name, or a
+		// structure's template name from the Template object.
+		names := map[uint16]string{}
 		var out []map[string]any
 		for _, t := range tags {
-			out = append(out, map[string]any{"name": t.Name, "type": t.Type.String(), "dims": t.Dims[:t.Type.Dims()]})
+			typ := t.Type.Atomic().String()
+			if t.Type.IsStruct() {
+				id := t.Type.Template()
+				name, ok := names[id]
+				if !ok {
+					tm, err := lc.Template(ctx, id)
+					if err != nil {
+						return fail(fmt.Errorf("template %d of %s: %w", id, t.Name, err))
+					}
+					name, names[id] = tm.Name, tm.Name
+				}
+				typ = name
+			}
+			out = append(out, map[string]any{"name": t.Name, "type": typ, "dims": t.Dims[:t.Type.Dims()]})
 		}
 		res["tags"], res["ok"] = out, true
 	default:
