@@ -155,8 +155,10 @@ type Reconnect struct {
 
 // IOConfig describes an I/O connection.
 type IOConfig struct {
-	// ConfigInstance is the configuration assembly; 0 leaves it out of the
-	// path. ConfigData, when set, is sent in the connection path.
+	// ConfigInstance is the configuration assembly, 0 for none. The
+	// connection path always names it (instance 0 when there is none), as
+	// the other originators do; ConfigData, when set, is sent in the
+	// connection path.
 	ConfigInstance uint32
 	ConfigData     []byte
 	// OutputInstance is the O->T connection point (the target's output or
@@ -240,10 +242,11 @@ func (c IOConfig) path() (cip.Path, error) {
 	if c.Key != nil {
 		p = append(p, *c.Key)
 	}
-	p = append(p, cip.ClassSegment(cip.ClassAssembly))
-	if c.ConfigInstance != 0 {
-		p = append(p, cip.InstanceSegment(c.ConfigInstance))
-	}
+	// Class, configuration instance (0: none), then the two connection
+	// points: EEIP.NET, eeip.py, python-ethernetip and cB-Sigma's enip send
+	// the instance segment even without a configuration assembly, and some
+	// targets (cB-Sigma's) refuse a path without it.
+	p = append(p, cip.ClassSegment(cip.ClassAssembly), cip.InstanceSegment(c.ConfigInstance))
 	p = append(p, cip.ConnectionPointSegment(c.OutputInstance), cip.ConnectionPointSegment(c.InputInstance))
 	if len(c.ConfigData) > 0 {
 		if len(c.ConfigData)%2 != 0 {

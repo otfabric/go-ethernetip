@@ -765,3 +765,35 @@ func waitUntil(d time.Duration, cond func() bool) bool {
 	}
 	return true
 }
+
+// TestIOConfigPathNamesConfigInstance: the connection path always carries the
+// configuration instance, 0 when there is none, between the class and the two
+// connection points.
+func TestIOConfigPathNamesConfigInstance(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		cfg  IOConfig
+		want []byte
+	}{
+		{"configuration assembly", IOConfig{ConfigInstance: 151, OutputInstance: 150, InputInstance: 100},
+			[]byte{0x20, 0x04, 0x24, 151, 0x2C, 150, 0x2C, 100}},
+		{"none", IOConfig{OutputInstance: 150, InputInstance: 100},
+			[]byte{0x20, 0x04, 0x24, 0x00, 0x2C, 150, 0x2C, 100}},
+		{"none, with data", IOConfig{OutputInstance: 152, InputInstance: 100, ConfigData: []byte{1, 2}},
+			[]byte{0x20, 0x04, 0x24, 0x00, 0x2C, 152, 0x2C, 100, 0x80, 0x01, 1, 2}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			p, err := tc.cfg.path()
+			if err != nil {
+				t.Fatal(err)
+			}
+			got, err := p.Encode()
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !bytes.Equal(got, tc.want) {
+				t.Fatalf("path % x, want % x", got, tc.want)
+			}
+		})
+	}
+}

@@ -7,7 +7,7 @@ the target sends T->O (its inputs) at the requested packet interval (RPI).
 ```go
 s, _ := scanner.New(c)              // binds UDP :2222
 io, err := s.Open(ctx, scanner.IOConfig{
-    ConfigInstance: 151,            // optional; ConfigData sends configuration
+    ConfigInstance: 151,            // 0 for none (still sent as instance 0); ConfigData sends configuration
     OutputInstance: 150, OutputSize: 32,
     InputInstance:  100, InputSize:  32,
     RPI: 10 * time.Millisecond,
