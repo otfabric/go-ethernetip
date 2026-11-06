@@ -352,6 +352,14 @@ NAT).
 | [EEIP.NET](https://github.com/rossmann-engineering/EEIP.NET) | master 58b91a0 | MIT | originator (scanner: explicit, Class 1 I/O) |
 | [go-ethernet-ip (loki-os)](https://github.com/loki-os/go-ethernet-ip) | master 535f797 | WTFPL | originator (generic CIP and Logix) |
 
+`ETHERNETIP_INTEROP_ADAPTERS=cpppo` runs one reference only.
+
+The Self-interop workflow, run by hand, runs a commit against the latest
+published go-ethernetip (`ethernetip-interop-otfabric:latest`), as a client and a
+server of the generic tests. It finds a change on the wire that breaks an earlier
+release. A pass is not independent verification: it is go-ethernetip on both
+sides, and its results are not in the coverage matrix.
+
 The [coverage matrix](INTEROPERABILITY.md#interop-matrix) lists each
 feature per reference and direction, with the features a reference does
 not have marked N/A. The reference code runs in its own container only:

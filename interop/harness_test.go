@@ -42,7 +42,79 @@ import (
 //	LIBPLCTAG, GOLOGIX, PYLOGIX, ETHERIP, EIPRS, NODEEIP, EEIP, LOKIEIP)
 //
 // or ETHERNETIP_INTEROP_VERSION=dev (a tag) for all of them.
+//
+// ETHERNETIP_INTEROP_ADAPTERS restricts the run to a comma-separated subset.
+//
+// otfabric is go-ethernetip itself, as published by otfabric/ethernetip-interop
+// (ethernetip-interop-otfabric). It is not a reference: it runs, as a client and
+// a server of the generic tests, only when ETHERNETIP_INTEROP_OTFABRIC_IMAGE
+// names an image, and what it shows is compatibility between releases of this
+// library, not independent verification.
 const interopRelease = "v0.6.1"
+
+const otfabric = "otfabric"
+
+// selected reports whether ETHERNETIP_INTEROP_ADAPTERS selects an adapter:
+// every reference when it is empty; otfabric only when its image is set.
+func selected(name string) bool {
+	if name == otfabric && os.Getenv("ETHERNETIP_INTEROP_OTFABRIC_IMAGE") == "" {
+		return false
+	}
+	only := os.Getenv("ETHERNETIP_INTEROP_ADAPTERS")
+	if only == "" {
+		return true
+	}
+	for _, want := range strings.Split(only, ",") {
+		if strings.TrimSpace(want) == name {
+			return true
+		}
+	}
+	return false
+}
+
+// requireAdapter skips a test of one reference that is not selected.
+func requireAdapter(t *testing.T, name string) {
+	t.Helper()
+	if !selected(name) {
+		t.Skipf("%s is not selected (ETHERNETIP_INTEROP_ADAPTERS)", name)
+	}
+}
+
+// generic returns the selected adapters of a generic list, with otfabric
+// when its image is set.
+func generic(names []string) []string {
+	var out []string
+	for _, n := range append(append([]string{}, names...), otfabric) {
+		if selected(n) {
+			out = append(out, n)
+		}
+	}
+	return out
+}
+
+// checkSelection fails a run whose ETHERNETIP_INTEROP_ADAPTERS selects
+// nothing, or otfabric without its image.
+func checkSelection() error {
+	only := os.Getenv("ETHERNETIP_INTEROP_ADAPTERS")
+	if only == "" {
+		return nil
+	}
+	known := append(append([]string{"opener", "cpppo", "eipscanner", "pycomm3"}, genericClients...), otfabric)
+	for _, want := range strings.Split(only, ",") {
+		want = strings.TrimSpace(want)
+		if want == otfabric && os.Getenv("ETHERNETIP_INTEROP_OTFABRIC_IMAGE") == "" {
+			return fmt.Errorf("ETHERNETIP_INTEROP_ADAPTERS selects otfabric, which has no image: set ETHERNETIP_INTEROP_OTFABRIC_IMAGE")
+		}
+		found := false
+		for _, k := range known {
+			found = found || k == want
+		}
+		if !found {
+			return fmt.Errorf("ETHERNETIP_INTEROP_ADAPTERS: unknown adapter %q", want)
+		}
+	}
+	return nil
+}
 
 var pinned = map[string]string{
 	"opener":     "sha256:6dc59b7b846398575e1dabf57ed62d6c45ab165dc4804ae4fbe0d59e7fd4c1d2",
@@ -89,6 +161,9 @@ func TestMain(m *testing.M) {
 }
 
 func setup(m *testing.M) (int, error) {
+	if err := checkSelection(); err != nil {
+		return 0, err
+	}
 	if _, err := exec.LookPath("docker"); err != nil {
 		return 0, fmt.Errorf("docker is required: %w", err)
 	}
@@ -337,7 +412,10 @@ func writeMatrix() {
 		return a.Feature < b.Feature
 	})
 	versions := map[string]string{}
-	for _, n := range append([]string{"opener", "cpppo", "eipscanner", "pycomm3"}, genericClients...) {
+	for _, n := range append([]string{"opener", "cpppo", "eipscanner", "pycomm3"}, generic(genericClients)...) {
+		if !selected(n) {
+			continue
+		}
 		v, _ := dockerOut("run", "--rm", image(n), "version")
 		versions[n] = strings.TrimSpace(v)
 	}

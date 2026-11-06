@@ -182,7 +182,7 @@ type genericCase struct {
 // go-ethernetip's target serving the adapter, logix and logix-structures
 // fixtures.
 func TestReferenceClientsToGo(t *testing.T) {
-	for _, name := range genericClients {
+	for _, name := range generic(genericClients) {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 			img := image(name)
@@ -483,7 +483,7 @@ type fixtureDoc struct {
 // TestGoClientToReferenceServers runs go-ethernetip's originator against
 // every generic reference server, for each fixture it serves.
 func TestGoClientToReferenceServers(t *testing.T) {
-	for _, name := range genericServers {
+	for _, name := range generic(genericServers) {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 			img := image(name)

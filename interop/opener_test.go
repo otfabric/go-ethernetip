@@ -18,6 +18,7 @@ const (
 
 // TestGoScannerOpENer runs go-ethernetip's originator against OpENer.
 func TestGoScannerOpENer(t *testing.T) {
+	requireAdapter(t, "opener")
 	ref := startServer(t, image("opener"), nil, "server")
 	host := ref.ip
 	const dir, name = "go->ref", "opener"
