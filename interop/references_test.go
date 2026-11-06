@@ -22,6 +22,7 @@ const (
 
 // TestEIPScannerToGoAdapter runs EIPScanner against go-ethernetip's target.
 func TestEIPScannerToGoAdapter(t *testing.T) {
+	requireAdapter(t, "eipscanner")
 	node := startNode(t, image("eipscanner"), "adapter")
 	img, host := image("eipscanner"), node.ip
 	const dir, name = "ref->go", "eipscanner"
@@ -135,6 +136,7 @@ func TestEIPScannerToGoAdapter(t *testing.T) {
 // TestPycomm3ToGoAdapter runs pycomm3's generic CIP driver against
 // go-ethernetip's target.
 func TestPycomm3ToGoAdapter(t *testing.T) {
+	requireAdapter(t, "pycomm3")
 	node := startNode(t, image("pycomm3"), "adapter")
 	img, host := image("pycomm3"), node.ip
 	const dir, name = "ref->go", "pycomm3"
@@ -201,6 +203,7 @@ func TestPycomm3ToGoAdapter(t *testing.T) {
 // TestPycomm3ToGoLogix runs pycomm3's LogixDriver against go-ethernetip's
 // Logix emulation (logix.TagServer) serving the logix fixture.
 func TestPycomm3ToGoLogix(t *testing.T) {
+	requireAdapter(t, "pycomm3")
 	node := startNode(t, image("pycomm3"), "logix")
 	img, host := image("pycomm3"), node.ip
 	const dir, name = "ref->go", "pycomm3"
@@ -273,6 +276,7 @@ func TestPycomm3ToGoLogix(t *testing.T) {
 // emulation serving the logix-structures fixture: bit writes, structures
 // (template upload) and STRING.
 func TestPycomm3ToGoStructures(t *testing.T) {
+	requireAdapter(t, "pycomm3")
 	node := startNode(t, image("pycomm3"), "logix-structures")
 	img, host := image("pycomm3"), node.ip
 	const dir, name = "ref->go", "pycomm3"
@@ -380,6 +384,7 @@ func TestPycomm3ToGoStructures(t *testing.T) {
 // TestCpppoToGo runs cpppo's client against go-ethernetip's target and
 // Logix emulation.
 func TestCpppoToGo(t *testing.T) {
+	requireAdapter(t, "cpppo")
 	adapter := startNode(t, image("cpppo"), "adapter")
 	lgx := startNode(t, image("cpppo"), "logix")
 	img := image("cpppo")
@@ -450,6 +455,7 @@ func TestCpppoToGo(t *testing.T) {
 // TestGoClientCpppo runs go-ethernetip's originator against cpppo's
 // simulator serving the logix fixture.
 func TestGoClientCpppo(t *testing.T) {
+	requireAdapter(t, "cpppo")
 	ref := startServer(t, image("cpppo"), nil, "server")
 	host := ref.ip
 	const dir, name = "go->ref", "cpppo"

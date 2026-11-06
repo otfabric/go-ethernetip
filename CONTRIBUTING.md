@@ -28,6 +28,13 @@ make fuzz         # FUZZTIME=30s per target by default
 make chaos stress
 make generate     # after editing cip/catalog.json or eds/testdata/otfabric_adapter.eds
 make interop      # needs Docker
+
+# One reference only, or another build of an image
+ETHERNETIP_INTEROP_ADAPTERS=cpppo make interop
+ETHERNETIP_INTEROP_CPPPO_IMAGE=ghcr.io/otfabric/ethernetip-interop-cpppo:dev make interop
+
+# Against the latest published go-ethernetip (the Self-interop workflow, run by hand)
+ETHERNETIP_INTEROP_ADAPTERS=otfabric ETHERNETIP_INTEROP_OTFABRIC_IMAGE=ghcr.io/otfabric/ethernetip-interop-otfabric:latest make interop
 ```
 
 ## Guidelines

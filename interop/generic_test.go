@@ -182,7 +182,7 @@ type genericCase struct {
 // go-ethernetip's target serving the adapter, logix and logix-structures
 // fixtures.
 func TestReferenceClientsToGo(t *testing.T) {
-	for _, name := range genericClients {
+	for _, name := range generic(genericClients) {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 			img := image(name)
@@ -231,9 +231,13 @@ func TestReferenceClientsToGo(t *testing.T) {
 func clientCases() []genericCase {
 	ioCase := func(feature string, feats []string, extra ...string) genericCase {
 		return genericCase{feature, "adapter", []string{"io"}, append([]string{"class1"}, feats...), func(t *testing.T, img, host string, c *caps) {
+			// RPI 20 ms, as the Large_Forward_Open cases of OpENer and
+			// EIPScanner: the connection times out after 4 RPI without
+			// input, and 40 ms is too short a gap for a loaded Docker host
+			// (seen with Large_Forward_Open against ethernetip-interop-otfabric).
 			out := strings.Repeat("6b", 32)
 			args := append([]string{"--host", host, "--config", "151", "--output", "150", "--input", "100",
-				"--output-size", "32", "--input-size", "32", "--rpi-ms", "10", "--duration-ms", "1500", "--output-data", out}, extra...)
+				"--output-size", "32", "--input-size", "32", "--rpi-ms", "20", "--duration-ms", "1500", "--output-data", out}, extra...)
 			checkIO(t, client(t, img, "io", args...), out)
 		}, false}
 	}
@@ -483,7 +487,7 @@ type fixtureDoc struct {
 // TestGoClientToReferenceServers runs go-ethernetip's originator against
 // every generic reference server, for each fixture it serves.
 func TestGoClientToReferenceServers(t *testing.T) {
-	for _, name := range genericServers {
+	for _, name := range generic(genericServers) {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 			img := image(name)
@@ -604,7 +608,19 @@ func serverCases(t *testing.T, name, dir, host string, c *caps, fx fixtureDoc) {
 			}
 		})
 	}
+	// The tags these steps use are those of the logix fixture; a server's
+	// other fixtures (logix-structures) may not have them.
+	hasTag := func(t *testing.T, name string) {
+		t.Helper()
+		for _, tg := range fx.Tags {
+			if tg.Name == name {
+				return
+			}
+		}
+		t.Skipf("the fixture has no tag %s", name)
+	}
 	step("Logix Write Tag", "logixTags", func(t *testing.T) {
+		hasTag(t, "Counter")
 		if r := nodeClient(t, "write-tag", "--host", host, "--tag", "Counter", "--type", "DINT", "--values", "-5", "--route", "1/0"); !r.ok() || r.num("status") != 0 {
 			t.Fatalf("%v", r)
 		}
@@ -613,6 +629,7 @@ func serverCases(t *testing.T, name, dir, host string, c *caps, fx fixtureDoc) {
 		}
 	})
 	step("Logix Read Tag Fragmented (1200 octets)", "readTagFragmented", func(t *testing.T) {
+		hasTag(t, "Samples")
 		r := nodeClient(t, "read-tag", "--host", host, "--tag", "Samples", "--count", "300", "--connected", "--route", "1/0")
 		if v := values(r); !r.ok() || len(v) != 300 || !same(v[299], float64(299*7-1000)) {
 			t.Fatalf("%v", r)
