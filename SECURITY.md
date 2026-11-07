@@ -17,8 +17,8 @@ mitigation within 7 days for critical issues.
 
 | Version | Supported |
 |---------|-----------|
-| 0.5.x | Yes |
-| < 0.5 | No |
+| Latest release | Yes |
+| Older releases | No |
 
 ## Security Considerations
 
