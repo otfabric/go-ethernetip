@@ -23,6 +23,8 @@ No work in progress: every branch is merged.
 
 | Release | Date | Where |
 |---|---|---|
+| ethernetipctl v0.5.2 (on go-ethernetip v0.5.2: configuration instance 0 named in the Class 1 path) | 2026-11-07 | https://github.com/otfabric/ethernetipctl/releases/tag/v0.5.2 |
+| Own image `ethernetip-interop-otfabric:v0.5.2` (Own stack run, self-tests of ethernetip-interop v0.8.1 green) | 2026-11-07 | https://github.com/otfabric/ethernetip-interop/actions/runs/42337289885 |
 | go-ethernetip v0.5.2 (interop pinned to ethernetip-interop v0.8.1: thirteen references, + cB-Sigma's enip) | 2026-11-06 | https://github.com/otfabric/go-ethernetip/releases/tag/v0.5.2 |
 | ethernetip-interop v0.8.1 (own-image waivers; documentation) | 2026-11-06 | https://github.com/otfabric/ethernetip-interop/releases/tag/v0.8.1 |
 | go-ethernetip v0.5.1 (the scanner names the configuration instance in the Class 1 path) | 2026-11-06 | https://github.com/otfabric/go-ethernetip/releases/tag/v0.5.1 |
