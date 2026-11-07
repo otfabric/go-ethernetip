@@ -1,0 +1,5 @@
+{
+  "ignore": [
+    {"rule": "DS-REF", "subject": "Tag.Member", "reason": "docs/LOGIX.md: `Tag.Member[2].Sub` is an example Logix tag name (UDT member access), not a reference to the Go type logix.Tag"}
+  ]
+}
