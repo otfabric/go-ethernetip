@@ -4,7 +4,7 @@
 
 .DEFAULT_GOAL := help
 
-.PHONY: help all build examples fmt fmt-check lint lint-ci vet vuln test test-short coverage coverage-check cover bench fuzz fuzz-long check clean interop test-interop generate generate-check coverpkg-check cross e2e chaos stress
+.PHONY: help all build examples fmt fmt-check lint lint-ci vet vuln test test-short coverage coverage-check cover bench fuzz fuzz-long check clean interop test-interop generate generate-check coverpkg-check cross e2e chaos stress docs-check
 
 help: ## This help
 	@awk 'BEGIN {FS = ":.*?## "} /^[a-zA-Z0-9_-]+:.*?## / {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -28,6 +28,9 @@ COVERAGE_MIN ?= 90
 COVER_PKG_MIN := 90
 
 INTEROP_TAGS := interop
+
+# docsync release of docs-check (DOC-008).
+DOCSYNC_VERSION := v0.2.0
 
 all: build ## Default target: build the examples
 
@@ -161,7 +164,11 @@ generate-check: ## Fail when the generated files differ from their sources
 coverpkg-check: ## Fail when CI's coverpkg (.github/workflows/ci.yml) is not COVER_PKGS
 	@grep -qF -- "$(COVER_PKGS)" .github/workflows/ci.yml || { echo "coverpkg in .github/workflows/ci.yml must be: $(COVER_PKGS)"; exit 1; }
 
-check: generate-check coverpkg-check fmt fmt-check lint lint-ci vet vuln test coverage-check coverage-pkg-check examples ## Run every check (pre-push gate)
+check: generate-check coverpkg-check fmt fmt-check lint lint-ci vet vuln test coverage-check coverage-pkg-check examples docs-check ## Run every check (pre-push gate)
+
+# The documents against the code (DOC-008): docsync, as docs-check.yml runs it.
+docs-check: ## Check that the documents agree with the code (docsync)
+	@go run github.com/otfabric/docsync@$(DOCSYNC_VERSION) check .
 
 clean: ## Remove generated binaries and coverage artifacts
 	@echo "Cleaning up"
