@@ -219,11 +219,11 @@ func pcapngPackets(b []byte) ([]packet, error) {
 				return nil, ErrFormat
 			}
 			ps := ifaces[ifc].perSec
-			sec, frac := ts/ps, ts%ps
-			if sec > math.MaxInt64 {
+			sec, ns := ts/ps, ts%ps*(1e9/ps) // ns < 1e9: ps divides 1e9
+			if sec > math.MaxInt64 || ns > math.MaxInt64 {
 				return nil, ErrFormat
 			}
-			t := time.Unix(int64(sec), int64(frac*(1e9/ps))).UTC()
+			t := time.Unix(int64(sec), int64(ns)).UTC()
 			out = append(out, packet{link: ifaces[ifc].link, time: t, data: body[20 : 20+capLen]})
 		case 3: // simple packet, interface 0, no time stamp
 			if len(body) < 4 || len(ifaces) == 0 {
