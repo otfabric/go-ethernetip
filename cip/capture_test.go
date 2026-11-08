@@ -17,7 +17,7 @@ const captures = "../testdata/captures"
 
 func recordings(t *testing.T) []capture.Recording {
 	t.Helper()
-	recs, err := capture.Load(captures, capture.Extended)
+	recs, err := capture.Load(captures)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -139,7 +139,19 @@ func checkRequest(t *testing.T, r capture.Recording, frame int, req cip.Request,
 	case cm && (req.Service == cip.ServiceForwardOpen || req.Service == cip.ServiceLargeForwardOpen):
 		*fwd++
 		fo, err := cip.DecodeForwardOpen(req.Data, req.Service == cip.ServiceLargeForwardOpen)
-		if enc, err2 := fo.Encode(); err != nil || err2 != nil || !bytes.Equal(enc, req.Data) || fo.Service() != req.Service {
+		enc, err2 := fo.Encode()
+		if err == nil && err2 == nil && !bytes.Equal(enc, req.Data) && len(req.Data) > 22 && r.File.ID == "micrologix-pccc" {
+			// The originator of the MicroLogix file (vendor 0x004D) leaves
+			// the three reserved octets after the timeout multiplier
+			// non-zero (3d 06 00); they are decoded as reserved and
+			// encoded as zeros.
+			want := append([]byte(nil), req.Data...)
+			clear(want[19:22])
+			if bytes.Equal(enc, want) {
+				return 0
+			}
+		}
+		if err != nil || err2 != nil || !bytes.Equal(enc, req.Data) || fo.Service() != req.Service {
 			t.Errorf("%s frame %d: Forward_Open % x, %v %v", r.File.ID, frame, enc, err, err2)
 		}
 	case cm && req.Service == cip.ServiceForwardClose:
@@ -383,5 +395,28 @@ func TestCaptureMalformedVariants(t *testing.T) {
 	}
 	if n < 250 {
 		t.Errorf("%d requests", n)
+	}
+}
+
+// The Micro850's Identity object (honeypot capture, frames 73600 and 73602):
+// Get_Attributes_All carries attributes 1 to 7, the state (3) and further
+// octets (00 00 00 "eng" "eng" 00), which DecodeIdentity leaves aside.
+func TestCaptureIdentityMicro850(t *testing.T) {
+	r, _ := capture.Get(recordings(t), "micro850-honeypot")
+	req, resp := exchange(t, r, 73600)
+	if req.Service != cip.ServiceGetAttributesAll || req.Path.String() != "@1/1" {
+		t.Fatalf("request %v", req)
+	}
+	id, err := cip.DecodeIdentity(resp.Data)
+	if err != nil {
+		t.Fatalf("% x: %v", resp.Data, err)
+	}
+	want := cip.Identity{
+		VendorID: 1, DeviceType: cip.DeviceTypePLC, ProductCode: 143,
+		Revision: cip.Revision{Major: 12, Minor: 11}, Status: 0x0034, SerialNumber: 0x60D4229A,
+		ProductName: "2080-LC50-48QBB", State: 3,
+	}
+	if id != want {
+		t.Errorf("identity %#v\nwant %#v\n% x", id, want, resp.Data)
 	}
 }

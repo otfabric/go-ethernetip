@@ -1,18 +1,20 @@
 # Recorded EtherNet/IP traffic of real devices
 
 Network captures between real Rockwell devices (a 1756-L63 ControlLogix
-controller behind its EtherNet/IP module, a 1756-ENBT/A) and Rockwell
-software (RSLinx, RSLogix 5000, FactoryTalk), and captures of unidentified
-targets. go-ethernetip's tests decode every recorded message, encode it
-back, run the client against the recorded replies, run the Logix client's
-template and bit-write requests against them, and send the recorded
-requests to the server, comparing its answers with the devices'. This is
+behind its EtherNet/IP module, a 1756-ENBT/A, a Micro850, a MicroLogix
+1400) and Rockwell software (RSLinx, RSLogix 5000, FactoryTalk) or other
+originators, and captures of unidentified targets. go-ethernetip's tests
+decode every recorded message, encode it back, run the client and the
+Logix client against the recorded replies, and send the recorded requests
+to the server and the Logix emulation, comparing their answers with the
+devices'. This is
 evidence from real devices, recorded by others: not a test against a live
 device and not a conformance claim.
 
 [manifest.json](manifest.json) is the machine-readable inventory (source,
-revision, original path, URL, SHA256, size, recording date, evidence class,
-devices, peers, operations, limitations, how the file is held);
+revision, original name and path, URL, SHA256, size, recording date,
+evidence class, devices, peers, operations, limitations; and the source
+files examined but not committed, with why);
 [coverage.json](coverage.json) the machine-readable report of what each
 recorded exchange verifies.
 
@@ -28,34 +30,25 @@ recorded exchange verifies.
 Only A and B support a statement about real devices. C files are parser
 and replay regression material.
 
-## Sources, terms and what is committed
+## Sources and terms
 
-| Source | Revision | Terms | Here |
-|---|---|---|---|
-| [EmreEkin/ICS-Pcaps](https://github.com/EmreEkin/ICS-Pcaps), `Ethernet_IP/` | `0ffbf023afb4e39373228b54851bb4a1f33a3ab8` | no licence file, no statement on reuse | **excerpts only** |
-| [cisagov/icsnpp-enip](https://github.com/cisagov/icsnpp-enip), `testing/traces/` | `3fbd32e3d2838d5e2bcd6c9ed79f036d23a0642e` | BSD-3-Clause, © 2023 Battelle Energy Alliance, LLC ([THIRD_PARTY_NOTICES.md](../../THIRD_PARTY_NOTICES.md)) | raw, byte-identical |
-| [ITI/ICS-Security-Tools](https://github.com/ITI/ICS-Security-Tools), `pcaps/EthernetIP/` | `bcb93ee1cdf395a457cc08f639cf29aab5975f01` | CC-BY-4.0 (repository licence) | the small files raw, byte-identical; `EthernetIP-CIP.pcap` (here `hmi_logix_bit-writes`) as an excerpt (its README names CloudShark capture 76038eaa4a3b as its source, whose terms are not stated) |
-| [ICS Defense PCAP archive](https://icsdefense.net/en/pcap) | — | not stated | not used: its list is rendered in the browser, no EtherNet/IP file could be retrieved without it |
+Every file is committed byte-identical to its source under the name of
+the scheme below; [SHA256SUMS](SHA256SUMS) covers them all (`shasum -a 256
+-c SHA256SUMS` in this directory). The terms below are what each source
+states.
 
-**Judgement to revisit:** public availability is not permission to
-redistribute. Where no licence or publisher statement permits it, this
-repository does not commit the raw file. It commits an *excerpt*
-(`excerpts/<source>/<name>.json`): the encapsulation messages of the file,
-without the Ethernet, IP and TCP headers, with repeated exchanges left
-out (and for long recordings at most a few exchanges per request shape).
-Each excerpt names the raw file's SHA256. The owner may decide that the
-excerpts are not needed (and fetch the raw files in CI) or that the raw
-files may be committed after all.
+| Source | Revision | Terms stated by the source |
+|---|---|---|
+| [EmreEkin/ICS-Pcaps](https://github.com/EmreEkin/ICS-Pcaps) (`Ethernet_IP/`, `CIP/`, `LocalPCAP/`) | `0ffbf023afb4e39373228b54851bb4a1f33a3ab8` | no licence file |
+| [cisagov/icsnpp-enip](https://github.com/cisagov/icsnpp-enip), `testing/traces/` | `3fbd32e3d2838d5e2bcd6c9ed79f036d23a0642e` | BSD-3-Clause, © 2023 Battelle Energy Alliance, LLC ([THIRD_PARTY_NOTICES.md](../../THIRD_PARTY_NOTICES.md)) |
+| [ITI/ICS-Security-Tools](https://github.com/ITI/ICS-Security-Tools), `pcaps/EthernetIP/` | `bcb93ee1cdf395a457cc08f639cf29aab5975f01` | CC-BY-4.0 (repository licence); `EthernetIP-CIP.pcap` names CloudShark capture 76038eaa4a3b as its origin |
+| [ICS Defense PCAP archive](https://icsdefense.net/en/pcap) | — | not used: its list is rendered in the browser, no file could be retrieved without it |
 
-`make captures-fetch` downloads the raw files of the excerpts into
-`.cache/<source>/<name>` (git-ignored), checking SHA256 and size; `make captures-check`
-fails when an excerpt is not what its raw file gives; `make
-captures-extended` runs every capture test on the raw files instead of the
-excerpts (build tag `captures`). Only `captures-fetch` uses the network;
-`make test` reads only what is committed.
-
-[SHA256SUMS](SHA256SUMS) covers every committed capture and excerpt
-(`shasum -a 256 -c SHA256SUMS` in this directory).
+Not committed (listed in manifest.json): copies of committed files under
+other names in ICS-Pcaps, `Ethernet_IP/mb.pcap` and `CIP/CIP.pcap` (whose
+EtherNet/IP messages are those of `hmi_logix_bit-writes`, merged with other
+traffic) and ICS-Pcaps files without any EtherNet/IP message. `make test`
+reads all of it; no download, no network.
 
 ## Devices
 
@@ -66,19 +59,21 @@ Read from the devices' own answers.
 | 1756-L63/A ControlLogix controller, slot 0 | vendor 1, device type 0x0E, product code 56, revision 15.4, serial 0x0014CD8A, name "1756-L63/A L6x_15_31", status 0x3160 (`rslogix5000_1756-l63_download-upload-run` frame 222, through Unconnected_Send port 1 link 0) | `rslogix5000_1756-l63_download-upload-run`, `factorytalk_1756-l63_hmi-reads` (the same address, originator serial and status three minutes earlier) |
 | its EtherNet/IP module, 10.92.18.17 | not read in the recording (no ListIdentity, no Identity of the module); ListServices "Communications", capabilities 0x0120 | the same |
 | 1756-ENBT/A | vendor 1, device type 0x0C, product code 58, revision 4.3, serial 0x00524D8E, status 0x0030, state 3, 10.1.1.164 (ListIdentity reply) | `unknown_mixed_list-identity-browse-io` frame 372, `unknown_1756-enbt_list-identity` frame 7 |
+| Micro850 2080-LC50-48QBB, 192.168.1.11 | vendor 1, device type 0x0E, product code 143, revision 12.11, serial 0x60D4229A, status 0x0034 (Identity Get_Attributes_All, `unknown_micro850_honeypot` frame 73602) | `unknown_micro850_honeypot` (class A); the four other `*_micro850_*` files of the same laboratory and address, September to November 2019 (class B) |
+| MicroLogix 1400, 192.168.0.30 | its PCCC diagnostic status names the processor 1766-LEC | `unknown_micrologix-1400_pccc-execute` |
 
 Originators: RSLinx for RSLogix 5000 and FactoryTalk (vendor 0x004D,
 Rockwell Software; originator serials 0x11FA6145 and 0x21217FA7), a
 Rockwell originator (vendor 1, serial 0x0013F522) opening a Class 1
-connection, an HMI sending symbolic bit writes to four Logix-like targets.
+connection, an HMI sending symbolic bit writes to four Logix-like targets,
+Rockwell Software originators (vendor 0x004D) of the Micro850 and the
+MicroLogix, and unidentified tag readers of the Micro850.
 
 ## Names
 
 `<client-or-peer>_<device>_<operation>.<ext>`, lower case, words joined by
 hyphens; the extension keeps the original format (pcap or pcapng), and
-the directory is the source. An excerpt has the same name with `.json`
-under `excerpts/<source>/`; `make captures-fetch` saves its raw file under
-the same name in `.cache/<source>/`. manifest.json keeps each file's
+the directory is the source. manifest.json keeps each file's
 original name, path and URL.
 
 | Client or peer | Software |
@@ -91,6 +86,8 @@ original name, path and URL.
 
 | Device | Meaning |
 |---|---|
+| `micro850` | the Micro850 identified below |
+| `micrologix-1400` | the MicroLogix 1400 identified below |
 | `1756-l63` | the 1756-L63/A ControlLogix identified below |
 | `1756-enbt` | the 1756-ENBT/A identified below |
 | `logix` | Logix-like targets (they answer Rockwell's class 0xAC and Logix tag services), not identified |
@@ -104,25 +101,32 @@ datagrams, equal to what Wireshark 4.6 decodes (`tshark -Y enip -T fields
 -e enip.command`, one per command; `-Y udp.port==2222` for I/O), except
 the Class 1 Forward_Open file, see below.
 
-| File | Original name | Class | Here | Messages | What it holds |
-|---|---|:-:|---|---:|---|
-| `ics-pcaps/rslogix5000_1756-l63_download-upload-run.pcap` | `ControlLogix_Logix5000_download_upload_run.pcap` | A | excerpt | 346 | RSLinx and the 1756-L63: command 0x0001, ListServices, ListInterfaces, RegisterSession; through Unconnected_Send the Identity object, its attributes 0x65/0x66, the Message Router's class list, Program Name; Class 3 Forward_Open/Forward_Close; connected Get_Attribute_List and Multiple Service Packets of Logix objects; class 0x0334 refused with 0x05 |
-| `ics-pcaps/factorytalk_1756-l63_hmi-reads.pcap` | `ControlLogix_FactoryTalk_HMI.pcap` | A | excerpt | 272 | FactoryTalk/RSLinx and the 1756-L63 on Class 3 connections (the capture starts inside the first): Template object (COUNTER, TIMER: Get_Attributes_All, Read Template), Read_Modify_Write_Tag by instance, Identity status, RSLinx-private class 0xB2 |
-| `ics-pcaps/rockwell-originator_unknown_forward-open-class1.pcap` | `ENIP_CIP-CM.pcap` | C | excerpt | 21 | ListServices, RegisterSession, Class 1 Forward_Open (10 ms, O->T point-to-point, T->O multicast, Assembly 6/2/1) with Sockaddr Info items; frame 5 is a 1460-octet retransmission of 14 earlier Forward_Open requests (tshark, which does not dissect it, counts 8 messages) |
-| `iti-ics-security-tools/hmi_logix_bit-writes.pcap` | `EthernetIP-CIP.pcap` | C | excerpt | 8,799 | an HMI and four Logix-like targets: symbolic Read_Modify_Write_Tag in Multiple Service Packets, class 0xAC, class 0x72 |
-| `icsnpp-enip/unknown_mixed_list-identity-browse-io.pcap` | `enip_cip_example.pcap` | A (ListIdentity), C (rest) | raw | 269 + 398 I/O | ListIdentity of the 1756-ENBT/A over TCP; Get_Attribute_List browsing of a Logix-like target; Set_Attribute_List of Time Sync; 398 Class 1 datagrams on 24 connections |
-| `icsnpp-enip/unknown_logix_multiple-service-packet.pcapng` | `multiple_service_packet_cip.pcapng` | C | raw | 1 | a Multiple Service Packet request (from enip_cip_example) |
-| `icsnpp-enip/unknown_unknown_set-attribute-single-vlan.pcapng` | `set_attribute_single_service_cip.pcapng` | C | raw | 1 | Set_Attribute_Single in an 802.1Q-tagged frame, nanosecond time stamps |
-| `iti-ics-security-tools/unknown_unknown_set-attribute-single-reply.pcap` | `cip-eth-set-2.pcap` | C | raw | 1 | a Set_Attribute_Single reply |
-| `iti-ics-security-tools/unknown_logix_multiple-service-packet-request.pcap` | `cip-multiple-1.pcap` | C | raw | 1 | a Multiple Service Packet request |
-| `iti-ics-security-tools/unknown_logix_multiple-service-packet-reply.pcap` | `cip-multiple-2.pcap` | C | raw | 1 | its reply |
-| `iti-ics-security-tools/unknown_unknown_start.pcap` | `cip_start_plc.pcap` | C | raw | 1 | Start to class 0x8E, without reply |
-| `iti-ics-security-tools/unknown_unknown_stop.pcap` | `cip_stop_plc.pcap` | C | raw | 1 | Stop to class 0x8E, without reply |
-| `iti-ics-security-tools/unknown_unknown_unlock-cpu.pcap` | `cip_unlock_cpu.pcap` | C | raw | 1 | service 0x4C to class 0x8E / 0x74, without reply |
-| `iti-ics-security-tools/unknown_1756-enbt_list-identity.pcap` | `enip_test.pcap` | A | raw | 2 | the 1756-ENBT/A's ListIdentity over TCP |
+| File | Original name | Class | Messages | What it holds |
+|---|---|:-:|---:|---|
+| `ics-pcaps/rslogix5000_1756-l63_download-upload-run.pcap` | `Ethernet_IP/ControlLogix_Logix5000_download_upload_run.pcap` | A | 346 | RSLinx and the 1756-L63: command 0x0001, ListServices, ListInterfaces, RegisterSession; through Unconnected_Send the Identity object, its attributes 0x65/0x66, the Message Router's class list, Program Name; Class 3 Forward_Open/Forward_Close; connected Get_Attribute_List and Multiple Service Packets of Logix objects; class 0x0334 refused with 0x05 |
+| `ics-pcaps/factorytalk_1756-l63_hmi-reads.pcap` | `Ethernet_IP/ControlLogix_FactoryTalk_HMI.pcap` | A | 272 | FactoryTalk/RSLinx and the 1756-L63 on Class 3 connections (the capture starts inside the first): Template object (COUNTER, TIMER: Get_Attributes_All, Read Template), Read_Modify_Write_Tag by instance, Identity status, RSLinx-private class 0xB2 |
+| `ics-pcaps/rockwell-originator_unknown_forward-open-class1.pcap` | `Ethernet_IP/ENIP_CIP-CM.pcap` | C | 21 | ListServices, RegisterSession, Class 1 Forward_Open (10 ms, O->T point-to-point, T->O multicast, Assembly 6/2/1) with Sockaddr Info items; frame 5 is a 1460-octet retransmission of 14 earlier Forward_Open requests (tshark, which does not dissect it, counts 8 messages) |
+| `iti-ics-security-tools/hmi_logix_bit-writes.pcap` | `EthernetIP-CIP.pcap` | C | 8,799 | an HMI and four Logix-like targets: symbolic Read_Modify_Write_Tag in Multiple Service Packets, class 0xAC, class 0x72 |
+| `icsnpp-enip/unknown_mixed_list-identity-browse-io.pcap` | `enip_cip_example.pcap` | A (ListIdentity), C (rest) | 269 + 398 I/O | ListIdentity of the 1756-ENBT/A over TCP; Get_Attribute_List browsing of a Logix-like target; Set_Attribute_List of Time Sync; 398 Class 1 datagrams on 24 connections |
+| `icsnpp-enip/unknown_logix_multiple-service-packet.pcapng` | `multiple_service_packet_cip.pcapng` | C | 1 | a Multiple Service Packet request (from enip_cip_example) |
+| `icsnpp-enip/unknown_unknown_set-attribute-single-vlan.pcapng` | `set_attribute_single_service_cip.pcapng` | C | 1 | Set_Attribute_Single in an 802.1Q-tagged frame, nanosecond time stamps |
+| `iti-ics-security-tools/unknown_unknown_set-attribute-single-reply.pcap` | `cip-eth-set-2.pcap` | C | 1 | a Set_Attribute_Single reply |
+| `iti-ics-security-tools/unknown_logix_multiple-service-packet-request.pcap` | `cip-multiple-1.pcap` | C | 1 | a Multiple Service Packet request |
+| `iti-ics-security-tools/unknown_logix_multiple-service-packet-reply.pcap` | `cip-multiple-2.pcap` | C | 1 | its reply |
+| `iti-ics-security-tools/unknown_unknown_start.pcap` | `cip_start_plc.pcap` | C | 1 | Start to class 0x8E, without reply |
+| `iti-ics-security-tools/unknown_unknown_stop.pcap` | `cip_stop_plc.pcap` | C | 1 | Stop to class 0x8E, without reply |
+| `iti-ics-security-tools/unknown_unknown_unlock-cpu.pcap` | `cip_unlock_cpu.pcap` | C | 1 | service 0x4C to class 0x8E / 0x74, without reply |
+| `iti-ics-security-tools/unknown_1756-enbt_list-identity.pcap` | `enip_test.pcap` | A | 2 | the 1756-ENBT/A's ListIdentity over TCP |
+| `ics-pcaps/unknown_micro850_honeypot.pcap` | `LocalPCAP/ICSHoneypod.pcap` | A | 132,593 | the Micro850: 65,435 symbolic Read Tag and Write Tag of BOOL tags; a Rockwell Software originator: ListServices, RegisterSession, Identity, Class 3 connections, Micro800 objects |
+| `ics-pcaps/unknown_micro850_read-write-tags.pcap` | `CIP/CIPvalue.pcap` | B | 24,615 | Read Tag and Write Tag of the Micro850's BOOL tags |
+| `ics-pcaps/unknown_micro850_read-tags.pcap` | `CIP/specialCIP.pcap` | B | 232 | Read Tag of BOOL tags |
+| `ics-pcaps/unknown_micro850_process-reads.pcap` | `LocalPCAP/cip_cotp_proces.pcap` | B | 10,650 | Read Tag and Write Tag of BOOL tags, next to S7/COTP traffic |
+| `ics-pcaps/unknown_micro850_session.pcap` | `LocalPCAP/enip.pcap` | B | 4,136 | Read Tag; services of the File object (0x37) and class 0x350 |
+| `ics-pcaps/unknown_micrologix-1400_pccc-execute.pcap` | `CIP/cip_only.pcap` | A | 18,798 | PCCC Execute (0x4B to class 0x67), unconnected and on Class 3 connections; Forward_Open with non-zero reserved octets |
 
-The excerpts are `excerpts/<source>/<name>.json` with the names of the
-first four rows.
+In two Micro850 files tshark marks segments whose first copy was not
+captured as spurious retransmissions and does not dissect them; the reader
+does (tshark with `-o tcp.analyze_sequence_numbers:FALSE` counts the same).
 
 ## Extraction
 
@@ -153,13 +157,13 @@ else is.
 
 | Test | Checks |
 |---|---|
-| `internal/capture` | the reader's counts equal Wireshark's; pairing (same command and context, sequence count echoed); manifest, SHA256SUMS, excerpts and coverage.json consistent; with `-tags captures` the excerpts equal what the raw files give |
-| `encap` `TestCapture*` | every message decodes, its header equals the independent reading, it and its CPF encode back to the recorded octets; ListIdentity of the 1756-ENBT/A, ListServices, ListInterfaces and RegisterSession decode to the recorded values; the SendRRData timeout is echoed by the recorded targets; every truncation and a length one too long are refused |
-| `cip` `TestCapture*` | every request, response, Multiple Service Packet part, Unconnected_Send and its embedded request, Forward_Open, Forward_Close and their replies decode and encode back byte for byte; replies answer their requests part by part; the 1756-L63's identity; RSLinx's Class 3 and the Class 1 Forward_Open against Wireshark's decode; 16-bit segments kept; malformed variants refused |
+| `internal/capture` | the reader's counts equal Wireshark's; pairing (same command and context, sequence count echoed); manifest, names, SHA256SUMS and coverage.json consistent |
+| `encap` `TestCapture*` | every message decodes, its header equals the independent reading, it and its CPF encode back to the recorded octets; ListIdentity of the 1756-ENBT/A, ListServices, ListInterfaces and RegisterSession decode to the recorded values; the SendRRData timeout of the replies (echoed by the ControlLogix and the Logix-like targets, 5 from the Micro850, 1024 from the MicroLogix); every truncation and a length one too long are refused |
+| `cip` `TestCapture*` | every request, response, Multiple Service Packet part, Unconnected_Send and its embedded request, Forward_Open, Forward_Close and their replies decode and encode back byte for byte; replies answer their requests part by part; the 1756-L63's identity; RSLinx's Class 3 and the Class 1 Forward_Open against Wireshark's decode; 16-bit segments kept; the Micro850's identity; the MicroLogix originator's non-zero reserved Forward_Open octets; malformed variants refused |
 | `implicit` `TestCaptureClass1IO` | 398 Class 1 datagrams decode and encode back; per connection the encapsulation sequence number advances by one and the sequence count never goes back |
-| `client` `TestCaptureReplay*` | the client against the recorded replies, where a request no recorded originator sent fails the test: RegisterSession, ListServices, ListInterfaces, Identity and Get_Attribute_List through the route RSLinx uses, a Class 3 connection with RSLinx's parameters, a connected request and Forward_Close; ListIdentity of the 1756-ENBT/A; the Class 1 Forward_Open and its Sockaddr Info items |
-| `logix` `TestCapture*` | the Logix client reads the 1756-L63's COUNTER and TIMER templates with RSLogix 5000's Read Template requests; `WriteBit` encodes every recorded bit write byte for byte and takes the replies; the emulation answers the recorded Multiple Service Packets of bit writes byte for byte |
-| `server` `TestCapture*` | the recorded requests sent to the server (with the 1756-L63's or the 1756-ENBT/A's identity): every request it supports is answered as the device did, the known differences below are pinned; a Class 1 Forward_Open with the recorded assemblies; 300 seeded mutated streams of the recorded requests (cut, wrong lengths, flipped octets, duplicated, reordered) never stop the server |
+| `client` `TestCaptureReplay*` | the client against the recorded replies, where a request no recorded originator sent fails the test: RegisterSession, ListServices, ListInterfaces, Identity and Get_Attribute_List through the route RSLinx uses, a Class 3 connection with RSLinx's parameters, a connected request and Forward_Close; ListIdentity of the 1756-ENBT/A; the Class 1 Forward_Open and its Sockaddr Info items; a Class 3 connection to the Micro850 with the client's defaults (the recorded originator's parameters) and its Identity |
+| `logix` `TestCapture*` | the Logix client reads the 1756-L63's COUNTER and TIMER templates with RSLogix 5000's Read Template requests; `WriteBit` encodes every recorded bit write byte for byte and takes the replies; the emulation answers the recorded Multiple Service Packets of bit writes byte for byte; the Logix client reads and writes the Micro850's BOOL tags with the recorded requests, and the emulation answers all its recorded Read Tag and Write Tag byte for byte (a written 0xFF reads back as 1) |
+| `server` `TestCapture*` | the recorded requests sent to the server (with the 1756-L63's, 1756-ENBT/A's or Micro850's identity, and for the MicroLogix the default): every request it supports is answered as the device did, the known differences below are pinned; a Class 1 Forward_Open with the recorded assemblies; 300 seeded mutated streams of the recorded requests (cut, wrong lengths, flipped octets, duplicated, reordered) never stop the server |
 
 ## Known differences of the server
 
@@ -172,12 +176,16 @@ else is.
 | Forward_Close of a connection opened before the capture | success | 0x01 / 0x0107 | its state is not in the recording |
 | Template object Get_Attributes_All | handle, members, an unidentified attribute, words, size | not implemented | the third attribute is not identified |
 | Template definition | "COUNTER" | "Name;n…" | firmware 15.4 omits the suffix; the emulation keeps it (pycomm3 and eip-rs read it) |
+| SendRRData reply timeout | Micro850 5, MicroLogix 1400 1024 | the request's (as the ControlLogix) | a device constant; originators ignore it |
+| ListServices capabilities | Micro850 0x0020 (TCP only) | 0x0120 | the server serves Class 0/1 over UDP |
+| Identity Get_Attributes_All | Micro850: attributes 1 to 8 and more octets | attributes 1 to 7 and the state | the Micro800's further attributes are not identified |
+| Micro800 objects (0xA2, 0x33A, 0x350, File 0x37, Identity attributes 15 to 17), Port/TCP/IP/Ethernet Link class and instance data | values | refusals, or the server's own interface | not held, or the device's own configuration |
+| PCCC Execute (0x4B to class 0x67) | PCCC replies | 0x05 | PCCC is not implemented |
 | T->O multicast group of a Class 1 connection | 239.192.5.128 | the ODVA default allocation (239.192.5.96 for host 36 of a /24) | the target's mask and multicast configuration are not in the recording |
 
 ## Adding a capture
 
-Name it by the scheme above. Add its line to manifest.json (name,
-original name, class, storage `raw` only with permission to
-redistribute), commit a raw file under `<source>/` or run `make
-captures-excerpts`, add its line to SHA256SUMS and the tables above, and
-its expected counts to `internal/capture` (cross-check with tshark).
+Name it by the scheme above, commit it byte-identical under `<source>/`,
+add its line to manifest.json (name, original name, URL, SHA256, class),
+SHA256SUMS and the tables above, and its expected counts to
+`internal/capture` (cross-check with tshark).

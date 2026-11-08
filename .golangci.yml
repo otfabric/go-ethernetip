@@ -35,4 +35,3 @@ run:
   # make lint-ci / make check, not only compiled by make interop.
   build-tags:
     - interop
-    - captures

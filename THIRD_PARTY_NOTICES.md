@@ -73,15 +73,16 @@ built library.
   > OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
   > OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-- `testdata/captures/iti-ics-security-tools/`: seven files of
+- `testdata/captures/iti-ics-security-tools/`: eight files of
   [ITI/ICS-Security-Tools](https://github.com/ITI/ICS-Security-Tools)
   (`pcaps/EthernetIP/`, revision bcb93ee), renamed, contents unchanged, under the
   repository's licence, [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).
-- `testdata/captures/excerpts/`: the EtherNet/IP messages, without link,
-  IP and TCP headers, of four files whose raw form is not redistributed
-  here: three of [EmreEkin/ICS-Pcaps](https://github.com/EmreEkin/ICS-Pcaps)
-  (no licence stated) and `EthernetIP-CIP.pcap` (`hmi_logix_bit-writes`) of ITI/ICS-Security-Tools
-  (from CloudShark capture 76038eaa4a3b, terms not stated).
+- `testdata/captures/ics-pcaps/`: nine files of
+  [EmreEkin/ICS-Pcaps](https://github.com/EmreEkin/ICS-Pcaps) (revision
+  0ffbf02), renamed, contents unchanged. The repository states no licence.
+- `iti-ics-security-tools/hmi_logix_bit-writes.pcap` is ITI's
+  `EthernetIP-CIP.pcap`, which names CloudShark capture 76038eaa4a3b as
+  its origin.
 
 ## Sources of the CIP catalog
 

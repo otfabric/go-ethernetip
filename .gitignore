@@ -26,6 +26,4 @@ coverage.out
 /internal/cmd/gensample/gensample
 /internal/cmd/interopnode/interopnode
 
-# Raw captures fetched by make captures-fetch (testdata/captures/README.md)
-/testdata/captures/.cache/
 !/testdata/captures/coverage.json

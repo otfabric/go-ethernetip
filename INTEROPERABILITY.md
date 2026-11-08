@@ -121,13 +121,15 @@ and published EDS files.
 ## Recorded traffic of real devices
 
 Captures recorded by others between real Rockwell devices and Rockwell
-software ([testdata/captures](testdata/captures/README.md), machine-readable
+or other software ([testdata/captures](testdata/captures/README.md), machine-readable
 in [coverage.json](testdata/captures/coverage.json)). They are evidence of
 how these devices behave, not a test against a live device and not a
 conformance claim. Devices identified by their own answers (class A): a
 1756-L63/A ControlLogix, firmware 15.4, behind its EtherNet/IP module
-(RSLinx, RSLogix 5000, FactoryTalk), and a 1756-ENBT/A, firmware 4.3.
-Other files are of unidentified targets (class C).
+(RSLinx, RSLogix 5000, FactoryTalk), a 1756-ENBT/A, firmware 4.3, a
+Micro850 2080-LC50-48QBB, firmware 12.11, and a MicroLogix 1400. Other
+files are of unidentified targets (class C), or of the same Micro850's
+laboratory without its identity (class B).
 
 | Message | Request encoded as recorded | Reply decoded | Client against the recording | Server answers as the device |
 |---|:-:|:-:|:-:|:-:|
@@ -140,6 +142,9 @@ Other files are of unidentified targets (class C).
 | Logix Template object: COUNTER and TIMER of the 1756-L63 | ✅ (since v0.6.0) | ✅ | ✅ | not compared (Get_Attributes_All of a template not implemented) |
 | Logix symbolic Read_Modify_Write_Tag of a bit (class C) | ✅ | ✅ | ✅ | ✅ (on SINT tags; the recorded tags' type is unknown) |
 | Class 1 I/O datagrams (class C) | ✅ | ✅ | — | — |
+| Logix symbolic Read Tag and Write Tag of BOOL tags (Micro850) | ✅ | ✅ | ✅ | ✅ emulation (since v0.6.0: a written 0xFF reads back as 1) |
+| Micro850: ListServices, Identity, Class 3 Forward_Open/Forward_Close | ✅ | ✅ | ✅ | ✅ (ListServices capabilities, Identity Get_Attributes_All and the SendRRData timeout differ: device-specific) |
+| MicroLogix 1400: Class 3 Forward_Open (reserved octets non-zero), Forward_Close; PCCC Execute | ✅ | ✅ | — | ✅ Forward_Open/Close; PCCC not implemented |
 
 Rockwell-private objects (0x68 to 0x8E, 0xAC, 0xB2, 0x72) of the
 recordings decode at the CIP level only; their services are not public.

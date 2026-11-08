@@ -955,3 +955,19 @@ func TestTagServerConnectionSize(t *testing.T) {
 		t.Fatalf("without a size: status %v, %d octets", r.Status, len(r.Data))
 	}
 }
+
+// A BOOL tag holds 0 or 1: a written 0xFF reads back as 1, as on a
+// recorded Micro850.
+func TestTagServerWriteBOOLNormalized(t *testing.T) {
+	h := newHarness(t)
+	for _, c := range []struct{ in, want byte }{{0xFF, 1}, {0x02, 1}, {0, 0}, {1, 1}} {
+		v := Value{Type: cip.TypeBOOL, Count: 1, Data: []byte{c.in}}
+		if r := h.write("Flag", v); !r.OK() {
+			t.Fatalf("%+v", r)
+		}
+		r := h.read("Flag", 1)
+		if !r.OK() || !bytes.Equal(r.Data, []byte{0xC1, 0, c.want}) {
+			t.Errorf("wrote %#x, read % x", c.in, r.Data)
+		}
+	}
+}

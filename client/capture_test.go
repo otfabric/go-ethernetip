@@ -27,7 +27,7 @@ var ctx = context.Background()
 
 func recordings(t *testing.T) []capture.Recording {
 	t.Helper()
-	recs, err := capture.Load(captures, capture.Extended)
+	recs, err := capture.Load(captures)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -49,9 +49,10 @@ type target struct {
 	ln      net.Listener
 	wg      sync.WaitGroup
 	// toIDs maps the T->O connection IDs of the recording to the client's.
-	mu    sync.Mutex
-	toIDs map[uint32]uint32
-	asked []string // normalized requests, in order
+	mu     sync.Mutex
+	toIDs  map[uint32]uint32
+	lastTO uint32
+	asked  []string // normalized requests, in order
 	// register, when set, answers a RegisterSession the recording does
 	// not hold.
 	register []byte
@@ -145,6 +146,11 @@ func (tg *target) patch(q, a []byte) []byte {
 	if qe.Connected {
 		tg.mu.Lock()
 		id, ok := tg.toIDs[ae.ConnID]
+		if !ok && tg.lastTO != 0 {
+			// The recording opened several connections with equal
+			// requests: the answer belongs to the client's latest.
+			id, ok = tg.lastTO, true
+		}
 		tg.mu.Unlock()
 		if ok {
 			binary.LittleEndian.PutUint32(a[encap.HeaderSize+12:], id)
@@ -165,6 +171,7 @@ func (tg *target) patch(q, a []byte) []byte {
 			binary.LittleEndian.PutUint32(a[off+4:], fo.TOConnID)
 			tg.mu.Lock()
 			tg.toIDs[recTO] = fo.TOConnID
+			tg.lastTO = fo.TOConnID
 			tg.mu.Unlock()
 		}
 		binary.LittleEndian.PutUint16(a[off+8:], fo.Serial)
@@ -351,5 +358,35 @@ func TestCaptureReplayClientClass1ForwardOpen(t *testing.T) {
 		if err != nil || sa.AddrPort().String() != want[it.Type] {
 			t.Errorf("item %#x: %v %v", it.Type, sa.AddrPort(), err)
 		}
+	}
+}
+
+// The client against the Micro850 as a Rockwell Software originator talks
+// to it (honeypot capture, connection from port 51333): RegisterSession, a
+// Class 3 connection with the client's defaults (502 octets, RPI 7.5 s,
+// multiplier 1: the recorded originator's parameters), the Identity over
+// it — whose Get_Attributes_All carries more than attributes 1 to 8 — and
+// Forward_Close.
+func TestCaptureReplayClientAgainstMicro850(t *testing.T) {
+	rec, _ := capture.Get(recordings(t), "micro850-honeypot")
+	tg := newTarget(t, conversation(t, rec, "192.168.1.150:51333"))
+	c, err := client.Dial(ctx, tg.addr())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = c.Close() }()
+	cn, err := c.OpenConnection(ctx, client.ConnectionOptions{Size: 502})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if info := cn.Info(); info.OTRPI != 7500*time.Millisecond {
+		t.Errorf("connection %+v", info)
+	}
+	id, err := cn.Identity(ctx)
+	if err != nil || id.ProductName != "2080-LC50-48QBB" || id.ProductCode != 143 || id.Revision != (cip.Revision{Major: 12, Minor: 11}) || id.State != 3 {
+		t.Errorf("Identity %+v %v", id, err)
+	}
+	if err := cn.Close(ctx); err != nil {
+		t.Errorf("Forward_Close: %v", err)
 	}
 }

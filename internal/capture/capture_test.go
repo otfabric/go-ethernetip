@@ -22,7 +22,14 @@ const dir = "../../testdata/captures"
 
 // The message counts of every committed capture equal what Wireshark 4.6
 // decodes: tshark -Y enip -T fields -e enip.command, one per command (a
-// frame may hold several), and tshark -Y udp.port==2222 for I/O.
+// frame may hold several), and tshark -Y udp.port==2222 for I/O. The
+// exception is the Class 1 Forward_Open file: its frame 5 is a 1460-octet
+// retransmission of the stream before frame 1, 14 Forward_Open requests
+// (the last the octets of frame 1) and 60 octets of a 15th, which tshark
+// does not dissect (it counts 8). In two Micro850 files tshark marks
+// segments whose first copy was not captured as spurious retransmissions
+// and does not dissect them either; with -o
+// tcp.analyze_sequence_numbers:FALSE it counts 232 and 24,615 as here.
 func TestCommittedCapturesMatchWireshark(t *testing.T) {
 	want := map[string]struct{ explicit, io, convs, dropped int }{
 		"icsnpp-enip/unknown_mixed_list-identity-browse-io.pcap":                    {269, 398, 4, 0},
@@ -35,6 +42,16 @@ func TestCommittedCapturesMatchWireshark(t *testing.T) {
 		"iti-ics-security-tools/unknown_unknown_stop.pcap":                          {1, 0, 1, 0},
 		"iti-ics-security-tools/unknown_unknown_unlock-cpu.pcap":                    {1, 0, 1, 0},
 		"iti-ics-security-tools/unknown_1756-enbt_list-identity.pcap":               {2, 0, 2, 0},
+		"iti-ics-security-tools/hmi_logix_bit-writes.pcap":                          {8799, 0, 4, 0},
+		"ics-pcaps/rslogix5000_1756-l63_download-upload-run.pcap":                   {346, 0, 2, 0},
+		"ics-pcaps/factorytalk_1756-l63_hmi-reads.pcap":                             {272, 0, 1, 0},
+		"ics-pcaps/rockwell-originator_unknown_forward-open-class1.pcap":            {21, 0, 3, 1},
+		"ics-pcaps/unknown_micro850_honeypot.pcap":                                  {132593, 0, 2, 0},
+		"ics-pcaps/unknown_micro850_read-write-tags.pcap":                           {24615, 0, 1, 0},
+		"ics-pcaps/unknown_micro850_read-tags.pcap":                                 {232, 0, 1, 0},
+		"ics-pcaps/unknown_micro850_process-reads.pcap":                             {10650, 0, 1, 0},
+		"ics-pcaps/unknown_micro850_session.pcap":                                   {4136, 0, 2, 0},
+		"ics-pcaps/unknown_micrologix-1400_pccc-execute.pcap":                       {18798, 0, 2, 0},
 	}
 	files, err := filepath.Glob(filepath.Join(dir, "*", "*.pcap*"))
 	if err != nil || len(files) != len(want) {
@@ -69,7 +86,7 @@ func isIO(c Conversation) bool { return c.Transport == UDP && strings.HasSuffix(
 // outside SendUnitData, the same sender context; a SendUnitData reply
 // echoes the request's sequence count.
 func TestExchangesCorrelate(t *testing.T) {
-	recs, err := Load(dir, false)
+	recs, err := Load(dir)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -130,7 +147,7 @@ func TestManifest(t *testing.T) {
 			t.Errorf("file %s: duplicate, or source %q, class %q, URL or operations missing", f.ID, f.Source, f.Class)
 		}
 		seen[f.ID] = true
-		if stem := strings.TrimSuffix(f.Name, filepath.Ext(f.Name)); !strings.HasPrefix(filepath.Base(f.Local), stem+".") || filepath.Dir(filepath.Dir(f.Local)) != map[bool]string{true: ".", false: "excerpts"}[f.Storage == "raw"] {
+		if stem := strings.TrimSuffix(f.Name, filepath.Ext(f.Name)); filepath.Base(f.Local) != f.Name || stem == "" || filepath.ToSlash(filepath.Dir(f.Local)) != f.Source {
 			t.Errorf("%s: stored as %s, named %s", f.ID, f.Local, f.Name)
 		}
 		b, err := os.ReadFile(filepath.Join(dir, f.Local))
@@ -142,19 +159,10 @@ func TestManifest(t *testing.T) {
 			t.Errorf("%s: SHA256SUMS has %q, the file %s", f.Local, sums[f.Local], got)
 		}
 		delete(sums, f.Local)
-		switch f.Storage {
-		case "raw":
-			if hex.EncodeToString(sum[:]) != f.SHA256 || int64(len(b)) != f.Size {
-				t.Errorf("%s: not the file of the manifest", f.Local)
-			}
-		case "excerpt":
-			e, err := ReadExcerpt(filepath.Join(dir, f.Local))
-			if err != nil || e.SHA256 != f.SHA256 || e.Source != f.Source || e.File != filepath.Base(f.Path) || !strings.HasPrefix(e.Note, "Excerpt; raw file not redistributed.") {
-				t.Errorf("%s: excerpt of %s/%s (%s), %v", f.Local, e.Source, e.File, e.SHA256, err)
-			}
-		default:
-			t.Errorf("%s: storage %q", f.ID, f.Storage)
+		if hex.EncodeToString(sum[:]) != f.SHA256 || int64(len(b)) != f.Size {
+			t.Errorf("%s: not the file of the manifest", f.Local)
 		}
+
 	}
 	for p := range sums {
 		t.Errorf("SHA256SUMS: %s is not in the manifest", p)
@@ -182,37 +190,6 @@ func readSums(t *testing.T) map[string]string {
 		out[path] = sum
 	}
 	return out
-}
-
-// Excerpts round-trip: the conversations an excerpt holds are written back
-// to the same excerpt.
-func TestExcerptRoundTrip(t *testing.T) {
-	m, err := ReadManifest(dir)
-	if err != nil {
-		t.Fatal(err)
-	}
-	for _, f := range m.Files {
-		if f.Storage != "excerpt" {
-			continue
-		}
-		e, err := ReadExcerpt(filepath.Join(dir, f.Local))
-		if err != nil {
-			t.Fatal(err)
-		}
-		convs, err := e.ToConversations()
-		if err != nil {
-			t.Fatal(err)
-		}
-		again := Excerpts(convs, f.MaxPerKind)
-		if len(again) != len(e.Conversations) {
-			t.Fatalf("%s: %d conversations, %d again", f.ID, len(e.Conversations), len(again))
-		}
-		for i := range again {
-			if len(again[i].Messages) != len(e.Conversations[i].Messages) {
-				t.Errorf("%s conversation %d: %d messages, %d again", f.ID, i, len(e.Conversations[i].Messages), len(again[i].Messages))
-			}
-		}
-	}
 }
 
 // --- Synthetic captures: formats and stream edge cases. ---
@@ -452,10 +429,6 @@ func TestUDP(t *testing.T) {
 	if !convs[1].Messages[0].FromClient || convs[1].Messages[1].FromClient || convs[1].Transport != UDP {
 		t.Fatalf("%+v", convs[1])
 	}
-	ex := Excerpts(convs, 1)
-	if len(ex[0].Messages) != 2 || len(ex[1].Messages) != 2 {
-		t.Fatalf("excerpt %+v", ex)
-	}
 }
 
 func TestFormats(t *testing.T) {
@@ -643,91 +616,26 @@ func TestShortFrames(t *testing.T) {
 	}
 }
 
-func TestExcerptErrors(t *testing.T) {
+func TestLoadErrors(t *testing.T) {
 	d := t.TempDir()
-	write := func(name, s string) string {
-		p := filepath.Join(d, name)
-		if err := os.WriteFile(p, []byte(s), 0o600); err != nil {
+	write := func(name, s string) {
+		if err := os.WriteFile(filepath.Join(d, name), []byte(s), 0o600); err != nil {
 			t.Fatal(err)
 		}
-		return p
-	}
-	if _, err := ReadExcerpt(write("bad.json", "{")); err == nil {
-		t.Error("bad JSON read")
-	}
-	if _, err := ReadExcerpt(write("unknown.json", `{"x":1}`)); err == nil {
-		t.Error("unknown field read")
-	}
-	if _, err := ReadExcerpt(write("empty.json", `{}`)); err == nil {
-		t.Error("empty excerpt read")
-	}
-	if _, err := ReadExcerpt(filepath.Join(d, "missing.json")); err == nil {
-		t.Error("missing excerpt read")
-	}
-	if _, err := ReadExcerpt("/nonexistent-dir/x.json"); err == nil {
-		t.Error("missing directory read")
-	}
-	e := Excerpt{Conversations: []ExcerptConversation{{Messages: []ExcerptMessage{{Data: "zz"}}}}}
-	if _, err := e.ToConversations(); err == nil {
-		t.Error("bad hex converted")
 	}
 	if _, err := ReadManifest(d); err == nil {
 		t.Error("missing manifest read")
 	}
-	write("manifest.json", `{"files":[{"id":"x","storage":"raw","local":"none.pcap"}]}`)
-	if _, err := Load(d, false); err == nil {
-		t.Error("missing raw file loaded")
+	write("manifest.json", `{"files":[{"id":"x","local":"none.pcap"}]}`)
+	if _, err := Load(d); err == nil {
+		t.Error("missing capture loaded")
 	}
 	write("manifest.json", `{"bad":1}`)
-	if _, err := Load(d, false); err == nil {
+	if _, err := Load(d); err == nil {
 		t.Error("bad manifest loaded")
 	}
 	if _, err := ReadManifest("/nonexistent-dir"); err == nil {
 		t.Error("missing directory read")
-	}
-	write("manifest.json", `{"files":[{"id":"x","source":"s","name":"a_b_c.pcap","path":"p/x.pcap","storage":"excerpt","local":"x.json"}]}`)
-	if _, err := Load(d, true); err == nil {
-		t.Error("missing cache file loaded")
-	}
-	if got := (File{Source: "s", Name: "a_b_c.pcap", Path: "p/x.pcap"}).CachePath(); got != filepath.Join(".cache", "s", "a_b_c.pcap") {
-		t.Errorf("CachePath %s", got)
-	}
-}
-
-func TestExcerptsDeduplicate(t *testing.T) {
-	q := func(ctx byte, cip ...byte) Message {
-		return Message{FromClient: true, Data: encapMsg(0x6f, ctx, rrData(cip))}
-	}
-	r := func(ctx byte, cip ...byte) Message { return Message{Data: encapMsg(0x6f, ctx, rrData(cip))} }
-	msp := []byte{0x0a, 0x02, 0x20, 0x02, 0x24, 0x01, 2, 0, 6, 0, 8, 0, 0x01, 0x00, 0x0e, 0x00}
-	ms := []Message{
-		q(1, 1, 0), r(1, 0x81, 0, 0, 0),
-		q(2, 1, 0), r(2, 0x81, 0, 0, 0), // repetition: dropped
-		q(3, 1, 0), r(3, 0x81, 0, 0, 1), // other reply: kept
-		q(4, 1, 0), r(4, 0x81, 0, 0, 2), // third of its shape: over the limit
-		q(5, msp...), r(5, 0x8a, 0, 0, 0),
-		q(6, 0x0e), // without path: shape "0e"
-		{FromClient: true, Data: encapMsg(0x65, 0, []byte{1, 0, 0, 0})},
-		{Data: encapMsg(0x66, 0, nil)}, // orphan
-	}
-	for i := range ms {
-		ms[i].Frame = i + 1
-	}
-	out := Excerpts([]Conversation{{Transport: TCP, Messages: ms}}, 2)
-	if n := len(out[0].Messages); n != 9 {
-		t.Fatalf("%d messages: %+v", n, out[0].Messages)
-	}
-	if requestShape(msp) != "0a0220022401+0100+0e00" || requestShape([]byte{1}) != "?" || requestShape([]byte{0x0a, 0, 1}) != "0a00" {
-		t.Errorf("shapes %q %q", requestShape(msp), requestShape([]byte{0x0a, 0, 1}))
-	}
-	if _, _, ok := exchangeKey(Exchange{Request: Message{Data: encapMsg(0x6f, 0, nil)}}); ok {
-		t.Error("key of a malformed request")
-	}
-	if _, _, ok := exchangeKey(Exchange{Request: q(1, 1, 0), Reply: &Message{Data: encapMsg(0x6f, 0, nil)}}); ok {
-		t.Error("key of a malformed reply")
-	}
-	if udpKind(Conversation{}, Message{Data: []byte{1}}) != "false" {
-		t.Error("udpKind of a short datagram")
 	}
 }
 
@@ -757,7 +665,7 @@ func TestCoverageReport(t *testing.T) {
 	if err := dec.Decode(&rep); err != nil {
 		t.Fatal(err)
 	}
-	recs, err := Load(dir, false)
+	recs, err := Load(dir)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -795,5 +703,33 @@ func TestCoverageReport(t *testing.T) {
 				t.Errorf("%s: no test %s", c.ID, tn)
 			}
 		}
+	}
+}
+
+func TestRecordingLookups(t *testing.T) {
+	recs, err := Load(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := Get(recs, "no-such-file"); ok {
+		t.Error("Get of an unknown file")
+	}
+	r, ok := Get(recs, "controllogix-download")
+	if !ok {
+		t.Fatal("controllogix-download missing")
+	}
+	if _, _, ok := r.Frame(1 << 30); ok {
+		t.Error("Frame beyond the file")
+	}
+	e, ok := r.Exchange(221)
+	if !ok || e.Reply == nil || e.Reply.Frame != 222 {
+		t.Errorf("Exchange(221) = %+v, %v", e, ok)
+	}
+	if _, ok := r.Exchange(222); ok {
+		t.Error("a reply frame found as a request")
+	}
+	io, _ := Get(recs, "icsnpp-enip-cip-example")
+	if _, ok := io.Exchange(377); ok {
+		t.Error("an I/O datagram found as a request")
 	}
 }

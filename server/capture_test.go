@@ -27,7 +27,7 @@ const captures = "../testdata/captures"
 
 func recordings(t *testing.T) []capture.Recording {
 	t.Helper()
-	recs, err := capture.Load(captures, capture.Extended)
+	recs, err := capture.Load(captures)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -78,6 +78,12 @@ const (
 	diffVendorAttr    = "Identity attributes 0x65 and 0x66 (vendor-specific): the server answers 0x14 per attribute"
 	diffRouterAll     = "Message Router Get_Attributes_All: the controller lists its 43 classes and nothing else; the server its own classes, then attributes 2 and 3"
 	diffUnknownConn   = "a connection opened before the capture started"
+	diffPCCC          = "PCCC Execute (0x4B to class 0x67): PCCC is not implemented"
+	diffMicro800      = "Micro800 objects and attributes (classes 0xA2, 0x33A, 0x350, the File object 0x37, Identity attributes 15 to 17)"
+	diffIdentityAll   = "Identity Get_Attributes_All: the Micro850 appends octets after the state (00 00 00 \"eng\" \"eng\" 00), the server ends with the state"
+	diffTimeout       = "SendRRData timeout: the Micro850 answers 5 and the MicroLogix 1400 1024 whatever was asked; the server echoes the request's, as the ControlLogix"
+	diffServices      = "ListServices: the Micro850 announces TCP only (capabilities 0x0020); the server also Class 0/1 over UDP (0x0120)"
+	diffPorts         = "Port, TCP/IP Interface and Ethernet Link objects (0xF4 to 0xF6): the device's ports and interface, not the server's"
 )
 
 // classify returns the reason a request is expected to be answered
@@ -112,7 +118,21 @@ func classify(h capture.Header, req cip.Request, ok bool) string {
 	if !isLogical || cls.Type != cip.LogicalClass {
 		return ""
 	}
+	attr := uint32(0)
+	if len(req.Path) >= 3 {
+		if a, ok := req.Path[2].(cip.LogicalSegment); ok && a.Type == cip.LogicalAttribute {
+			attr = a.Value
+		}
+	}
 	switch c := cip.Class(cls.Value); {
+	case c == 0x67:
+		return diffPCCC
+	case c == 0x350 || c == 0x33A || c == 0x37 || c == 0xA2 || (c == cip.ClassIdentity && attr >= 15):
+		return diffMicro800
+	case c == cip.ClassIdentity && req.Service == cip.ServiceGetAttributesAll:
+		return diffIdentityAll
+	case c >= 0xF4 && c <= 0xF6:
+		return diffPorts
 	case c == cip.ClassMessageRouter && req.Service == cip.ServiceGetAttributesAll:
 		return diffRouterAll
 	case c == cip.ClassIdentity && req.Service == cip.ServiceGetAttributeList && bytes.Contains(req.Data, []byte{0x65, 0}):
@@ -220,6 +240,19 @@ func (r *replayer) exchange(e capture.Exchange) (result, bool) {
 	}
 	r.normalize(h, req, reqOK, got, want)
 	res := result{frame: e.Request.Frame, diff: diff, equal: bytes.Equal(got, want)}
+	if !res.equal && diff == "" {
+		switch {
+		case h.Command == 0x0004:
+			res.diff = diffServices
+		case h.Command == 0x006f && len(got) > encap.HeaderSize+6 && len(want) > encap.HeaderSize+6:
+			// Equal but for the timeout of the reply?
+			g := append([]byte(nil), got...)
+			copy(g[encap.HeaderSize+4:encap.HeaderSize+6], want[encap.HeaderSize+4:])
+			if bytes.Equal(g, want) {
+				res.diff = diffTimeout
+			}
+		}
+	}
 	if !res.equal {
 		res.detail = fmt.Sprintf("\n  request % x\n  server  % x\n  device  % x", e.Request.Data, got, want)
 	}
@@ -369,7 +402,7 @@ func TestCaptureReplayMatches1756L63(t *testing.T) {
 		t.Errorf("%d equal answers", all[""])
 	}
 	for _, d := range []string{diffCommand0001, diffPrivateObject, diffVendorAttr, diffRouterAll, diffUnknownConn} {
-		if all[d] == 0 && !capture.Extended {
+		if all[d] == 0 {
 			t.Errorf("no exchange differs for %q: update the list of differences", d)
 		}
 	}
@@ -432,4 +465,41 @@ func TestCaptureReplayClass1ForwardOpen(t *testing.T) {
 	if n := check(t, rec.File.ID, rs); n[""] != 3 {
 		t.Errorf("results %v", rs)
 	}
+}
+
+// The Micro850 (honeypot capture, connection from port 51333: Connected
+// Components Workbench-like originator of vendor 0x004D) and the MicroLogix
+// 1400 (PCCC capture): ListServices, RegisterSession, Class 3
+// Forward_Open and Forward_Close are answered as the controllers did.
+func TestCaptureReplayMatchesMicro850AndMicroLogix(t *testing.T) {
+	recs := recordings(t)
+	micro850 := cip.Identity{
+		VendorID: 1, DeviceType: cip.DeviceTypePLC, ProductCode: 143,
+		Revision: cip.Revision{Major: 12, Minor: 11}, Status: 0x0034, SerialNumber: 0x60D4229A,
+		ProductName: "2080-LC50-48QBB", State: 3,
+	}
+	all := map[string]int{}
+	for _, c := range []struct {
+		id   string
+		keep func(capture.Conversation) bool
+		opts []server.Option
+	}{
+		{"micro850-honeypot", func(c capture.Conversation) bool { return c.Client == "192.168.1.150:51333" }, []server.Option{server.WithIdentity(micro850)}},
+		{"micrologix-pccc", func(capture.Conversation) bool { return true }, nil},
+	} {
+		rec, _ := capture.Get(recs, c.id)
+		mk := func(t *testing.T) *server.Server { return startServer(t, c.opts...) }
+		for k, v := range check(t, c.id, replayAll(t, rec, mk, c.keep)) {
+			all[k] += v
+		}
+	}
+	for _, d := range []string{diffPCCC, diffMicro800, diffIdentityAll, diffTimeout, diffServices} {
+		if all[d] == 0 {
+			t.Errorf("no exchange differs for %q", d)
+		}
+	}
+	if all[""] < 8 {
+		t.Errorf("%d equal answers", all[""])
+	}
+	t.Logf("equal %d; differences: %s", all[""], summary(all))
 }

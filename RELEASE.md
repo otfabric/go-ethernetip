@@ -2,22 +2,23 @@
 
 ## v0.6.0
 
-**Date:** unreleased (prepared 2026-11-08)
+**Date:** 2026-11-08
 **Previous release:** v0.5.2
 
 ## Summary
 
 go-ethernetip is now tested against recorded traffic of real Rockwell
 devices: a 1756-L63/A ControlLogix (firmware 15.4) behind its EtherNet/IP
-module with RSLinx, RSLogix 5000 and FactoryTalk, and a 1756-ENBT/A
-(firmware 4.3), plus captures of unidentified targets — 14 files, 9,716
-encapsulation messages and 398 I/O datagrams
+module with RSLinx, RSLogix 5000 and FactoryTalk; a 1756-ENBT/A (4.3); a
+Micro850 2080-LC50-48QBB (12.11); a MicroLogix 1400; and unidentified
+targets — 20 committed captures, about 200,000 EtherNet/IP messages
 ([testdata/captures](testdata/captures/README.md)). Every message decodes
-and encodes back byte for byte; the client runs against the recorded
-replies and its requests equal RSLinx's; the server answers every recorded
-request it supports as the devices did. The recordings showed two
-differences, both fixed. This is evidence from real devices recorded by
-others, not a conformance claim.
+and encodes back byte for byte; the client and the Logix client run
+against the recorded replies with the recorded originators' requests; the
+server and the Logix emulation answer every recorded request they support
+as the devices did. The recordings showed three differences, fixed here.
+This is evidence from real devices recorded by others, not a conformance
+claim.
 
 ## Changes
 
@@ -30,30 +31,33 @@ others, not a conformance claim.
   3 octets of the definition, the end of the last member's name, were not
   read ("U" for "UN", "D" for "DN"). Servers that hold less (the emulation)
   answer the rest, as before.
+- **logix**: the emulation stores a written BOOL as 0 or 1: a Write Tag of
+  0xFF reads back as 1, as on the recorded Micro850 (16 write-then-read
+  sequences); it read back 0xFF.
 - **server**: the SendRRData reply carries the request's timeout, as the
-  recorded ControlLogix module (32 s and 0 s) and the four targets of
-  `hmi_logix_bit-writes` (20 s) answer; it was 0.
+  recorded ControlLogix module (32 s, 0 s) and the four Logix-like targets
+  (20 s) answer; it was 0. (The Micro850 and the MicroLogix answer a
+  constant, 5 and 1024; originators ignore the field.)
 
 ### Tests
 
 - `internal/capture`: a pcap/pcapng reader with TCP reassembly
-  (retransmissions, gaps, mid-stream starts), encapsulation framing, UDP
-  44818 and 2222, request/reply pairing by context and sequence count; its
-  counts equal Wireshark 4.6's.
-- `testdata/captures`: the corpus with `manifest.json` (provenance, SHA256,
-  evidence class A to D, devices), `coverage.json` (what each exchange
-  verifies), `SHA256SUMS`; files named `<client-or-peer>_<device>_<operation>`
-  (original names in the manifest). Files whose terms do not permit redistribution
-  are held as excerpts of their EtherNet/IP messages;
-  `make captures-fetch`, `captures-check` and `captures-extended` fetch the
-  raw files and run the tests on them.
+  (retransmissions, gaps, mid-stream starts, segments whose first copy was
+  not captured), encapsulation framing, UDP 44818 and 2222, request/reply
+  pairing by context and sequence count; its counts equal Wireshark 4.6's.
+- `testdata/captures`: 20 captures committed byte-identical under the
+  names `<client-or-peer>_<device>_<operation>` (original names, URLs,
+  revisions and stated terms in `manifest.json`), with evidence classes A
+  to D, `coverage.json` (what each exchange verifies) and `SHA256SUMS`.
 - `encap`, `cip`, `implicit`: every recorded message decodes and encodes
-  back; truncations and malformed variants are refused. `client`: replay
-  against the 1756-L63 (session, ListServices, ListInterfaces, routed
-  Identity, Class 3 connection with RSLinx's parameters) and the
-  1756-ENBT/A's ListIdentity, a Class 1 Forward_Open with Sockaddr Info.
-  `logix`: the 1756-L63's templates; `WriteBit` byte for byte as the
-  recorded HMI; the emulation's answers to the HMI's bit writes. `server`:
+  back (the MicroLogix originator's non-zero reserved Forward_Open octets
+  are encoded as zeros); truncations and malformed variants are refused.
+  `client`: replay against the 1756-L63 (session, ListServices,
+  ListInterfaces, routed Identity, Class 3 with RSLinx's parameters), the
+  1756-ENBT/A's ListIdentity, a Class 1 Forward_Open with Sockaddr Info,
+  and a Class 3 connection to the Micro850. `logix`: the 1756-L63's
+  templates; `WriteBit` byte for byte as the recorded HMI; the Micro850's
+  Read Tag and Write Tag through the client and the emulation. `server`:
   replay with pinned differences; 300 seeded mutated streams of recorded
   requests.
 - Fuzz seeds of recorded messages for 16 fuzz targets.
@@ -63,16 +67,16 @@ others, not a conformance claim.
 - The server answers command 0x0001 with "invalid command", the Identity
   attributes 0x65/0x66 with 0x14, and lists its own classes and two more
   attributes for the Message Router's Get_Attributes_All; it does not hold
-  the Rockwell-private objects. The emulation's template definitions keep
-  the ";n…" suffix that firmware 15.4 omits; Get_Attributes_All of a
-  template is not implemented.
+  the Rockwell-private and Micro800 objects or PCCC. Its ListServices
+  announces UDP (the Micro850 does not). The emulation's template
+  definitions keep the ";n…" suffix that firmware 15.4 omits;
+  Get_Attributes_All of a template is not implemented.
 
 ### Documentation
 
 - testdata/captures/README.md; TESTING.md, INTEROPERABILITY.md (recorded
   traffic), docs/LIMITATIONS.md, docs/FEATURE-STATUS.md, docs/LOGIX.md,
-  THIRD_PARTY_NOTICES.md (icsnpp-enip BSD-3-Clause, ITI CC BY 4.0),
-  README.md, AGENTS.md.
+  THIRD_PARTY_NOTICES.md, README.md, AGENTS.md.
 
 ---
 

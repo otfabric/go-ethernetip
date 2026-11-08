@@ -11,14 +11,24 @@ import (
 )
 
 // Manifest is testdata/captures/manifest.json: the sources of the recorded
-// traffic and, per file, where it came from, its checksum, its evidence
-// class and how this repository holds it.
+// traffic and, per file, where it came from, its checksum and its evidence
+// class.
 type Manifest struct {
 	Schema   int               `json:"schema"`
 	Acquired string            `json:"acquired"`
 	Classes  map[string]string `json:"classes"`
 	Sources  []Source          `json:"sources"`
 	Files    []File            `json:"files"`
+	// Examined lists files of the sources that are not here, and why.
+	Examined []Examined `json:"examined"`
+}
+
+// Examined is a file of a source that is not in the corpus.
+type Examined struct {
+	Source string `json:"source"`
+	Path   string `json:"path"`
+	SHA256 string `json:"sha256"`
+	Why    string `json:"why"`
 }
 
 // Source is one origin of captures.
@@ -36,8 +46,7 @@ type File struct {
 	ID     string `json:"id"`
 	Source string `json:"source"`
 	// Name is the file's name here, <client-or-peer>_<device>_<operation>
-	// with the original extension (testdata/captures/README.md); the raw
-	// file of an excerpt is cached under it.
+	// with the original extension (testdata/captures/README.md).
 	Name         string `json:"name"`
 	OriginalName string `json:"original_name"`
 	Path         string `json:"path"` // in the source
@@ -57,14 +66,6 @@ type File struct {
 	Operations  []string `json:"operations"`
 	Limitations string   `json:"limitations"`
 }
-
-// CacheDir is where `make captures-fetch` puts the raw files of excerpts,
-// relative to testdata/captures.
-const CacheDir = ".cache"
-
-// CachePath returns the path of the raw file in the cache, relative to
-// testdata/captures.
-func (f File) CachePath() string { return filepath.Join(CacheDir, f.Source, f.Name) }
 
 // ReadManifest reads manifest.json from the captures directory dir.
 func ReadManifest(dir string) (Manifest, error) {
@@ -90,38 +91,21 @@ func ReadManifest(dir string) (Manifest, error) {
 type Recording struct {
 	File          File
 	Conversations []Conversation
-	// Excerpt is true when the conversations come from the committed
-	// excerpt, not from the raw file.
-	Excerpt bool
 }
 
-// Load reads the corpus in the captures directory dir: the committed raw
-// files and, for the others, the committed excerpts, or with raw the raw
-// files in the cache (`make captures-fetch`).
-func Load(dir string, raw bool) ([]Recording, error) {
+// Load reads every capture of the corpus in the captures directory dir.
+func Load(dir string) ([]Recording, error) {
 	m, err := ReadManifest(dir)
 	if err != nil {
 		return nil, err
 	}
 	out := make([]Recording, 0, len(m.Files))
 	for _, f := range m.Files {
-		r := Recording{File: f}
-		switch {
-		case f.Storage == "raw":
-			r.Conversations, err = ReadFile(filepath.Join(dir, f.Local))
-		case raw:
-			r.Conversations, err = ReadFile(filepath.Join(dir, f.CachePath()))
-		default:
-			var e Excerpt
-			if e, err = ReadExcerpt(filepath.Join(dir, f.Local)); err == nil {
-				r.Conversations, err = e.ToConversations()
-				r.Excerpt = true
-			}
-		}
+		convs, err := ReadFile(filepath.Join(dir, f.Local))
 		if err != nil {
 			return nil, fmt.Errorf("capture: %s: %w", f.ID, err)
 		}
-		out = append(out, r)
+		out = append(out, Recording{File: f, Conversations: convs})
 	}
 	return out, nil
 }

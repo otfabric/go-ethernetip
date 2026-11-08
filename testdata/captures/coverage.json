@@ -10,7 +10,10 @@
     {
       "id": "listidentity-1756-enbt",
       "file": "icsnpp-enip-cip-example",
-      "frames": [371, 372],
+      "frames": [
+        371,
+        372
+      ],
       "device": "1756-ENBT/A 4.3",
       "class": "A",
       "message": "ListIdentity over TCP",
@@ -19,12 +22,19 @@
       "clientReplay": "pass",
       "serverParity": "pass",
       "difference": "socket address (server's socket): normalized",
-      "tests": ["encap TestCaptureListIdentity1756ENBT", "client TestCaptureReplayClientListIdentity1756ENBT", "server TestCaptureListIdentity1756ENBT"]
+      "tests": [
+        "encap TestCaptureListIdentity1756ENBT",
+        "client TestCaptureReplayClientListIdentity1756ENBT",
+        "server TestCaptureListIdentity1756ENBT"
+      ]
     },
     {
       "id": "listservices-1756-l63-module",
       "file": "controllogix-download",
-      "frames": [212, 216],
+      "frames": [
+        212,
+        216
+      ],
       "device": "EtherNet/IP module of the 1756-L63",
       "class": "A",
       "message": "ListServices",
@@ -32,12 +42,19 @@
       "responseDecoding": "pass",
       "clientReplay": "pass",
       "serverParity": "pass",
-      "tests": ["encap TestCaptureSessionCommands", "client TestCaptureReplayClientAgainst1756L63", "server TestCaptureReplayMatches1756L63"]
+      "tests": [
+        "encap TestCaptureSessionCommands",
+        "client TestCaptureReplayClientAgainst1756L63",
+        "server TestCaptureReplayMatches1756L63"
+      ]
     },
     {
       "id": "listinterfaces-1756-l63-module",
       "file": "controllogix-download",
-      "frames": [213, 218],
+      "frames": [
+        213,
+        218
+      ],
       "device": "EtherNet/IP module of the 1756-L63",
       "class": "A",
       "message": "ListInterfaces (no item)",
@@ -45,12 +62,19 @@
       "responseDecoding": "pass",
       "clientReplay": "pass",
       "serverParity": "pass",
-      "tests": ["encap TestCaptureSessionCommands", "client TestCaptureReplayClientAgainst1756L63", "server TestCaptureReplayMatches1756L63"]
+      "tests": [
+        "encap TestCaptureSessionCommands",
+        "client TestCaptureReplayClientAgainst1756L63",
+        "server TestCaptureReplayMatches1756L63"
+      ]
     },
     {
       "id": "command-0001",
       "file": "controllogix-download",
-      "frames": [211, 215],
+      "frames": [
+        211,
+        215
+      ],
       "device": "EtherNet/IP module of the 1756-L63",
       "class": "A",
       "message": "encapsulation command 0x0001 (not public)",
@@ -59,12 +83,18 @@
       "clientReplay": "n/a",
       "serverParity": "differs",
       "difference": "the module answers with an item naming itself (10.92.18.17); the server answers status 0x0001, invalid command",
-      "tests": ["encap TestCapturesDecode", "server TestCaptureReplayMatches1756L63"]
+      "tests": [
+        "encap TestCapturesDecode",
+        "server TestCaptureReplayMatches1756L63"
+      ]
     },
     {
       "id": "registersession",
       "file": "controllogix-download",
-      "frames": [219, 220],
+      "frames": [
+        219,
+        220
+      ],
       "device": "EtherNet/IP module of the 1756-L63",
       "class": "A",
       "message": "RegisterSession",
@@ -73,12 +103,19 @@
       "clientReplay": "pass",
       "serverParity": "pass",
       "difference": "session handle (target's choice): normalized",
-      "tests": ["encap TestCaptureSessionCommands", "client TestCaptureReplayClientAgainst1756L63", "server TestCaptureReplayMatches1756L63"]
+      "tests": [
+        "encap TestCaptureSessionCommands",
+        "client TestCaptureReplayClientAgainst1756L63",
+        "server TestCaptureReplayMatches1756L63"
+      ]
     },
     {
       "id": "identity-1756-l63-routed",
       "file": "controllogix-download",
-      "frames": [221, 222],
+      "frames": [
+        221,
+        222
+      ],
       "device": "1756-L63/A 15.4",
       "class": "A",
       "message": "Unconnected_Send (port 1, link 0) of Identity Get_Attributes_All",
@@ -87,12 +124,19 @@
       "clientReplay": "pass",
       "serverParity": "pass",
       "difference": "fixed in v0.6.0: the server's SendRRData reply carried timeout 0 where the device echoes the request's (32 s)",
-      "tests": ["cip TestCaptureIdentity1756L63", "client TestCaptureReplayClientAgainst1756L63", "server TestCaptureReplayMatches1756L63"]
+      "tests": [
+        "cip TestCaptureIdentity1756L63",
+        "client TestCaptureReplayClientAgainst1756L63",
+        "server TestCaptureReplayMatches1756L63"
+      ]
     },
     {
       "id": "identity-vendor-attributes",
       "file": "controllogix-download",
-      "frames": [223, 224],
+      "frames": [
+        223,
+        224
+      ],
       "device": "1756-L63/A 15.4",
       "class": "A",
       "message": "Identity Get_Attribute_List of attributes 0x65 and 0x66",
@@ -101,12 +145,18 @@
       "clientReplay": "pass",
       "serverParity": "differs",
       "difference": "vendor-specific attributes: the server answers 0x14 per attribute",
-      "tests": ["client TestCaptureReplayClientAgainst1756L63", "server TestCaptureReplayMatches1756L63"]
+      "tests": [
+        "client TestCaptureReplayClientAgainst1756L63",
+        "server TestCaptureReplayMatches1756L63"
+      ]
     },
     {
       "id": "message-router-object-list",
       "file": "controllogix-download",
-      "frames": [225, 226],
+      "frames": [
+        225,
+        226
+      ],
       "device": "1756-L63/A 15.4",
       "class": "A",
       "message": "Message Router Get_Attributes_All",
@@ -115,12 +165,18 @@
       "clientReplay": "n/a",
       "serverParity": "differs",
       "difference": "the controller lists its 43 classes and nothing else; the server lists its own classes and adds attributes 2 and 3",
-      "tests": ["cip TestCapturesDecode", "server TestCaptureReplayMatches1756L63"]
+      "tests": [
+        "cip TestCapturesDecode",
+        "server TestCaptureReplayMatches1756L63"
+      ]
     },
     {
       "id": "forwardopen-class3-rslinx",
       "file": "controllogix-download",
-      "frames": [233, 234],
+      "frames": [
+        233,
+        234
+      ],
       "device": "1756-L63/A 15.4",
       "class": "A",
       "message": "Forward_Open Class 3 (500 octets, RPI 8 s, route port 1 link 0, Message Router)",
@@ -129,12 +185,19 @@
       "clientReplay": "pass",
       "serverParity": "pass",
       "difference": "O->T connection ID (target's choice): normalized; triad, T->O ID and ticks (originator's choice): normalized for the client",
-      "tests": ["cip TestCaptureForwardOpen", "client TestCaptureReplayClientAgainst1756L63", "server TestCaptureReplayMatches1756L63"]
+      "tests": [
+        "cip TestCaptureForwardOpen",
+        "client TestCaptureReplayClientAgainst1756L63",
+        "server TestCaptureReplayMatches1756L63"
+      ]
     },
     {
       "id": "forwardclose-class3",
       "file": "controllogix-download",
-      "frames": [243, 244],
+      "frames": [
+        243,
+        244
+      ],
       "device": "1756-L63/A 15.4",
       "class": "A",
       "message": "Forward_Close",
@@ -143,12 +206,19 @@
       "clientReplay": "pass",
       "serverParity": "pass",
       "difference": "a Forward_Close of a connection opened before the capture (frames 140, 144) gets 0x01/0x0107 from the server: its state is not in the recording",
-      "tests": ["cip TestCapturesDecode", "client TestCaptureReplayClientAgainst1756L63", "server TestCaptureReplayMatches1756L63"]
+      "tests": [
+        "cip TestCapturesDecode",
+        "client TestCaptureReplayClientAgainst1756L63",
+        "server TestCaptureReplayMatches1756L63"
+      ]
     },
     {
       "id": "unknown-class-16bit",
       "file": "controllogix-download",
-      "frames": [361, 362],
+      "frames": [
+        361,
+        362
+      ],
       "device": "1756-L63/A 15.4",
       "class": "A",
       "message": "Get_Attribute_List of class 0x0334 (16-bit class segment), general status 0x05",
@@ -156,12 +226,18 @@
       "responseDecoding": "pass",
       "clientReplay": "n/a",
       "serverParity": "pass",
-      "tests": ["cip TestCapturePathWidths", "server TestCaptureReplayMatches1756L63"]
+      "tests": [
+        "cip TestCapturePathWidths",
+        "server TestCaptureReplayMatches1756L63"
+      ]
     },
     {
       "id": "identity-status-connected",
       "file": "controllogix-factorytalk",
-      "frames": [447, 449],
+      "frames": [
+        447,
+        449
+      ],
       "device": "1756-L63/A 15.4",
       "class": "A",
       "message": "Get_Attribute_Single Identity status on a Class 3 connection",
@@ -169,12 +245,23 @@
       "responseDecoding": "pass",
       "clientReplay": "n/a",
       "serverParity": "pass",
-      "tests": ["server TestCaptureReplayMatches1756L63"]
+      "tests": [
+        "server TestCaptureReplayMatches1756L63"
+      ]
     },
     {
       "id": "template-counter-timer",
       "file": "controllogix-factorytalk",
-      "frames": [99, 101, 102, 103, 108, 109, 112, 113],
+      "frames": [
+        99,
+        101,
+        102,
+        103,
+        108,
+        109,
+        112,
+        113
+      ],
       "device": "1756-L63/A 15.4",
       "class": "A",
       "message": "Template object: Get_Attributes_All and Read Template of COUNTER (0x0F82) and TIMER (0x0F83)",
@@ -183,12 +270,17 @@
       "clientReplay": "pass",
       "serverParity": "unverified",
       "difference": "fixed in v0.6.0: the client asked Read Template for words×4 − 23 octets, 3 fewer than the definition the controller holds and RSLogix 5000 asks for (words×4 − 20); the controller's definition names the structure without the ';n…' suffix the emulation writes; Get_Attributes_All of a template is not implemented (its third attribute is not identified)",
-      "tests": ["logix TestCaptureTemplatesOf1756L63"]
+      "tests": [
+        "logix TestCaptureTemplatesOf1756L63"
+      ]
     },
     {
       "id": "rmw-by-instance",
       "file": "controllogix-factorytalk",
-      "frames": [353, 354],
+      "frames": [
+        353,
+        354
+      ],
       "device": "1756-L63/A 15.4",
       "class": "A",
       "message": "Read_Modify_Write_Tag by instance (Program 0x68 / Symbol 0x6B) in a Multiple Service Packet",
@@ -197,12 +289,17 @@
       "clientReplay": "n/a",
       "serverParity": "unverified",
       "difference": "the client writes tags by name only; the recording does not say which tag the instances are",
-      "tests": ["cip TestCapturesDecode"]
+      "tests": [
+        "cip TestCapturesDecode"
+      ]
     },
     {
       "id": "rmw-symbolic-hmi",
       "file": "ethernetip-cip-cloudshark",
-      "frames": [44, 47],
+      "frames": [
+        44,
+        47
+      ],
       "device": "four Logix-like targets, not identified",
       "class": "C",
       "message": "symbolic Read_Modify_Write_Tag of one bit, in Multiple Service Packets",
@@ -211,12 +308,18 @@
       "clientReplay": "pass",
       "serverParity": "pass",
       "difference": "the tags' type is not in the recording; the emulation is given SINT tags (it refuses Read_Modify_Write_Tag on BOOL)",
-      "tests": ["logix TestCaptureWriteBitMatchesHMI", "logix TestCaptureTagServerAnswersHMIBitWrites"]
+      "tests": [
+        "logix TestCaptureWriteBitMatchesHMI",
+        "logix TestCaptureTagServerAnswersHMIBitWrites"
+      ]
     },
     {
       "id": "forwardopen-class1-multicast",
       "file": "enip-cip-cm",
-      "frames": [10, 11],
+      "frames": [
+        10,
+        11
+      ],
       "device": "not identified",
       "class": "C",
       "message": "Forward_Open Class 1 cyclic 10 ms, O->T point-to-point, T->O multicast, Assembly 6/2/1, Sockaddr Info items",
@@ -225,12 +328,19 @@
       "clientReplay": "pass",
       "serverParity": "pass",
       "difference": "connection IDs (target's choice) and the Sockaddr Info items' address and port (the server's sockets): normalized; the recorded T->O group 239.192.5.128 is not the ODVA default for host 36 of a /24 (239.192.5.96) — the target's mask is not in the recording",
-      "tests": ["cip TestCaptureForwardOpen", "client TestCaptureReplayClientClass1ForwardOpen", "server TestCaptureReplayClass1ForwardOpen"]
+      "tests": [
+        "cip TestCaptureForwardOpen",
+        "client TestCaptureReplayClientClass1ForwardOpen",
+        "server TestCaptureReplayClass1ForwardOpen"
+      ]
     },
     {
       "id": "class1-io",
       "file": "icsnpp-enip-cip-example",
-      "frames": [377, 388],
+      "frames": [
+        377,
+        388
+      ],
       "device": "not identified",
       "class": "C",
       "message": "398 Class 1 I/O datagrams on 24 connections",
@@ -239,7 +349,89 @@
       "clientReplay": "n/a",
       "serverParity": "n/a",
       "difference": "the connections' Forward_Open is not recorded: the real-time format is not known",
-      "tests": ["implicit TestCaptureClass1IO"]
+      "tests": [
+        "implicit TestCaptureClass1IO"
+      ]
+    },
+    {
+      "id": "micro850-read-write-tags",
+      "file": "micro850-honeypot",
+      "frames": [
+        2,
+        118681,
+        118692
+      ],
+      "device": "Micro850 2080-LC50-48QBB 12.11",
+      "class": "A",
+      "message": "symbolic Read Tag and Write Tag of BOOL tags, a write of 0xFF read back as 1",
+      "requestEncoding": "pass",
+      "responseDecoding": "pass",
+      "clientReplay": "pass",
+      "serverParity": "pass",
+      "difference": "fixed in v0.6.0: the emulation read back a written 0xFF as 0xFF",
+      "tests": [
+        "logix TestCaptureClientMicro850Tags",
+        "logix TestCaptureTagServerAnswersMicro850"
+      ]
+    },
+    {
+      "id": "micro850-identity",
+      "file": "micro850-honeypot",
+      "frames": [
+        73600
+      ],
+      "device": "Micro850 2080-LC50-48QBB 12.11",
+      "class": "A",
+      "message": "Identity Get_Attributes_All on a Class 3 connection",
+      "requestEncoding": "pass",
+      "responseDecoding": "pass",
+      "clientReplay": "pass",
+      "serverParity": "differs",
+      "difference": "the Micro850 appends octets after the state",
+      "tests": [
+        "cip TestCaptureIdentityMicro850",
+        "client TestCaptureReplayClientAgainstMicro850",
+        "server TestCaptureReplayMatchesMicro850AndMicroLogix"
+      ]
+    },
+    {
+      "id": "micro850-forwardopen-class3",
+      "file": "micro850-honeypot",
+      "frames": [
+        73508,
+        73514
+      ],
+      "device": "Micro850 2080-LC50-48QBB 12.11",
+      "class": "A",
+      "message": "Forward_Open Class 3 (502 octets, RPI 7.5 s) and Forward_Close",
+      "requestEncoding": "pass",
+      "responseDecoding": "pass",
+      "clientReplay": "pass",
+      "serverParity": "pass",
+      "difference": "the SendRRData timeout of the reply (the Micro850 answers 5): pinned",
+      "tests": [
+        "client TestCaptureReplayClientAgainstMicro850",
+        "server TestCaptureReplayMatchesMicro850AndMicroLogix"
+      ]
+    },
+    {
+      "id": "micrologix-forwardopen-reserved",
+      "file": "micrologix-pccc",
+      "frames": [
+        475
+      ],
+      "device": "MicroLogix 1400 (1766-LEC)",
+      "class": "A",
+      "message": "Forward_Open whose reserved octets are non-zero; PCCC Execute",
+      "requestEncoding": "differs",
+      "responseDecoding": "pass",
+      "clientReplay": "n/a",
+      "serverParity": "pass",
+      "difference": "the reserved octets are encoded as zeros; PCCC is not implemented (0x05)",
+      "tests": [
+        "cip TestCapturesDecode",
+        "server TestCaptureReplayMatchesMicro850AndMicroLogix"
+      ]
     }
   ]
 }

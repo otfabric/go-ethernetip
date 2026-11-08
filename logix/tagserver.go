@@ -617,6 +617,15 @@ func (ts *TagServer) write(t target, r *server.Request) cip.Response {
 		return cip.Response{Status: cip.StatusTooMuchData}
 	}
 	copy(t.e.data[t.off+offset:], data)
+	if t.typ == cip.TypeBOOL {
+		// A BOOL holds 0 or 1: a recorded Micro850 reads back 1 after a
+		// write of 0xFF (testdata/captures, unknown_micro850_honeypot).
+		for i := range data {
+			if b := &t.e.data[t.off+offset+i]; *b != 0 {
+				*b = 1
+			}
+		}
+	}
 	return cip.Response{}
 }
 

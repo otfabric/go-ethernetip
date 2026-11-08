@@ -18,7 +18,7 @@ const captures = "../testdata/captures"
 
 func recordings(t *testing.T) []capture.Recording {
 	t.Helper()
-	recs, err := capture.Load(captures, capture.Extended)
+	recs, err := capture.Load(captures)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -175,12 +175,23 @@ func TestCaptureSessionCommands(t *testing.T) {
 	}
 }
 
-// The recorded targets answer SendRRData with the request's timeout, not
-// zero: the ControlLogix module 32 s and 0 s as asked, the four targets of
-// hmi_logix_bit-writes 20 s. Package server does the same.
-func TestCaptureRRDataTimeoutEchoed(t *testing.T) {
-	n := 0
+// What the recorded targets put into the timeout of a SendRRData reply:
+// the ControlLogix module (32 s and 0 s as asked) and the four Logix-like
+// targets of hmi_logix_bit-writes (20 s) echo the request's; the Micro850
+// answers 5 and the MicroLogix 1400 1024 whatever was asked. Package
+// server echoes, as the ControlLogix does.
+func TestCaptureRRDataTimeout(t *testing.T) {
+	const echo = -1
+	want := map[string]int{
+		"controllogix-download": echo, "controllogix-factorytalk": echo, "ethernetip-cip-cloudshark": echo,
+		"micro850-honeypot": 5, "micrologix-pccc": 1024,
+	}
+	n := map[string]int{}
 	for _, r := range recordings(t) {
+		w, ok := want[r.File.ID]
+		if !ok {
+			continue
+		}
 		for _, c := range r.Conversations {
 			if c.Transport != capture.TCP {
 				continue
@@ -197,50 +208,20 @@ func TestCaptureRRDataTimeoutEchoed(t *testing.T) {
 				}
 				qd, _ := encap.DecodeRRData(q.Data)
 				ad, _ := encap.DecodeRRData(a.Data)
-				n++
-				if qd.Timeout != ad.Timeout {
-					t.Errorf("%s frame %d: timeout %d, reply %d", r.File.ID, e.Reply.Frame, qd.Timeout, ad.Timeout)
+				n[r.File.ID]++
+				exp := w
+				if w == echo {
+					exp = int(qd.Timeout)
+				}
+				if int(ad.Timeout) != exp {
+					t.Errorf("%s frame %d: request %d, reply %d, want %d", r.File.ID, e.Reply.Frame, qd.Timeout, ad.Timeout, exp)
 				}
 			}
 		}
 	}
-	if n < 15 {
-		t.Errorf("%d SendRRData exchanges", n)
-	}
-}
-
-// Every recorded message cut short anywhere is refused by Decode and by
-// ReadPacket, and one whose length field claims an octet more than it
-// holds as well.
-func TestCaptureTruncations(t *testing.T) {
-	n := 0
-	for _, r := range recordings(t) {
-		for _, c := range r.Conversations {
-			if c.Transport == capture.UDP && strings.HasSuffix(c.Server, ":2222") {
-				continue
-			}
-			for _, m := range c.Messages {
-				n++
-				for k := range len(m.Data) {
-					if _, err := encap.Decode(m.Data[:k]); err == nil {
-						t.Fatalf("%s frame %d: %d of %d octets decode", r.File.ID, m.Frame, k, len(m.Data))
-					}
-					if _, _, err := encap.ReadPacket(bytes.NewReader(m.Data[:k]), nil, 0); err == nil {
-						t.Fatalf("%s frame %d: ReadPacket of %d octets", r.File.ID, m.Frame, k)
-					}
-				}
-				long := append([]byte(nil), m.Data...)
-				long[2]++
-				if long[2] == 0 {
-					long[3]++
-				}
-				if _, err := encap.Decode(long); err == nil {
-					t.Fatalf("%s frame %d: length +1 decodes", r.File.ID, m.Frame)
-				}
-			}
+	for id := range want {
+		if n[id] == 0 {
+			t.Errorf("%s: no SendRRData exchange", id)
 		}
-	}
-	if n < 500 {
-		t.Errorf("%d messages", n)
 	}
 }

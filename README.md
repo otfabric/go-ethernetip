@@ -333,8 +333,8 @@ make interop    # the interop suite (Docker)
 
 Tests need nothing but Go: clients, scanners and servers run against each
 other over loopback, and against recorded traffic of a 1756-L63
-ControlLogix and a 1756-ENBT/A ([testdata/captures](testdata/captures/README.md);
-`make captures-extended` runs them on the raw files). See
+ControlLogix, a 1756-ENBT/A, a Micro850 and a MicroLogix 1400
+([testdata/captures](testdata/captures/README.md)). See
 [TESTING.md](TESTING.md).
 
 ## Interop tests

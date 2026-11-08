@@ -7,8 +7,10 @@ import (
 	"context"
 	"errors"
 	"math/bits"
+	"strings"
 	"testing"
 
+	ethernetip "github.com/otfabric/go-ethernetip"
 	"github.com/otfabric/go-ethernetip/cip"
 	"github.com/otfabric/go-ethernetip/client"
 	"github.com/otfabric/go-ethernetip/internal/capture"
@@ -21,7 +23,7 @@ const captures = "../testdata/captures"
 
 func recordings(t *testing.T) []capture.Recording {
 	t.Helper()
-	recs, err := capture.Load(captures, capture.Extended)
+	recs, err := capture.Load(captures)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -297,5 +299,136 @@ func TestCaptureTagServerAnswersHMIBitWrites(t *testing.T) {
 		if got := v.Data[x.bit/8]>>(x.bit%8)&1 == 1; got != x.set {
 			t.Errorf("%s frame %d: %s bit %d = %v", x.file, x.frame, x.tag, x.bit, got)
 		}
+	}
+}
+
+// tagExchange is a recorded symbolic Read Tag or Write Tag with its reply.
+type tagExchange struct {
+	file      string
+	frame     int
+	req, resp []byte
+	r         cip.Request
+	a         cip.Response
+}
+
+// micro850Tags returns the symbolic Read Tag and Write Tag exchanges with
+// the Micro850 (2080-LC50-48QBB), in recorded order, per file.
+func micro850Tags(t *testing.T) map[string][]tagExchange {
+	out := map[string][]tagExchange{}
+	for _, r := range recordings(t) {
+		if !strings.HasPrefix(r.File.ID, "micro850-") {
+			continue
+		}
+		for _, c := range r.Conversations {
+			ex, _ := capture.Exchanges(c)
+			for _, e := range ex {
+				if e.Reply == nil {
+					continue
+				}
+				q, err1 := capture.ParseExplicit(e.Request.Data)
+				a, err2 := capture.ParseExplicit(e.Reply.Data)
+				if err1 != nil || err2 != nil {
+					continue
+				}
+				req, err1 := cip.DecodeRequest(q.CIP)
+				resp, err2 := cip.DecodeResponse(a.CIP)
+				if err1 != nil || err2 != nil || !req.Path.Symbolic() || (req.Service != cip.ServiceReadTag && req.Service != cip.ServiceWriteTag) {
+					continue
+				}
+				out[r.File.ID] = append(out[r.File.ID], tagExchange{r.File.ID, e.Request.Frame, q.CIP, a.CIP, req, resp})
+			}
+		}
+	}
+	return out
+}
+
+// The Logix client reads and writes the Micro850's BOOL tags with the
+// requests the recorded originators sent (Read Tag of one element; Write
+// Tag of BOOL 0xFF and 0x00), and decodes its answers: the value, and
+// general status 0x05 for a tag it did not hold.
+func TestCaptureClientMicro850Tags(t *testing.T) {
+	n := 0
+	seen := map[string]bool{}
+	for _, xs := range micro850Tags(t) {
+		for _, x := range xs {
+			k := string(x.req) + string(x.resp)
+			if seen[k] {
+				continue
+			}
+			seen[k] = true
+			n++
+			rp := &replay{t: t, answers: map[string][]byte{string(x.req): x.resp}}
+			tag := x.r.Path[0].(cip.SymbolSegment).Name
+			c := logix.NewClient(rp)
+			switch x.r.Service {
+			case cip.ServiceReadTag:
+				v, err := c.Read(context.Background(), tag, 1)
+				if !x.a.OK() {
+					var ce *ethernetip.CIPError
+					if !errors.As(err, &ce) || ce.Status != x.a.Status {
+						t.Errorf("%s frame %d: %v, want status %v", x.file, x.frame, err, x.a.Status)
+					}
+					continue
+				}
+				if err != nil || v.Type != cip.TypeBOOL || v.Count != 1 || !bytes.Equal(v.Data, x.a.Data[2:]) {
+					t.Errorf("%s frame %d: %+v %v", x.file, x.frame, v, err)
+				}
+			case cip.ServiceWriteTag:
+				v := logix.Value{Type: cip.TypeBOOL, Count: 1, Data: x.r.Data[4:]}
+				if err := c.Write(context.Background(), tag, v); err != nil {
+					t.Errorf("%s frame %d: %v", x.file, x.frame, err)
+				}
+			default: // micro850Tags keeps Read Tag and Write Tag only
+			}
+		}
+	}
+	if n < 20 {
+		t.Errorf("%d distinct exchanges", n)
+	}
+}
+
+// The emulation, holding the Micro850's BOOL tags, answers every recorded
+// Read Tag and Write Tag byte for byte as the controller did. Before each
+// read the tag holds the value the controller answered, unless the
+// originator wrote the tag since its last read: then the emulation's own
+// value is compared, and a written 0xFF reads back as 1, as on the
+// Micro850 (since v0.6.0; before, the emulation kept 0xFF). The one read
+// the controller refused with 0x05 (_IO_EM_DO_04 before it existed) is
+// answered with 0x05 for a tag the emulation does not hold.
+func TestCaptureTagServerAnswersMicro850(t *testing.T) {
+	ctx := context.Background()
+	readBacks := 0
+	for file, xs := range micro850Tags(t) {
+		ts := logix.NewTagServer()
+		written := map[string]bool{}
+		for _, x := range xs {
+			tag := x.r.Path[0].(cip.SymbolSegment).Name
+			if _, err := ts.Get(tag); err != nil && x.a.OK() {
+				if err := ts.AddTag(tag, cip.TypeBOOL); err != nil {
+					t.Fatal(err)
+				}
+			}
+			req := x.r
+			if !x.a.OK() {
+				req.Path = cip.Path{cip.SymbolSegment{Name: tag + "_absent"}}
+			} else if x.r.Service == cip.ServiceReadTag && !written[tag] {
+				v := logix.Value{Type: cip.TypeBOOL, Count: 1, Data: append([]byte(nil), x.a.Data[2:]...)}
+				if err := ts.Set(tag, v); err != nil {
+					t.Fatal(err)
+				}
+			} else if x.r.Service == cip.ServiceReadTag {
+				readBacks++
+			}
+			written[tag] = x.r.Service == cip.ServiceWriteTag
+			resp := ts.ServeSymbol(ctx, &server.Request{Request: req})
+			resp.Service = req.Service // the Message Router sets it
+			got, err := resp.Encode()
+			if err != nil || !bytes.Equal(got, x.resp) {
+				t.Fatalf("%s frame %d: % x, the Micro850 answered % x", file, x.frame, got, x.resp)
+			}
+		}
+	}
+	if readBacks < 10 {
+		t.Errorf("%d reads after a write", readBacks)
 	}
 }

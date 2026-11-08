@@ -286,8 +286,9 @@ func (ss *session) sendRRData(pkt encap.Packet) {
 		items := append([]encap.Item{{Type: encap.ItemNullAddress}, {Type: encap.ItemUnconnectedData, Data: b}}, ex.addItems...)
 		var data []byte
 		// The reply carries the request's timeout, as the recorded
-		// ControlLogix module and Logix targets answer
-		// (testdata/captures).
+		// ControlLogix module and Logix-like targets answer
+		// (testdata/captures; a Micro850 and a MicroLogix answer a
+		// constant instead, which originators ignore).
 		if data, err = (encap.RRData{Timeout: rr.Timeout, Items: items}).Encode(); err == nil && len(data) <= encap.MaxData {
 			ss.replyData(pkt.Header, data)
 			return

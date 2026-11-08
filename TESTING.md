@@ -12,7 +12,7 @@ other over loopback TCP and UDP; no mocks stand in for the network.
 | Leaks | `e2e/main_test.go` | after the whole e2e suite: no goroutine and no file descriptor left | `make test` |
 | Fuzz | `*_fuzz_test.go` | every decoder (encapsulation, CPF, CIP requests and responses, EPATH, Multiple Service Packet, Forward_Open, Unconnected_Send, identity, I/O datagrams, EDS) and the server's Logix dispatch: no panic, bounded allocation, round trips | `make fuzz` (CI: 10 s each per push, 10 min each nightly) |
 | Benchmarks | `cip`, `encap`, `implicit`, `e2e` | codec throughput and allocations; request latency, throughput, Class 3, fragmented Logix reads | `make bench` |
-| Recorded traffic | `*/capture_test.go`, `internal/capture`, [testdata/captures](testdata/captures/README.md) | captures of a 1756-L63 ControlLogix, a 1756-ENBT/A and unidentified targets with Rockwell software: every message decodes and encodes back byte for byte; the client against the recorded replies (a request no recorded originator sent fails); the server against the recorded requests (the devices' answers byte for byte, known differences pinned); Logix templates and bit writes; Class 1 datagrams; truncations, malformed variants and 300 seeded mutated streams | `make test`; on the raw files `make captures-extended` (downloads them) |
+| Recorded traffic | `*/capture_test.go`, `internal/capture`, [testdata/captures](testdata/captures/README.md) | 20 committed captures (31 MB, about 200,000 messages) of a 1756-L63 ControlLogix, a 1756-ENBT/A, a Micro850, a MicroLogix 1400 and unidentified targets: every message decodes and encodes back byte for byte; the client and the Logix client against the recorded replies (a request no recorded originator sent fails); the server and the Logix emulation against the recorded requests (the devices' answers byte for byte, known differences pinned); Class 1 datagrams; truncations, malformed variants and 300 seeded mutated streams | `make test` |
 | Interop | `interop/` (build tag `interop`) | the library against OpENer, EIPScanner, pycomm3 and cpppo, both directions | `make interop` (Docker) |
 
 ## Rules
@@ -37,9 +37,7 @@ other over loopback TCP and UDP; no mocks stand in for the network.
   `eds/internal/sampledevice` (tested, but generated), the interop suite,
   and the capture reader `internal/capture` (test infrastructure, tested
   at 97 %).
-- Capture tests read only committed files. The raw files of the excerpts
-  are fetched by `make captures-fetch` (the only step with network); the
-  tests with build tag `captures` read them instead.
+- Capture tests read only committed files: no download, no network.
 
 ## Platforms
 
