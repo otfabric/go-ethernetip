@@ -55,6 +55,9 @@ func TestDefinitionSizeClamps(t *testing.T) {
 	if definitionLen(1<<28) != 1<<30-23 || definitionLen(1<<28+1) != 1<<30 || definitionLen(math.MaxUint32) != 1<<30 {
 		t.Error("definitionLen clamp")
 	}
+	if readLen(30) != 100 || readLen(1<<28) != 1<<30-20 || readLen(1<<28+1) != 1<<30 {
+		t.Error("readLen")
+	}
 	if strconv.IntSize < 64 {
 		return
 	}

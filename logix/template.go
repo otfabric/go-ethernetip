@@ -156,6 +156,21 @@ func definitionWords(n int) uint32 {
 	return uint32(w)
 }
 
+// readLen returns how many octets the client asks Read Template for, for
+// a definition of words words: words×4 − 20, as RSLogix 5000 asks a
+// 1756-L63 for its COUNTER (30 words, 100 octets) and TIMER (24 words, 76
+// octets) templates, and the controller answers with that many octets and
+// success (testdata/captures, controllogix-factorytalk frames 102 to 113).
+// The − 23 of definitionLen would leave the last 3 octets, the end of the
+// last member's name, unread. A server that holds less answers the rest.
+// It does not overflow on 32-bit platforms (see definitionLen).
+func readLen(words uint32) int {
+	if words > 1<<28 {
+		return 1 << 30
+	}
+	return int(words)*4 - 20
+}
+
 // definitionLen returns the octets of a definition of words words; it
 // does not overflow on 32-bit platforms (a size above 1 GiB, which no
 // caller accepts, is returned as 1 GiB).

@@ -285,7 +285,10 @@ func (ss *session) sendRRData(pkt encap.Packet) {
 	if err == nil {
 		items := append([]encap.Item{{Type: encap.ItemNullAddress}, {Type: encap.ItemUnconnectedData, Data: b}}, ex.addItems...)
 		var data []byte
-		if data, err = (encap.RRData{Items: items}).Encode(); err == nil && len(data) <= encap.MaxData {
+		// The reply carries the request's timeout, as the recorded
+		// ControlLogix module and Logix targets answer
+		// (testdata/captures).
+		if data, err = (encap.RRData{Timeout: rr.Timeout, Items: items}).Encode(); err == nil && len(data) <= encap.MaxData {
 			ss.replyData(pkt.Header, data)
 			return
 		}
@@ -294,7 +297,7 @@ func (ss *session) sendRRData(pkt encap.Packet) {
 	// told so rather than left to time out.
 	ss.s.log.Warn("reply too large", "error", err, "octets", len(b))
 	b, _ = tooLarge(resp.Service).Encode()
-	data, _ := encap.RRData{Items: []encap.Item{{Type: encap.ItemNullAddress}, {Type: encap.ItemUnconnectedData, Data: b}}}.Encode()
+	data, _ := encap.RRData{Timeout: rr.Timeout, Items: []encap.Item{{Type: encap.ItemNullAddress}, {Type: encap.ItemUnconnectedData, Data: b}}}.Encode()
 	ss.replyData(pkt.Header, data)
 }
 

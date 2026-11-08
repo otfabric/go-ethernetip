@@ -485,7 +485,9 @@ func TestClientTemplate(t *testing.T) {
 	}
 	for i, off := range []int{0, 20, 40} {
 		r := d.reqs[i+1]
-		want := cat(le32(uint32(off)), le16(uint16(total-off)))
+		// The client asks for words×4 − 20 octets (as RSLogix 5000 does);
+		// this server holds words×4 − 23 and answers the rest.
+		want := cat(le32(uint32(off)), le16(uint16(readLen(definitionWords(len(def)))-off)))
 		if r.Service != cip.ServiceReadTemplate || !bytes.Equal(r.Data, want) {
 			t.Fatalf("read %d: %x, want %x", i, r.Data, want)
 		}
