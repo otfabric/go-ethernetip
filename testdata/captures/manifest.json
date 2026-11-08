@@ -1,0 +1,347 @@
+{
+  "schema": 1,
+  "acquired": "2026-11-08",
+  "classes": {
+    "A": "physical-device traffic, the device identified by its own answers in the recording (Identity object or ListIdentity)",
+    "B": "physical-device origin credibly documented, not verified from the traffic",
+    "C": "recorded traffic of unknown device origin",
+    "D": "simulated, generated or hand-crafted traffic"
+  },
+  "sources": [
+    {
+      "id": "ics-pcaps",
+      "name": "EmreEkin/ICS-Pcaps",
+      "url": "https://github.com/EmreEkin/ICS-Pcaps",
+      "revision": "0ffbf023afb4e39373228b54851bb4a1f33a3ab8",
+      "licence": "none stated (no licence file; the README describes the files as samples to study ICS protocols)",
+      "redistribution": "not established: the raw files are not committed; excerpts of the EtherNet/IP messages only"
+    },
+    {
+      "id": "icsnpp-enip",
+      "name": "cisagov/icsnpp-enip, testing/traces",
+      "url": "https://github.com/cisagov/icsnpp-enip/tree/main/testing/traces",
+      "revision": "3fbd32e3d2838d5e2bcd6c9ed79f036d23a0642e",
+      "licence": "BSD-3-Clause, Copyright (c) 2023, Battelle Energy Alliance, LLC (repository LICENSE.txt)",
+      "redistribution": "permitted with the notice (THIRD_PARTY_NOTICES.md); committed byte-identical"
+    },
+    {
+      "id": "iti-ics-security-tools",
+      "name": "ITI/ICS-Security-Tools, pcaps/EthernetIP",
+      "url": "https://github.com/ITI/ICS-Security-Tools/tree/master/pcaps/EthernetIP",
+      "revision": "bcb93ee1cdf395a457cc08f639cf29aab5975f01",
+      "licence": "CC-BY-4.0 (repository licence; 'developed as a community asset')",
+      "redistribution": "the small single-message files are committed byte-identical with attribution; EthernetIP-CIP.pcap names CloudShark capture 76038eaa4a3b as its source, whose terms are not stated, and is kept as an excerpt"
+    },
+    {
+      "id": "icsdefense",
+      "name": "ICS Defense PCAP archive",
+      "url": "https://icsdefense.net/en/pcap",
+      "revision": "",
+      "licence": "not stated",
+      "redistribution": "not used: the archive's list is rendered by the browser and no EtherNet/IP file could be retrieved without it; same publisher as ICS-Pcaps"
+    }
+  ],
+  "files": [
+    {
+      "id": "controllogix-download",
+      "source": "ics-pcaps",
+      "path": "Ethernet_IP/ControlLogix_Logix5000_download_upload_run.pcap",
+      "url": "https://raw.githubusercontent.com/EmreEkin/ICS-Pcaps/0ffbf023afb4e39373228b54851bb4a1f33a3ab8/Ethernet_IP/ControlLogix_Logix5000_download_upload_run.pcap",
+      "sha256": "4fe2aa010d09030815ae5334bd83741a328e596fc801fed9641fb328e4571937",
+      "size": 80790,
+      "recorded": "2008-01-15",
+      "class": "A",
+      "storage": "excerpt",
+      "local": "excerpts/ics-pcaps/ControlLogix_Logix5000_download_upload_run.json",
+      "devices": [
+        "1756-L63/A ControlLogix controller, firmware 15.4 (\"1756-L63/A L6x_15_31\"), serial 0x0014CD8A, slot 0 behind the EtherNet/IP module at 10.92.18.17 (Identity object, frame 222)"
+      ],
+      "peers": [
+        "RSLinx (Rockwell Software, vendor 0x004D) for RSLogix 5000, originator serials 0x11FA6145 and 0x21217FA7"
+      ],
+      "operations": [
+        "command 0x0001, ListServices, ListInterfaces, RegisterSession",
+        "Unconnected_Send to the controller (route port 1, link 0): Identity Get_Attributes_All and Get_Attribute_List, Message Router Get_Attributes_All, Program Name Get_Attribute_List",
+        "Forward_Open and Forward_Close (Class 3 to the Message Router)",
+        "connected Get_Attribute_List and Multiple Service Packets of Logix objects (0x68, 0x69, 0x6B, 0x70, 0x72, 0x73, 0x7E, 0x8E, 0xAC)",
+        "Get_Attribute_Single Identity status, an unknown class (0x334, general status 0x05)"
+      ],
+      "limitations": "The download, upload and run of the file name use Rockwell-private objects whose services are not documented publicly; they are decoded only to the CIP level.",
+      "maxPerKind": 3
+    },
+    {
+      "id": "controllogix-factorytalk",
+      "source": "ics-pcaps",
+      "path": "Ethernet_IP/ControlLogix_FactoryTalk_HMI.pcap",
+      "url": "https://raw.githubusercontent.com/EmreEkin/ICS-Pcaps/0ffbf023afb4e39373228b54851bb4a1f33a3ab8/Ethernet_IP/ControlLogix_FactoryTalk_HMI.pcap",
+      "sha256": "14c33995e71c6d54021c7d0f4e0e8a96bf1d4eb2ccc5fc9abde904db3609449f",
+      "size": 99802,
+      "recorded": "2008-01-15",
+      "class": "A",
+      "storage": "excerpt",
+      "local": "excerpts/ics-pcaps/ControlLogix_FactoryTalk_HMI.json",
+      "devices": [
+        "the same 1756-L63/A as controllogix-download: same address, same originator serial 0x11FA6145 three minutes earlier, the same Identity status 0x3160 (frame 449) and the same answer of class 0xAC"
+      ],
+      "peers": [
+        "FactoryTalk View / RSLinx Enterprise (vendor 0x004D, originator serial 0x11FA6145)"
+      ],
+      "operations": [
+        "connected messaging on three Class 3 connections, the capture starting inside the first",
+        "Forward_Open (Class 3, RPI 2 s, 504 octets)",
+        "Template object (0x6C): Get_Attributes_All and Read Template of the predefined COUNTER (0x0F82) and TIMER (0x0F83) templates",
+        "Read_Modify_Write_Tag by instance (Program 0x68 / Symbol 0x6B)",
+        "Identity Get_Attribute_Single status",
+        "RSLinx-private class 0xB2"
+      ],
+      "limitations": "Starts mid-connection: the first connection's Forward_Open is not in the file.",
+      "maxPerKind": 3
+    },
+    {
+      "id": "enip-cip-cm",
+      "source": "ics-pcaps",
+      "path": "Ethernet_IP/ENIP_CIP-CM.pcap",
+      "url": "https://raw.githubusercontent.com/EmreEkin/ICS-Pcaps/0ffbf023afb4e39373228b54851bb4a1f33a3ab8/Ethernet_IP/ENIP_CIP-CM.pcap",
+      "sha256": "b5160c3aae0d3beb2bb21782697b5619f21219d5cc78c46f6ddb0b703530ea02",
+      "size": 2850,
+      "recorded": "2003-12-03",
+      "class": "C",
+      "storage": "excerpt",
+      "local": "excerpts/ics-pcaps/ENIP_CIP-CM.json",
+      "devices": [
+        "targets 192.168.100.36 and .35, not identified in the traffic"
+      ],
+      "peers": [
+        "an originator of vendor 1 (Rockwell Automation), originator serial 0x0013F522"
+      ],
+      "operations": [
+        "ListServices, RegisterSession",
+        "Forward_Open Class 1 cyclic, 10 ms, O->T point-to-point 26 octets, T->O multicast 26 octets, electronic key of zeros, Assembly 6 / connection points 2 and 1",
+        "retransmitted Forward_Open requests without reply (frame 5)"
+      ],
+      "limitations": "No device identity; the reply of the first connection is not captured."
+    },
+    {
+      "id": "ethernetip-cip-cloudshark",
+      "source": "iti-ics-security-tools",
+      "path": "pcaps/EthernetIP/EthernetIP-CIP.pcap",
+      "url": "https://raw.githubusercontent.com/ITI/ICS-Security-Tools/bcb93ee1cdf395a457cc08f639cf29aab5975f01/pcaps/EthernetIP/EthernetIP-CIP.pcap",
+      "sha256": "c50b510b3242f94c8aed9a4b6723962f182d04feca8a8dac09a96a135649461d",
+      "size": 2084906,
+      "recorded": "2012-11-12",
+      "class": "C",
+      "storage": "excerpt",
+      "maxPerKind": 2,
+      "local": "excerpts/iti-ics-security-tools/EthernetIP-CIP.json",
+      "devices": [
+        "four Logix-like targets (141.81.0.23, .43, .63, .83) answering class 0xAC and symbolic Read_Modify_Write_Tag; not identified"
+      ],
+      "peers": [
+        "one originator, 141.81.0.10 (an HMI or SCADA server)"
+      ],
+      "operations": [
+        "Multiple Service Packets of symbolic Read_Modify_Write_Tag (0x4E) on bit tags",
+        "Unconnected_Send to class 0xAC",
+        "class 0x72 reads"
+      ],
+      "limitations": "The same file is in EmreEkin/ICS-Pcaps (identical SHA256)."
+    },
+    {
+      "id": "icsnpp-enip-cip-example",
+      "source": "icsnpp-enip",
+      "path": "testing/traces/enip_cip_example.pcap",
+      "url": "https://raw.githubusercontent.com/cisagov/icsnpp-enip/3fbd32e3d2838d5e2bcd6c9ed79f036d23a0642e/testing/traces/enip_cip_example.pcap",
+      "sha256": "26cfe3df042a5d96fd680abf97c4998dd1ea8a396870a8aa2e98ba2ef056af93",
+      "size": 93889,
+      "recorded": "2008-10-24, 2015-03-31, 2020-07-14 (three recordings merged)",
+      "class": "A",
+      "storage": "raw",
+      "local": "icsnpp-enip/enip_cip_example.pcap",
+      "devices": [
+        "1756-ENBT/A, firmware 4.3, serial 0x00524D8E at 10.1.1.164 (its ListIdentity reply, frame 372) — class A for that exchange",
+        "192.168.10.120, a Logix-like target (answers class 0xAC); not identified — class C",
+        "the I/O producers 192.168.1.22 and .24; not identified — class C"
+      ],
+      "peers": [
+        "RSLinx-like browser 192.168.10.105 (Get_Attribute_List of the Identity, Port, TCP/IP, Ethernet Link, Time Sync and Logix objects)",
+        "a ListIdentity originator over TCP"
+      ],
+      "operations": [
+        "ListIdentity over TCP",
+        "Get_Attribute_List and Multiple Service Packets, Set_Attribute_List of Time Sync (0x8B)",
+        "398 Class 1 I/O datagrams on 24 connections (UDP 2222)"
+      ],
+      "limitations": "The I/O connections' Forward_Open is not in the file, so their format (header, run/idle) is inferred only from the lengths."
+    },
+    {
+      "id": "icsnpp-msp",
+      "source": "icsnpp-enip",
+      "path": "testing/traces/multiple_service_packet_cip.pcapng",
+      "url": "https://raw.githubusercontent.com/cisagov/icsnpp-enip/3fbd32e3d2838d5e2bcd6c9ed79f036d23a0642e/testing/traces/multiple_service_packet_cip.pcapng",
+      "sha256": "4eed29d01d6fe3c827e3c947694526e7669d937ff8973d5c420979565597087c",
+      "size": 344,
+      "recorded": "2008-10-24",
+      "class": "C",
+      "storage": "raw",
+      "local": "icsnpp-enip/multiple_service_packet_cip.pcapng",
+      "devices": [
+        "192.168.10.120, as in enip_cip_example"
+      ],
+      "peers": [
+        "192.168.10.105"
+      ],
+      "operations": [
+        "one Multiple Service Packet request (frame of enip_cip_example)"
+      ],
+      "limitations": "A single request, cut from enip_cip_example; no reply."
+    },
+    {
+      "id": "icsnpp-set-attribute-single",
+      "source": "icsnpp-enip",
+      "path": "testing/traces/set_attribute_single_service_cip.pcapng",
+      "url": "https://raw.githubusercontent.com/cisagov/icsnpp-enip/3fbd32e3d2838d5e2bcd6c9ed79f036d23a0642e/testing/traces/set_attribute_single_service_cip.pcapng",
+      "sha256": "9b24d02e6f15a40f2109c2476bb117e2273bc9485077a50044269d3738cea8dc",
+      "size": 500,
+      "recorded": "2025-02-06",
+      "class": "C",
+      "storage": "raw",
+      "local": "icsnpp-enip/set_attribute_single_service_cip.pcapng",
+      "devices": [],
+      "peers": [],
+      "operations": [
+        "one connected Set_Attribute_Single to the Identity class (0x01) in an 802.1Q-tagged frame"
+      ],
+      "limitations": "A single request without session or reply; origin not stated."
+    },
+    {
+      "id": "iti-cip-eth-set-2",
+      "source": "iti-ics-security-tools",
+      "path": "pcaps/EthernetIP/cip-eth-set-2.pcap",
+      "url": "https://raw.githubusercontent.com/ITI/ICS-Security-Tools/bcb93ee1cdf395a457cc08f639cf29aab5975f01/pcaps/EthernetIP/cip-eth-set-2.pcap",
+      "sha256": "fe674ddc3e4964c10321dd76f649097c87db6d48091327c6977656a5a3c04b26",
+      "size": 138,
+      "recorded": "2009-09-18",
+      "class": "C",
+      "storage": "raw",
+      "local": "iti-ics-security-tools/cip-eth-set-2.pcap",
+      "devices": [],
+      "peers": [],
+      "operations": [
+        "one reply of a Set_Attribute_Single"
+      ],
+      "limitations": "A single message."
+    },
+    {
+      "id": "iti-cip-multiple-1",
+      "source": "iti-ics-security-tools",
+      "path": "pcaps/EthernetIP/cip-multiple-1.pcap",
+      "url": "https://raw.githubusercontent.com/ITI/ICS-Security-Tools/bcb93ee1cdf395a457cc08f639cf29aab5975f01/pcaps/EthernetIP/cip-multiple-1.pcap",
+      "sha256": "ecf46cb2bfb1e7cda70d9b966431fe2e1f1056d2a158cf54ddce6f03fc82474e",
+      "size": 304,
+      "recorded": "2008-10-24",
+      "class": "C",
+      "storage": "raw",
+      "local": "iti-ics-security-tools/cip-multiple-1.pcap",
+      "devices": [],
+      "peers": [],
+      "operations": [
+        "one Multiple Service Packet request"
+      ],
+      "limitations": "A single message, the same as icsnpp-msp."
+    },
+    {
+      "id": "iti-cip-multiple-2",
+      "source": "iti-ics-security-tools",
+      "path": "pcaps/EthernetIP/cip-multiple-2.pcap",
+      "url": "https://raw.githubusercontent.com/ITI/ICS-Security-Tools/bcb93ee1cdf395a457cc08f639cf29aab5975f01/pcaps/EthernetIP/cip-multiple-2.pcap",
+      "sha256": "4a6350da7f5d5b2ee383e9e92e6a5a846931785f849798799a323d0b8a8ba3d4",
+      "size": 387,
+      "recorded": "2008-10-24",
+      "class": "C",
+      "storage": "raw",
+      "local": "iti-ics-security-tools/cip-multiple-2.pcap",
+      "devices": [],
+      "peers": [],
+      "operations": [
+        "one Multiple Service Packet reply"
+      ],
+      "limitations": "A single message."
+    },
+    {
+      "id": "iti-cip-start-plc",
+      "source": "iti-ics-security-tools",
+      "path": "pcaps/EthernetIP/cip_start_plc.pcap",
+      "url": "https://raw.githubusercontent.com/ITI/ICS-Security-Tools/bcb93ee1cdf395a457cc08f639cf29aab5975f01/pcaps/EthernetIP/cip_start_plc.pcap",
+      "sha256": "3b341bee9e7790bf0fae8468f55c9b90ac49e014cfb1dc3cc97437f811d0933f",
+      "size": 146,
+      "recorded": "2016-03-30",
+      "class": "C",
+      "storage": "raw",
+      "local": "iti-ics-security-tools/cip_start_plc.pcap",
+      "devices": [],
+      "peers": [],
+      "operations": [
+        "one Start (0x06) request to class 0x8E"
+      ],
+      "limitations": "A single request without reply; origin not stated."
+    },
+    {
+      "id": "iti-cip-stop-plc",
+      "source": "iti-ics-security-tools",
+      "path": "pcaps/EthernetIP/cip_stop_plc.pcap",
+      "url": "https://raw.githubusercontent.com/ITI/ICS-Security-Tools/bcb93ee1cdf395a457cc08f639cf29aab5975f01/pcaps/EthernetIP/cip_stop_plc.pcap",
+      "sha256": "93e5d388193fcaff3f3f38878de34269afcd01318897a2d36647c773d1e5ed3d",
+      "size": 146,
+      "recorded": "2016-03-30",
+      "class": "C",
+      "storage": "raw",
+      "local": "iti-ics-security-tools/cip_stop_plc.pcap",
+      "devices": [],
+      "peers": [],
+      "operations": [
+        "one Stop (0x07) request to class 0x8E"
+      ],
+      "limitations": "A single request; no reply."
+    },
+    {
+      "id": "iti-cip-unlock-cpu",
+      "source": "iti-ics-security-tools",
+      "path": "pcaps/EthernetIP/cip_unlock_cpu.pcap",
+      "url": "https://raw.githubusercontent.com/ITI/ICS-Security-Tools/bcb93ee1cdf395a457cc08f639cf29aab5975f01/pcaps/EthernetIP/cip_unlock_cpu.pcap",
+      "sha256": "26d072e506ffd939b82532b597bdb27684ca79e2abac8ab62b8d65e9ad87313c",
+      "size": 150,
+      "recorded": "2009-01-14",
+      "class": "C",
+      "storage": "raw",
+      "local": "iti-ics-security-tools/cip_unlock_cpu.pcap",
+      "devices": [],
+      "peers": [],
+      "operations": [
+        "one service 0x4C request to class 0x8E / 0x74"
+      ],
+      "limitations": "A single request; no reply."
+    },
+    {
+      "id": "iti-enip-test",
+      "source": "iti-ics-security-tools",
+      "path": "pcaps/EthernetIP/enip_test.pcap",
+      "url": "https://raw.githubusercontent.com/ITI/ICS-Security-Tools/bcb93ee1cdf395a457cc08f639cf29aab5975f01/pcaps/EthernetIP/enip_test.pcap",
+      "sha256": "0ba6c01fde28912e9f890d839b991cff71cca8e8259e1d93e9c3a312c43bc255",
+      "size": 925,
+      "recorded": "2015-03-31",
+      "class": "A",
+      "storage": "raw",
+      "local": "iti-ics-security-tools/enip_test.pcap",
+      "devices": [
+        "1756-ENBT/A, firmware 4.3, serial 0x00524D8E (its ListIdentity reply)"
+      ],
+      "peers": [
+        "a ListIdentity originator over TCP"
+      ],
+      "operations": [
+        "ListIdentity over TCP, and a second TCP connection without EtherNet/IP data"
+      ],
+      "limitations": "The same exchange as in enip_cip_example."
+    }
+  ]
+}

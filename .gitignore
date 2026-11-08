@@ -25,3 +25,6 @@ coverage.out
 /internal/cmd/genmatrix/genmatrix
 /internal/cmd/gensample/gensample
 /internal/cmd/interopnode/interopnode
+
+# Raw captures fetched by make captures-fetch (testdata/captures/README.md)
+/testdata/captures/.cache/

@@ -4,6 +4,8 @@
 
 .DEFAULT_GOAL := help
 
+
+.PHONY: captures-fetch captures-excerpts captures-check captures-extended
 .PHONY: help all build examples fmt fmt-check lint lint-ci vet vuln test test-short coverage coverage-check cover bench fuzz fuzz-long check clean interop test-interop generate generate-check coverpkg-check cross e2e chaos stress docs-check
 
 help: ## This help
@@ -21,7 +23,7 @@ BIN_DIR := bin
 # sample package are not library code).
 TEST_PKGS := $(shell go list ./... | grep -v '/examples' | grep -v '/interop')
 # Packages whose coverage counts, including what the e2e suite exercises.
-COVER_PKGS := $(shell go list ./... | grep -v '/examples' | grep -v '/internal/cmd' | grep -v '/e2e' | grep -v '/sampledevice' | grep -v '/internal/testenv' | grep -v '/interop' | paste -sd, -)
+COVER_PKGS := $(shell go list ./... | grep -v '/examples' | grep -v '/internal/cmd' | grep -v '/e2e' | grep -v '/sampledevice' | grep -v '/internal/testenv' | grep -v '/internal/capture' | grep -v '/interop' | paste -sd, -)
 # Minimum total statement coverage enforced by coverage-check (and CI).
 COVERAGE_MIN ?= 90
 # Per-package floor (TEST-012); needs the -coverpkg coverage.out of `make coverage`.
@@ -67,7 +69,7 @@ fmt-check: ## Fail if the go.mod-version gofmt or the local gofmt would change a
 
 lint: ## Run staticcheck (includes -tags=interop for ./interop)
 	@echo "Running staticcheck"
-	@staticcheck -tags=$(INTEROP_TAGS) ./...
+	@staticcheck -tags=$(INTEROP_TAGS),captures ./...
 
 lint-ci: ## Run golangci-lint (build-tags include interop; see .golangci.yml)
 	@echo "Running golangci-lint"
@@ -76,6 +78,7 @@ lint-ci: ## Run golangci-lint (build-tags include interop; see .golangci.yml)
 vet: ## Run go vet (includes -tags=interop compile of ./interop)
 	@echo "Running go vet"
 	@go vet -tags=$(INTEROP_TAGS) ./...
+	@go vet -tags=captures ./...
 
 cross: ## Build for every supported platform (cross-compilation only; see TESTING.md for where tests run)
 	@for p in linux/amd64 linux/arm64 linux/arm darwin/amd64 darwin/arm64 windows/amd64 windows/arm64 freebsd/amd64; do \
@@ -142,6 +145,21 @@ fuzz: ## Run every fuzz target for FUZZTIME each (default 30s)
 		echo "$$pkg $$name"; \
 		go test -run='^$$' -fuzz="^$$name$$" -fuzztime=$(FUZZTIME) ./$$pkg || exit 1; \
 	done
+
+# Recorded traffic of real devices (testdata/captures/README.md). The
+# regular tests read the committed captures and excerpts; these targets
+# fetch the raw files of the excerpts (network) and run the tests on them.
+captures-fetch: ## Download the raw captures of the excerpts into testdata/captures/.cache, checking their SHA256
+	@go run ./internal/cmd/capturecorpus fetch
+
+captures-excerpts: captures-fetch ## Rewrite the committed excerpts from the raw captures
+	@go run ./internal/cmd/capturecorpus excerpts
+
+captures-check: captures-fetch ## Fail when an excerpt differs from what its raw capture gives
+	@go run ./internal/cmd/capturecorpus check
+
+captures-extended: captures-check ## Run the capture tests on the raw captures instead of the excerpts
+	@go test -count=1 -race -tags=captures -run 'Capture|Manifest|Excerpt' ./internal/capture ./encap ./cip ./implicit ./client ./server ./logix
 
 # Images of otfabric/ethernetip-interop: the release pinned in
 # interop/harness_test.go (interopRelease), or ETHERNETIP_INTEROP_VERSION=dev
