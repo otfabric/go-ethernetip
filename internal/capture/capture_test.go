@@ -12,6 +12,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 	"time"
@@ -24,16 +25,16 @@ const dir = "../../testdata/captures"
 // frame may hold several), and tshark -Y udp.port==2222 for I/O.
 func TestCommittedCapturesMatchWireshark(t *testing.T) {
 	want := map[string]struct{ explicit, io, convs, dropped int }{
-		"icsnpp-enip/enip_cip_example.pcap":                   {269, 398, 4, 0},
-		"icsnpp-enip/multiple_service_packet_cip.pcapng":      {1, 0, 1, 0},
-		"icsnpp-enip/set_attribute_single_service_cip.pcapng": {1, 0, 1, 0},
-		"iti-ics-security-tools/cip-eth-set-2.pcap":           {1, 0, 1, 0},
-		"iti-ics-security-tools/cip-multiple-1.pcap":          {1, 0, 1, 0},
-		"iti-ics-security-tools/cip-multiple-2.pcap":          {1, 0, 1, 0},
-		"iti-ics-security-tools/cip_start_plc.pcap":           {1, 0, 1, 0},
-		"iti-ics-security-tools/cip_stop_plc.pcap":            {1, 0, 1, 0},
-		"iti-ics-security-tools/cip_unlock_cpu.pcap":          {1, 0, 1, 0},
-		"iti-ics-security-tools/enip_test.pcap":               {2, 0, 2, 0},
+		"icsnpp-enip/unknown_mixed_list-identity-browse-io.pcap":                    {269, 398, 4, 0},
+		"icsnpp-enip/unknown_logix_multiple-service-packet.pcapng":                  {1, 0, 1, 0},
+		"icsnpp-enip/unknown_unknown_set-attribute-single-vlan.pcapng":              {1, 0, 1, 0},
+		"iti-ics-security-tools/unknown_unknown_set-attribute-single-reply.pcap":    {1, 0, 1, 0},
+		"iti-ics-security-tools/unknown_logix_multiple-service-packet-request.pcap": {1, 0, 1, 0},
+		"iti-ics-security-tools/unknown_logix_multiple-service-packet-reply.pcap":   {1, 0, 1, 0},
+		"iti-ics-security-tools/unknown_unknown_start.pcap":                         {1, 0, 1, 0},
+		"iti-ics-security-tools/unknown_unknown_stop.pcap":                          {1, 0, 1, 0},
+		"iti-ics-security-tools/unknown_unknown_unlock-cpu.pcap":                    {1, 0, 1, 0},
+		"iti-ics-security-tools/unknown_1756-enbt_list-identity.pcap":               {2, 0, 2, 0},
 	}
 	files, err := filepath.Glob(filepath.Join(dir, "*", "*.pcap*"))
 	if err != nil || len(files) != len(want) {
@@ -124,10 +125,14 @@ func TestManifest(t *testing.T) {
 	sums := readSums(t)
 	seen := map[string]bool{}
 	for _, f := range m.Files {
-		if seen[f.ID] || !sources[f.Source] || m.Classes[f.Class] == "" || f.URL == "" || len(f.Operations) == 0 {
+		if seen[f.ID] || !sources[f.Source] || m.Classes[f.Class] == "" || f.URL == "" || len(f.Operations) == 0 ||
+			!cleanName.MatchString(f.Name) || f.OriginalName != filepath.Base(f.Path) || filepath.Ext(f.Name) != filepath.Ext(f.OriginalName) {
 			t.Errorf("file %s: duplicate, or source %q, class %q, URL or operations missing", f.ID, f.Source, f.Class)
 		}
 		seen[f.ID] = true
+		if stem := strings.TrimSuffix(f.Name, filepath.Ext(f.Name)); !strings.HasPrefix(filepath.Base(f.Local), stem+".") || filepath.Dir(filepath.Dir(f.Local)) != map[bool]string{true: ".", false: "excerpts"}[f.Storage == "raw"] {
+			t.Errorf("%s: stored as %s, named %s", f.ID, f.Local, f.Name)
+		}
 		b, err := os.ReadFile(filepath.Join(dir, f.Local))
 		if err != nil {
 			t.Fatal(err)
@@ -155,6 +160,10 @@ func TestManifest(t *testing.T) {
 		t.Errorf("SHA256SUMS: %s is not in the manifest", p)
 	}
 }
+
+// cleanName is <client-or-peer>_<device>_<operation>.<ext>: lower case,
+// words joined by hyphens.
+var cleanName = regexp.MustCompile(`^[a-z0-9.-]+_[a-z0-9.-]+_[a-z0-9-]+\.(pcap|pcapng)$`)
 
 func readSums(t *testing.T) map[string]string {
 	t.Helper()
@@ -676,11 +685,11 @@ func TestExcerptErrors(t *testing.T) {
 	if _, err := ReadManifest("/nonexistent-dir"); err == nil {
 		t.Error("missing directory read")
 	}
-	write("manifest.json", `{"files":[{"id":"x","source":"s","path":"p/x.pcap","storage":"excerpt","local":"x.json"}]}`)
+	write("manifest.json", `{"files":[{"id":"x","source":"s","name":"a_b_c.pcap","path":"p/x.pcap","storage":"excerpt","local":"x.json"}]}`)
 	if _, err := Load(d, true); err == nil {
 		t.Error("missing cache file loaded")
 	}
-	if got := (File{Source: "s", Path: "p/x.pcap"}).CachePath(); got != filepath.Join(".cache", "s", "x.pcap") {
+	if got := (File{Source: "s", Name: "a_b_c.pcap", Path: "p/x.pcap"}).CachePath(); got != filepath.Join(".cache", "s", "a_b_c.pcap") {
 		t.Errorf("CachePath %s", got)
 	}
 }

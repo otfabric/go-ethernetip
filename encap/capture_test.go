@@ -68,7 +68,7 @@ func TestCapturesDecode(t *testing.T) {
 				e, _ := capture.ParseExplicit(m.Data)
 				if p.Command == encap.CommandSendUnitData {
 					// Originators put a timeout into SendUnitData too (RSLinx
-					// 1, the HMI of EthernetIP-CIP 10); the targets answer 0.
+					// 1, the HMI of hmi_logix_bit-writes 10); the targets answer 0.
 					it, ok := encap.Find(rr.Items, encap.ItemConnectedAddress)
 					id, err := encap.DecodeConnectedAddress(it)
 					if !ok || err != nil || id != e.ConnID || (!m.FromClient && rr.Timeout != 0) {
@@ -83,8 +83,8 @@ func TestCapturesDecode(t *testing.T) {
 	}
 }
 
-// The 1756-ENBT/A's ListIdentity reply over TCP (enip_cip_example frame
-// 372, the same exchange as enip_test frame 7).
+// The 1756-ENBT/A's ListIdentity reply over TCP (unknown_mixed_list-identity-browse-io
+// frame 372, the same exchange as unknown_1756-enbt_list-identity frame 7).
 func TestCaptureListIdentity1756ENBT(t *testing.T) {
 	recs := recordings(t)
 	for _, f := range []struct {
@@ -127,7 +127,7 @@ func TestCaptureListIdentity1756ENBT(t *testing.T) {
 }
 
 // ListServices, ListInterfaces and RegisterSession replies of the
-// ControlLogix's EtherNet/IP module and of the target in ENIP_CIP-CM.
+// ControlLogix's EtherNet/IP module and of the target in rockwell-originator_unknown_forward-open-class1.
 func TestCaptureSessionCommands(t *testing.T) {
 	recs := recordings(t)
 	r, _ := capture.Get(recs, "controllogix-download")
@@ -177,7 +177,7 @@ func TestCaptureSessionCommands(t *testing.T) {
 
 // The recorded targets answer SendRRData with the request's timeout, not
 // zero: the ControlLogix module 32 s and 0 s as asked, the four targets of
-// EthernetIP-CIP 20 s. Package server does the same.
+// hmi_logix_bit-writes 20 s. Package server does the same.
 func TestCaptureRRDataTimeoutEchoed(t *testing.T) {
 	n := 0
 	for _, r := range recordings(t) {

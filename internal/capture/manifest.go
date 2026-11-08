@@ -33,13 +33,18 @@ type Source struct {
 
 // File is one capture file.
 type File struct {
-	ID       string `json:"id"`
-	Source   string `json:"source"`
-	Path     string `json:"path"` // in the source
-	URL      string `json:"url"`
-	SHA256   string `json:"sha256"`
-	Size     int64  `json:"size"`
-	Recorded string `json:"recorded"`
+	ID     string `json:"id"`
+	Source string `json:"source"`
+	// Name is the file's name here, <client-or-peer>_<device>_<operation>
+	// with the original extension (testdata/captures/README.md); the raw
+	// file of an excerpt is cached under it.
+	Name         string `json:"name"`
+	OriginalName string `json:"original_name"`
+	Path         string `json:"path"` // in the source
+	URL          string `json:"url"`
+	SHA256       string `json:"sha256"`
+	Size         int64  `json:"size"`
+	Recorded     string `json:"recorded"`
 	// Class is the evidence class (A to D, see Manifest.Classes).
 	Class string `json:"class"`
 	// Storage is "raw" (committed byte-identical at Local) or "excerpt"
@@ -59,7 +64,7 @@ const CacheDir = ".cache"
 
 // CachePath returns the path of the raw file in the cache, relative to
 // testdata/captures.
-func (f File) CachePath() string { return filepath.Join(CacheDir, f.Source, filepath.Base(f.Path)) }
+func (f File) CachePath() string { return filepath.Join(CacheDir, f.Source, f.Name) }
 
 // ReadManifest reads manifest.json from the captures directory dir.
 func ReadManifest(dir string) (Manifest, error) {

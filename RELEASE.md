@@ -32,7 +32,7 @@ others, not a conformance claim.
   answer the rest, as before.
 - **server**: the SendRRData reply carries the request's timeout, as the
   recorded ControlLogix module (32 s and 0 s) and the four targets of
-  EthernetIP-CIP (20 s) answer; it was 0.
+  `hmi_logix_bit-writes` (20 s) answer; it was 0.
 
 ### Tests
 
@@ -42,7 +42,8 @@ others, not a conformance claim.
   counts equal Wireshark 4.6's.
 - `testdata/captures`: the corpus with `manifest.json` (provenance, SHA256,
   evidence class A to D, devices), `coverage.json` (what each exchange
-  verifies), `SHA256SUMS`. Files whose terms do not permit redistribution
+  verifies), `SHA256SUMS`; files named `<client-or-peer>_<device>_<operation>`
+  (original names in the manifest). Files whose terms do not permit redistribution
   are held as excerpts of their EtherNet/IP messages;
   `make captures-fetch`, `captures-check` and `captures-extended` fetch the
   raw files and run the tests on them.

@@ -34,13 +34,13 @@ and replay regression material.
 |---|---|---|---|
 | [EmreEkin/ICS-Pcaps](https://github.com/EmreEkin/ICS-Pcaps), `Ethernet_IP/` | `0ffbf023afb4e39373228b54851bb4a1f33a3ab8` | no licence file, no statement on reuse | **excerpts only** |
 | [cisagov/icsnpp-enip](https://github.com/cisagov/icsnpp-enip), `testing/traces/` | `3fbd32e3d2838d5e2bcd6c9ed79f036d23a0642e` | BSD-3-Clause, © 2023 Battelle Energy Alliance, LLC ([THIRD_PARTY_NOTICES.md](../../THIRD_PARTY_NOTICES.md)) | raw, byte-identical |
-| [ITI/ICS-Security-Tools](https://github.com/ITI/ICS-Security-Tools), `pcaps/EthernetIP/` | `bcb93ee1cdf395a457cc08f639cf29aab5975f01` | CC-BY-4.0 (repository licence) | the small files raw, byte-identical; `EthernetIP-CIP.pcap` as an excerpt (its README names CloudShark capture 76038eaa4a3b as its source, whose terms are not stated) |
+| [ITI/ICS-Security-Tools](https://github.com/ITI/ICS-Security-Tools), `pcaps/EthernetIP/` | `bcb93ee1cdf395a457cc08f639cf29aab5975f01` | CC-BY-4.0 (repository licence) | the small files raw, byte-identical; `EthernetIP-CIP.pcap` (here `hmi_logix_bit-writes`) as an excerpt (its README names CloudShark capture 76038eaa4a3b as its source, whose terms are not stated) |
 | [ICS Defense PCAP archive](https://icsdefense.net/en/pcap) | — | not stated | not used: its list is rendered in the browser, no EtherNet/IP file could be retrieved without it |
 
 **Judgement to revisit:** public availability is not permission to
 redistribute. Where no licence or publisher statement permits it, this
 repository does not commit the raw file. It commits an *excerpt*
-(`excerpts/<source>/<file>.json`): the encapsulation messages of the file,
+(`excerpts/<source>/<name>.json`): the encapsulation messages of the file,
 without the Ethernet, IP and TCP headers, with repeated exchanges left
 out (and for long recordings at most a few exchanges per request shape).
 Each excerpt names the raw file's SHA256. The owner may decide that the
@@ -48,7 +48,7 @@ excerpts are not needed (and fetch the raw files in CI) or that the raw
 files may be committed after all.
 
 `make captures-fetch` downloads the raw files of the excerpts into
-`.cache/` (git-ignored), checking SHA256 and size; `make captures-check`
+`.cache/<source>/<name>` (git-ignored), checking SHA256 and size; `make captures-check`
 fails when an excerpt is not what its raw file gives; `make
 captures-extended` runs every capture test on the raw files instead of the
 excerpts (build tag `captures`). Only `captures-fetch` uses the network;
@@ -63,35 +63,66 @@ Read from the devices' own answers.
 
 | Device | Identity | Seen in |
 |---|---|---|
-| 1756-L63/A ControlLogix controller, slot 0 | vendor 1, device type 0x0E, product code 56, revision 15.4, serial 0x0014CD8A, name "1756-L63/A L6x_15_31", status 0x3160 (download capture frame 222, through Unconnected_Send port 1 link 0) | `ControlLogix_Logix5000_download_upload_run`, `ControlLogix_FactoryTalk_HMI` (the same address, originator serial and status three minutes earlier) |
+| 1756-L63/A ControlLogix controller, slot 0 | vendor 1, device type 0x0E, product code 56, revision 15.4, serial 0x0014CD8A, name "1756-L63/A L6x_15_31", status 0x3160 (`rslogix5000_1756-l63_download-upload-run` frame 222, through Unconnected_Send port 1 link 0) | `rslogix5000_1756-l63_download-upload-run`, `factorytalk_1756-l63_hmi-reads` (the same address, originator serial and status three minutes earlier) |
 | its EtherNet/IP module, 10.92.18.17 | not read in the recording (no ListIdentity, no Identity of the module); ListServices "Communications", capabilities 0x0120 | the same |
-| 1756-ENBT/A | vendor 1, device type 0x0C, product code 58, revision 4.3, serial 0x00524D8E, status 0x0030, state 3, 10.1.1.164 (ListIdentity reply) | `enip_cip_example` frame 372, `enip_test` frame 7 |
+| 1756-ENBT/A | vendor 1, device type 0x0C, product code 58, revision 4.3, serial 0x00524D8E, status 0x0030, state 3, 10.1.1.164 (ListIdentity reply) | `unknown_mixed_list-identity-browse-io` frame 372, `unknown_1756-enbt_list-identity` frame 7 |
 
 Originators: RSLinx for RSLogix 5000 and FactoryTalk (vendor 0x004D,
 Rockwell Software; originator serials 0x11FA6145 and 0x21217FA7), a
 Rockwell originator (vendor 1, serial 0x0013F522) opening a Class 1
 connection, an HMI sending symbolic bit writes to four Logix-like targets.
 
+## Names
+
+`<client-or-peer>_<device>_<operation>.<ext>`, lower case, words joined by
+hyphens; the extension keeps the original format (pcap or pcapng), and
+the directory is the source. An excerpt has the same name with `.json`
+under `excerpts/<source>/`; `make captures-fetch` saves its raw file under
+the same name in `.cache/<source>/`. manifest.json keeps each file's
+original name, path and URL.
+
+| Client or peer | Software |
+|---|---|
+| `rslogix5000` | RSLogix 5000 through RSLinx (vendor 0x004D, Rockwell Software) |
+| `factorytalk` | FactoryTalk View through RSLinx Enterprise (vendor 0x004D) |
+| `rockwell-originator` | an originator of vendor 1 (Rockwell Automation), serial 0x0013F522; product not in the traffic |
+| `hmi` | an HMI or SCADA server, product not in the traffic |
+| `unknown` | not stated by the source and not in the traffic |
+
+| Device | Meaning |
+|---|---|
+| `1756-l63` | the 1756-L63/A ControlLogix identified below |
+| `1756-enbt` | the 1756-ENBT/A identified below |
+| `logix` | Logix-like targets (they answer Rockwell's class 0xAC and Logix tag services), not identified |
+| `mixed` | several recordings merged: the 1756-ENBT/A and unidentified targets |
+| `unknown` | not identified |
+
 ## Files
 
 Messages: encapsulation messages (one or more per frame) and I/O
 datagrams, equal to what Wireshark 4.6 decodes (`tshark -Y enip -T fields
 -e enip.command`, one per command; `-Y udp.port==2222` for I/O), except
-ENIP_CIP-CM, see below.
+the Class 1 Forward_Open file, see below.
 
-| File | Class | Here | Messages | What it holds |
-|---|:-:|---|---:|---|
-| `ics-pcaps/ControlLogix_Logix5000_download_upload_run.pcap` | A | excerpt | 346 | RSLinx and the 1756-L63: command 0x0001, ListServices, ListInterfaces, RegisterSession; through Unconnected_Send the Identity object, its attributes 0x65/0x66, the Message Router's class list, Program Name; Class 3 Forward_Open/Forward_Close; connected Get_Attribute_List and Multiple Service Packets of Logix objects; class 0x0334 refused with 0x05 |
-| `ics-pcaps/ControlLogix_FactoryTalk_HMI.pcap` | A | excerpt | 272 | FactoryTalk/RSLinx and the 1756-L63 on Class 3 connections (the capture starts inside the first): Template object (COUNTER, TIMER: Get_Attributes_All, Read Template), Read_Modify_Write_Tag by instance, Identity status, RSLinx-private class 0xB2 |
-| `ics-pcaps/ENIP_CIP-CM.pcap` | C | excerpt | 21 | ListServices, RegisterSession, Class 1 Forward_Open (10 ms, O->T point-to-point, T->O multicast, Assembly 6/2/1) with Sockaddr Info items; frame 5 is a 1460-octet retransmission of 14 earlier Forward_Open requests (tshark, which does not dissect it, counts 8 messages) |
-| `iti-ics-security-tools/EthernetIP-CIP.pcap` | C | excerpt | 8,799 | an HMI and four Logix-like targets: symbolic Read_Modify_Write_Tag in Multiple Service Packets, class 0xAC, class 0x72 |
-| `icsnpp-enip/enip_cip_example.pcap` | A (ListIdentity), C (rest) | raw | 269 + 398 I/O | ListIdentity of the 1756-ENBT/A over TCP; Get_Attribute_List browsing of a Logix-like target; Set_Attribute_List of Time Sync; 398 Class 1 datagrams on 24 connections |
-| `icsnpp-enip/multiple_service_packet_cip.pcapng` | C | raw | 1 | a Multiple Service Packet request (from enip_cip_example) |
-| `icsnpp-enip/set_attribute_single_service_cip.pcapng` | C | raw | 1 | Set_Attribute_Single in an 802.1Q-tagged frame, nanosecond time stamps |
-| `iti-ics-security-tools/cip-eth-set-2.pcap` | C | raw | 1 | a Set_Attribute_Single reply |
-| `iti-ics-security-tools/cip-multiple-1.pcap`, `-2.pcap` | C | raw | 1 each | a Multiple Service Packet request and its reply |
-| `iti-ics-security-tools/cip_start_plc.pcap`, `cip_stop_plc.pcap`, `cip_unlock_cpu.pcap` | C | raw | 1 each | Start, Stop and 0x4C to class 0x8E, without reply |
-| `iti-ics-security-tools/enip_test.pcap` | A | raw | 2 | the 1756-ENBT/A's ListIdentity over TCP |
+| File | Original name | Class | Here | Messages | What it holds |
+|---|---|:-:|---|---:|---|
+| `ics-pcaps/rslogix5000_1756-l63_download-upload-run.pcap` | `ControlLogix_Logix5000_download_upload_run.pcap` | A | excerpt | 346 | RSLinx and the 1756-L63: command 0x0001, ListServices, ListInterfaces, RegisterSession; through Unconnected_Send the Identity object, its attributes 0x65/0x66, the Message Router's class list, Program Name; Class 3 Forward_Open/Forward_Close; connected Get_Attribute_List and Multiple Service Packets of Logix objects; class 0x0334 refused with 0x05 |
+| `ics-pcaps/factorytalk_1756-l63_hmi-reads.pcap` | `ControlLogix_FactoryTalk_HMI.pcap` | A | excerpt | 272 | FactoryTalk/RSLinx and the 1756-L63 on Class 3 connections (the capture starts inside the first): Template object (COUNTER, TIMER: Get_Attributes_All, Read Template), Read_Modify_Write_Tag by instance, Identity status, RSLinx-private class 0xB2 |
+| `ics-pcaps/rockwell-originator_unknown_forward-open-class1.pcap` | `ENIP_CIP-CM.pcap` | C | excerpt | 21 | ListServices, RegisterSession, Class 1 Forward_Open (10 ms, O->T point-to-point, T->O multicast, Assembly 6/2/1) with Sockaddr Info items; frame 5 is a 1460-octet retransmission of 14 earlier Forward_Open requests (tshark, which does not dissect it, counts 8 messages) |
+| `iti-ics-security-tools/hmi_logix_bit-writes.pcap` | `EthernetIP-CIP.pcap` | C | excerpt | 8,799 | an HMI and four Logix-like targets: symbolic Read_Modify_Write_Tag in Multiple Service Packets, class 0xAC, class 0x72 |
+| `icsnpp-enip/unknown_mixed_list-identity-browse-io.pcap` | `enip_cip_example.pcap` | A (ListIdentity), C (rest) | raw | 269 + 398 I/O | ListIdentity of the 1756-ENBT/A over TCP; Get_Attribute_List browsing of a Logix-like target; Set_Attribute_List of Time Sync; 398 Class 1 datagrams on 24 connections |
+| `icsnpp-enip/unknown_logix_multiple-service-packet.pcapng` | `multiple_service_packet_cip.pcapng` | C | raw | 1 | a Multiple Service Packet request (from enip_cip_example) |
+| `icsnpp-enip/unknown_unknown_set-attribute-single-vlan.pcapng` | `set_attribute_single_service_cip.pcapng` | C | raw | 1 | Set_Attribute_Single in an 802.1Q-tagged frame, nanosecond time stamps |
+| `iti-ics-security-tools/unknown_unknown_set-attribute-single-reply.pcap` | `cip-eth-set-2.pcap` | C | raw | 1 | a Set_Attribute_Single reply |
+| `iti-ics-security-tools/unknown_logix_multiple-service-packet-request.pcap` | `cip-multiple-1.pcap` | C | raw | 1 | a Multiple Service Packet request |
+| `iti-ics-security-tools/unknown_logix_multiple-service-packet-reply.pcap` | `cip-multiple-2.pcap` | C | raw | 1 | its reply |
+| `iti-ics-security-tools/unknown_unknown_start.pcap` | `cip_start_plc.pcap` | C | raw | 1 | Start to class 0x8E, without reply |
+| `iti-ics-security-tools/unknown_unknown_stop.pcap` | `cip_stop_plc.pcap` | C | raw | 1 | Stop to class 0x8E, without reply |
+| `iti-ics-security-tools/unknown_unknown_unlock-cpu.pcap` | `cip_unlock_cpu.pcap` | C | raw | 1 | service 0x4C to class 0x8E / 0x74, without reply |
+| `iti-ics-security-tools/unknown_1756-enbt_list-identity.pcap` | `enip_test.pcap` | A | raw | 2 | the 1756-ENBT/A's ListIdentity over TCP |
+
+The excerpts are `excerpts/<source>/<name>.json` with the names of the
+first four rows.
 
 ## Extraction
 
@@ -145,7 +176,8 @@ else is.
 
 ## Adding a capture
 
-Add its line to manifest.json (class, storage `raw` only with permission
-to redistribute), commit a raw file under `<source>/` or run `make
+Name it by the scheme above. Add its line to manifest.json (name,
+original name, class, storage `raw` only with permission to
+redistribute), commit a raw file under `<source>/` or run `make
 captures-excerpts`, add its line to SHA256SUMS and the tables above, and
 its expected counts to `internal/capture` (cross-check with tshark).

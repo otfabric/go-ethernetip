@@ -39,9 +39,10 @@ checksums are in [testdata/captures/README.md](testdata/captures/README.md)
 and `testdata/captures/manifest.json`. They are test data, not part of the
 built library.
 
-- `testdata/captures/icsnpp-enip/`: three files of
+- `testdata/captures/icsnpp-enip/`: three files (renamed; original names in
+  `manifest.json`) of
   [cisagov/icsnpp-enip](https://github.com/cisagov/icsnpp-enip)
-  (`testing/traces/`, revision 3fbd32e), unchanged.
+  (`testing/traces/`, revision 3fbd32e), contents unchanged.
 
   > BSD 3-Clause License
   >
@@ -74,12 +75,12 @@ built library.
 
 - `testdata/captures/iti-ics-security-tools/`: seven files of
   [ITI/ICS-Security-Tools](https://github.com/ITI/ICS-Security-Tools)
-  (`pcaps/EthernetIP/`, revision bcb93ee), unchanged, under the
+  (`pcaps/EthernetIP/`, revision bcb93ee), renamed, contents unchanged, under the
   repository's licence, [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).
 - `testdata/captures/excerpts/`: the EtherNet/IP messages, without link,
   IP and TCP headers, of four files whose raw form is not redistributed
   here: three of [EmreEkin/ICS-Pcaps](https://github.com/EmreEkin/ICS-Pcaps)
-  (no licence stated) and `EthernetIP-CIP.pcap` of ITI/ICS-Security-Tools
+  (no licence stated) and `EthernetIP-CIP.pcap` (`hmi_logix_bit-writes`) of ITI/ICS-Security-Tools
   (from CloudShark capture 76038eaa4a3b, terms not stated).
 
 ## Sources of the CIP catalog

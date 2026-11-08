@@ -12,7 +12,7 @@ import (
 
 // The raw files of the excerpts (`make captures-fetch`) hold what
 // Wireshark 4.6 decodes, and each committed excerpt is what Excerpts
-// keeps of its raw file. ENIP_CIP-CM frame 5 is a 1460-octet
+// keeps of its raw file. rockwell-originator_unknown_forward-open-class1 frame 5 is a 1460-octet
 // retransmission of the stream before frame 1: 14 Forward_Open requests
 // (the last the octets of frame 1) and 60 octets of a 15th, which tshark
 // does not dissect (it counts 8).

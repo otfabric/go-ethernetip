@@ -72,7 +72,7 @@ func cipOf(t *testing.T, r capture.Recording, n int) (req, resp []byte) {
 }
 
 // The predefined COUNTER and TIMER templates of the 1756-L63, as RSLogix
-// 5000 reads them (FactoryTalk capture, frames 99 to 113). The client asks
+// 5000 reads them (factorytalk_1756-l63_hmi-reads, frames 99 to 113). The client asks
 // Read Template for words×4 − 20 octets, the same request as RSLogix 5000
 // (offset 0, 100 and 76 octets); before v0.6.0 it asked for words×4 − 23
 // and, against this controller, lost the end of the last member's name
@@ -186,7 +186,7 @@ type rmw struct {
 
 // recordedRMW returns the symbolic Read_Modify_Write_Tag requests of the
 // recordings that change one bit, with their replies (the HMI of
-// EthernetIP-CIP sends them in Multiple Service Packets).
+// hmi_logix_bit-writes sends them in Multiple Service Packets).
 func recordedRMW(t *testing.T) []rmw {
 	var out []rmw
 	for _, r := range recordings(t) {

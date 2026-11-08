@@ -349,7 +349,7 @@ func check(t *testing.T, id string, rs []result) map[string]int {
 	return n
 }
 
-// RSLinx and the 1756-L63 (download capture): every request the server
+// RSLinx and the 1756-L63 (rslogix5000_1756-l63_download-upload-run): every request the server
 // supports gets the controller's answer byte for byte — ListServices,
 // ListInterfaces, RegisterSession, the Identity object through
 // Unconnected_Send to slot 0, Get_Attribute_Single of its status,
@@ -387,8 +387,8 @@ func summary(m map[string]int) string {
 	return strings.Join(ks, "; ")
 }
 
-// The 1756-ENBT/A's ListIdentity answer (icsnpp enip_cip_example and ITI
-// enip_test): byte for byte, apart from the socket address, with the
+// The 1756-ENBT/A's ListIdentity answer (unknown_mixed_list-identity-browse-io and
+// unknown_1756-enbt_list-identity): byte for byte, apart from the socket address, with the
 // module's identity and address configured.
 func TestCaptureListIdentity1756ENBT(t *testing.T) {
 	recs := recordings(t)
@@ -408,7 +408,7 @@ func TestCaptureListIdentity1756ENBT(t *testing.T) {
 	}
 }
 
-// A Rockwell originator's Class 1 Forward_Open (ENIP_CIP-CM frames 6 to
+// A Rockwell originator's Class 1 Forward_Open (rockwell-originator_unknown_forward-open-class1 frames 6 to
 // 11: ListServices, RegisterSession, then 10 ms cyclic, O->T 26 octets
 // point-to-point with run/idle header, T->O 26 octets multicast, Assembly
 // 6 / 2 / 1): the server answers as the target did, apart from the

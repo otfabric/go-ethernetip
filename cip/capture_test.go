@@ -250,7 +250,7 @@ func TestCaptureIdentity1756L63(t *testing.T) {
 
 // Forward_Open as RSLinx opens a Class 3 connection to the controller
 // (frames 233 and 234) and as a Rockwell originator opens a Class 1
-// connection (ENIP_CIP-CM frames 10 and 11), against Wireshark's decode.
+// connection (rockwell-originator_unknown_forward-open-class1 frames 10 and 11), against Wireshark's decode.
 func TestCaptureForwardOpen(t *testing.T) {
 	recs := recordings(t)
 	r, _ := capture.Get(recs, "controllogix-download")

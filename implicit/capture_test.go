@@ -11,7 +11,7 @@ import (
 	"github.com/otfabric/go-ethernetip/internal/capture"
 )
 
-// The 398 recorded Class 1 I/O datagrams of enip_cip_example (UDP 2222, 24
+// The 398 recorded Class 1 I/O datagrams of unknown_mixed_list-identity-browse-io (UDP 2222, 24
 // connections, producers 192.168.1.22 and .24; the devices are not
 // identified, class C): every one decodes and encodes back to the recorded
 // octets; per connection the encapsulation sequence number advances by

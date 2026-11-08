@@ -45,6 +45,8 @@
     {
       "id": "controllogix-download",
       "source": "ics-pcaps",
+      "name": "rslogix5000_1756-l63_download-upload-run.pcap",
+      "original_name": "ControlLogix_Logix5000_download_upload_run.pcap",
       "path": "Ethernet_IP/ControlLogix_Logix5000_download_upload_run.pcap",
       "url": "https://raw.githubusercontent.com/EmreEkin/ICS-Pcaps/0ffbf023afb4e39373228b54851bb4a1f33a3ab8/Ethernet_IP/ControlLogix_Logix5000_download_upload_run.pcap",
       "sha256": "4fe2aa010d09030815ae5334bd83741a328e596fc801fed9641fb328e4571937",
@@ -52,7 +54,7 @@
       "recorded": "2008-01-15",
       "class": "A",
       "storage": "excerpt",
-      "local": "excerpts/ics-pcaps/ControlLogix_Logix5000_download_upload_run.json",
+      "local": "excerpts/ics-pcaps/rslogix5000_1756-l63_download-upload-run.json",
       "devices": [
         "1756-L63/A ControlLogix controller, firmware 15.4 (\"1756-L63/A L6x_15_31\"), serial 0x0014CD8A, slot 0 behind the EtherNet/IP module at 10.92.18.17 (Identity object, frame 222)"
       ],
@@ -72,6 +74,8 @@
     {
       "id": "controllogix-factorytalk",
       "source": "ics-pcaps",
+      "name": "factorytalk_1756-l63_hmi-reads.pcap",
+      "original_name": "ControlLogix_FactoryTalk_HMI.pcap",
       "path": "Ethernet_IP/ControlLogix_FactoryTalk_HMI.pcap",
       "url": "https://raw.githubusercontent.com/EmreEkin/ICS-Pcaps/0ffbf023afb4e39373228b54851bb4a1f33a3ab8/Ethernet_IP/ControlLogix_FactoryTalk_HMI.pcap",
       "sha256": "14c33995e71c6d54021c7d0f4e0e8a96bf1d4eb2ccc5fc9abde904db3609449f",
@@ -79,7 +83,7 @@
       "recorded": "2008-01-15",
       "class": "A",
       "storage": "excerpt",
-      "local": "excerpts/ics-pcaps/ControlLogix_FactoryTalk_HMI.json",
+      "local": "excerpts/ics-pcaps/factorytalk_1756-l63_hmi-reads.json",
       "devices": [
         "the same 1756-L63/A as controllogix-download: same address, same originator serial 0x11FA6145 three minutes earlier, the same Identity status 0x3160 (frame 449) and the same answer of class 0xAC"
       ],
@@ -100,6 +104,8 @@
     {
       "id": "enip-cip-cm",
       "source": "ics-pcaps",
+      "name": "rockwell-originator_unknown_forward-open-class1.pcap",
+      "original_name": "ENIP_CIP-CM.pcap",
       "path": "Ethernet_IP/ENIP_CIP-CM.pcap",
       "url": "https://raw.githubusercontent.com/EmreEkin/ICS-Pcaps/0ffbf023afb4e39373228b54851bb4a1f33a3ab8/Ethernet_IP/ENIP_CIP-CM.pcap",
       "sha256": "b5160c3aae0d3beb2bb21782697b5619f21219d5cc78c46f6ddb0b703530ea02",
@@ -107,7 +113,7 @@
       "recorded": "2003-12-03",
       "class": "C",
       "storage": "excerpt",
-      "local": "excerpts/ics-pcaps/ENIP_CIP-CM.json",
+      "local": "excerpts/ics-pcaps/rockwell-originator_unknown_forward-open-class1.json",
       "devices": [
         "targets 192.168.100.36 and .35, not identified in the traffic"
       ],
@@ -124,6 +130,8 @@
     {
       "id": "ethernetip-cip-cloudshark",
       "source": "iti-ics-security-tools",
+      "name": "hmi_logix_bit-writes.pcap",
+      "original_name": "EthernetIP-CIP.pcap",
       "path": "pcaps/EthernetIP/EthernetIP-CIP.pcap",
       "url": "https://raw.githubusercontent.com/ITI/ICS-Security-Tools/bcb93ee1cdf395a457cc08f639cf29aab5975f01/pcaps/EthernetIP/EthernetIP-CIP.pcap",
       "sha256": "c50b510b3242f94c8aed9a4b6723962f182d04feca8a8dac09a96a135649461d",
@@ -132,7 +140,7 @@
       "class": "C",
       "storage": "excerpt",
       "maxPerKind": 2,
-      "local": "excerpts/iti-ics-security-tools/EthernetIP-CIP.json",
+      "local": "excerpts/iti-ics-security-tools/hmi_logix_bit-writes.json",
       "devices": [
         "four Logix-like targets (141.81.0.23, .43, .63, .83) answering class 0xAC and symbolic Read_Modify_Write_Tag; not identified"
       ],
@@ -149,6 +157,8 @@
     {
       "id": "icsnpp-enip-cip-example",
       "source": "icsnpp-enip",
+      "name": "unknown_mixed_list-identity-browse-io.pcap",
+      "original_name": "enip_cip_example.pcap",
       "path": "testing/traces/enip_cip_example.pcap",
       "url": "https://raw.githubusercontent.com/cisagov/icsnpp-enip/3fbd32e3d2838d5e2bcd6c9ed79f036d23a0642e/testing/traces/enip_cip_example.pcap",
       "sha256": "26cfe3df042a5d96fd680abf97c4998dd1ea8a396870a8aa2e98ba2ef056af93",
@@ -156,7 +166,7 @@
       "recorded": "2008-10-24, 2015-03-31, 2020-07-14 (three recordings merged)",
       "class": "A",
       "storage": "raw",
-      "local": "icsnpp-enip/enip_cip_example.pcap",
+      "local": "icsnpp-enip/unknown_mixed_list-identity-browse-io.pcap",
       "devices": [
         "1756-ENBT/A, firmware 4.3, serial 0x00524D8E at 10.1.1.164 (its ListIdentity reply, frame 372) — class A for that exchange",
         "192.168.10.120, a Logix-like target (answers class 0xAC); not identified — class C",
@@ -176,6 +186,8 @@
     {
       "id": "icsnpp-msp",
       "source": "icsnpp-enip",
+      "name": "unknown_logix_multiple-service-packet.pcapng",
+      "original_name": "multiple_service_packet_cip.pcapng",
       "path": "testing/traces/multiple_service_packet_cip.pcapng",
       "url": "https://raw.githubusercontent.com/cisagov/icsnpp-enip/3fbd32e3d2838d5e2bcd6c9ed79f036d23a0642e/testing/traces/multiple_service_packet_cip.pcapng",
       "sha256": "4eed29d01d6fe3c827e3c947694526e7669d937ff8973d5c420979565597087c",
@@ -183,7 +195,7 @@
       "recorded": "2008-10-24",
       "class": "C",
       "storage": "raw",
-      "local": "icsnpp-enip/multiple_service_packet_cip.pcapng",
+      "local": "icsnpp-enip/unknown_logix_multiple-service-packet.pcapng",
       "devices": [
         "192.168.10.120, as in enip_cip_example"
       ],
@@ -198,6 +210,8 @@
     {
       "id": "icsnpp-set-attribute-single",
       "source": "icsnpp-enip",
+      "name": "unknown_unknown_set-attribute-single-vlan.pcapng",
+      "original_name": "set_attribute_single_service_cip.pcapng",
       "path": "testing/traces/set_attribute_single_service_cip.pcapng",
       "url": "https://raw.githubusercontent.com/cisagov/icsnpp-enip/3fbd32e3d2838d5e2bcd6c9ed79f036d23a0642e/testing/traces/set_attribute_single_service_cip.pcapng",
       "sha256": "9b24d02e6f15a40f2109c2476bb117e2273bc9485077a50044269d3738cea8dc",
@@ -205,7 +219,7 @@
       "recorded": "2025-02-06",
       "class": "C",
       "storage": "raw",
-      "local": "icsnpp-enip/set_attribute_single_service_cip.pcapng",
+      "local": "icsnpp-enip/unknown_unknown_set-attribute-single-vlan.pcapng",
       "devices": [],
       "peers": [],
       "operations": [
@@ -216,6 +230,8 @@
     {
       "id": "iti-cip-eth-set-2",
       "source": "iti-ics-security-tools",
+      "name": "unknown_unknown_set-attribute-single-reply.pcap",
+      "original_name": "cip-eth-set-2.pcap",
       "path": "pcaps/EthernetIP/cip-eth-set-2.pcap",
       "url": "https://raw.githubusercontent.com/ITI/ICS-Security-Tools/bcb93ee1cdf395a457cc08f639cf29aab5975f01/pcaps/EthernetIP/cip-eth-set-2.pcap",
       "sha256": "fe674ddc3e4964c10321dd76f649097c87db6d48091327c6977656a5a3c04b26",
@@ -223,7 +239,7 @@
       "recorded": "2009-09-18",
       "class": "C",
       "storage": "raw",
-      "local": "iti-ics-security-tools/cip-eth-set-2.pcap",
+      "local": "iti-ics-security-tools/unknown_unknown_set-attribute-single-reply.pcap",
       "devices": [],
       "peers": [],
       "operations": [
@@ -234,6 +250,8 @@
     {
       "id": "iti-cip-multiple-1",
       "source": "iti-ics-security-tools",
+      "name": "unknown_logix_multiple-service-packet-request.pcap",
+      "original_name": "cip-multiple-1.pcap",
       "path": "pcaps/EthernetIP/cip-multiple-1.pcap",
       "url": "https://raw.githubusercontent.com/ITI/ICS-Security-Tools/bcb93ee1cdf395a457cc08f639cf29aab5975f01/pcaps/EthernetIP/cip-multiple-1.pcap",
       "sha256": "ecf46cb2bfb1e7cda70d9b966431fe2e1f1056d2a158cf54ddce6f03fc82474e",
@@ -241,7 +259,7 @@
       "recorded": "2008-10-24",
       "class": "C",
       "storage": "raw",
-      "local": "iti-ics-security-tools/cip-multiple-1.pcap",
+      "local": "iti-ics-security-tools/unknown_logix_multiple-service-packet-request.pcap",
       "devices": [],
       "peers": [],
       "operations": [
@@ -252,6 +270,8 @@
     {
       "id": "iti-cip-multiple-2",
       "source": "iti-ics-security-tools",
+      "name": "unknown_logix_multiple-service-packet-reply.pcap",
+      "original_name": "cip-multiple-2.pcap",
       "path": "pcaps/EthernetIP/cip-multiple-2.pcap",
       "url": "https://raw.githubusercontent.com/ITI/ICS-Security-Tools/bcb93ee1cdf395a457cc08f639cf29aab5975f01/pcaps/EthernetIP/cip-multiple-2.pcap",
       "sha256": "4a6350da7f5d5b2ee383e9e92e6a5a846931785f849798799a323d0b8a8ba3d4",
@@ -259,7 +279,7 @@
       "recorded": "2008-10-24",
       "class": "C",
       "storage": "raw",
-      "local": "iti-ics-security-tools/cip-multiple-2.pcap",
+      "local": "iti-ics-security-tools/unknown_logix_multiple-service-packet-reply.pcap",
       "devices": [],
       "peers": [],
       "operations": [
@@ -270,6 +290,8 @@
     {
       "id": "iti-cip-start-plc",
       "source": "iti-ics-security-tools",
+      "name": "unknown_unknown_start.pcap",
+      "original_name": "cip_start_plc.pcap",
       "path": "pcaps/EthernetIP/cip_start_plc.pcap",
       "url": "https://raw.githubusercontent.com/ITI/ICS-Security-Tools/bcb93ee1cdf395a457cc08f639cf29aab5975f01/pcaps/EthernetIP/cip_start_plc.pcap",
       "sha256": "3b341bee9e7790bf0fae8468f55c9b90ac49e014cfb1dc3cc97437f811d0933f",
@@ -277,7 +299,7 @@
       "recorded": "2016-03-30",
       "class": "C",
       "storage": "raw",
-      "local": "iti-ics-security-tools/cip_start_plc.pcap",
+      "local": "iti-ics-security-tools/unknown_unknown_start.pcap",
       "devices": [],
       "peers": [],
       "operations": [
@@ -288,6 +310,8 @@
     {
       "id": "iti-cip-stop-plc",
       "source": "iti-ics-security-tools",
+      "name": "unknown_unknown_stop.pcap",
+      "original_name": "cip_stop_plc.pcap",
       "path": "pcaps/EthernetIP/cip_stop_plc.pcap",
       "url": "https://raw.githubusercontent.com/ITI/ICS-Security-Tools/bcb93ee1cdf395a457cc08f639cf29aab5975f01/pcaps/EthernetIP/cip_stop_plc.pcap",
       "sha256": "93e5d388193fcaff3f3f38878de34269afcd01318897a2d36647c773d1e5ed3d",
@@ -295,7 +319,7 @@
       "recorded": "2016-03-30",
       "class": "C",
       "storage": "raw",
-      "local": "iti-ics-security-tools/cip_stop_plc.pcap",
+      "local": "iti-ics-security-tools/unknown_unknown_stop.pcap",
       "devices": [],
       "peers": [],
       "operations": [
@@ -306,6 +330,8 @@
     {
       "id": "iti-cip-unlock-cpu",
       "source": "iti-ics-security-tools",
+      "name": "unknown_unknown_unlock-cpu.pcap",
+      "original_name": "cip_unlock_cpu.pcap",
       "path": "pcaps/EthernetIP/cip_unlock_cpu.pcap",
       "url": "https://raw.githubusercontent.com/ITI/ICS-Security-Tools/bcb93ee1cdf395a457cc08f639cf29aab5975f01/pcaps/EthernetIP/cip_unlock_cpu.pcap",
       "sha256": "26d072e506ffd939b82532b597bdb27684ca79e2abac8ab62b8d65e9ad87313c",
@@ -313,7 +339,7 @@
       "recorded": "2009-01-14",
       "class": "C",
       "storage": "raw",
-      "local": "iti-ics-security-tools/cip_unlock_cpu.pcap",
+      "local": "iti-ics-security-tools/unknown_unknown_unlock-cpu.pcap",
       "devices": [],
       "peers": [],
       "operations": [
@@ -324,6 +350,8 @@
     {
       "id": "iti-enip-test",
       "source": "iti-ics-security-tools",
+      "name": "unknown_1756-enbt_list-identity.pcap",
+      "original_name": "enip_test.pcap",
       "path": "pcaps/EthernetIP/enip_test.pcap",
       "url": "https://raw.githubusercontent.com/ITI/ICS-Security-Tools/bcb93ee1cdf395a457cc08f639cf29aab5975f01/pcaps/EthernetIP/enip_test.pcap",
       "sha256": "0ba6c01fde28912e9f890d839b991cff71cca8e8259e1d93e9c3a312c43bc255",
@@ -331,7 +359,7 @@
       "recorded": "2015-03-31",
       "class": "A",
       "storage": "raw",
-      "local": "iti-ics-security-tools/enip_test.pcap",
+      "local": "iti-ics-security-tools/unknown_1756-enbt_list-identity.pcap",
       "devices": [
         "1756-ENBT/A, firmware 4.3, serial 0x00524D8E (its ListIdentity reply)"
       ],

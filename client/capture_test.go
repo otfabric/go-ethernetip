@@ -309,7 +309,7 @@ func TestCaptureReplayClientListIdentity1756ENBT(t *testing.T) {
 }
 
 // The client opens the Class 1 connection a Rockwell originator opened
-// (ENIP_CIP-CM frames 8 to 11) and takes the target's reply: the
+// (rockwell-originator_unknown_forward-open-class1 frames 8 to 11) and takes the target's reply: the
 // connection IDs it chose and its Sockaddr Info items (O->T 0.0.0.0:2222,
 // T->O multicast 239.192.5.128:2222).
 func TestCaptureReplayClientClass1ForwardOpen(t *testing.T) {
