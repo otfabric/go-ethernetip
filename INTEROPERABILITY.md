@@ -118,6 +118,32 @@ description; generation of Go code. Fuzzed. Not interop tested: there is
 no machine-readable conformance corpus; the grammar follows eds_pie (MIT)
 and published EDS files.
 
+## Recorded traffic of real devices
+
+Captures recorded by others between real Rockwell devices and Rockwell
+software ([testdata/captures](testdata/captures/README.md), machine-readable
+in [coverage.json](testdata/captures/coverage.json)). They are evidence of
+how these devices behave, not a test against a live device and not a
+conformance claim. Devices identified by their own answers (class A): a
+1756-L63/A ControlLogix, firmware 15.4, behind its EtherNet/IP module
+(RSLinx, RSLogix 5000, FactoryTalk), and a 1756-ENBT/A, firmware 4.3.
+Other files are of unidentified targets (class C).
+
+| Message | Request encoded as recorded | Reply decoded | Client against the recording | Server answers as the device |
+|---|:-:|:-:|:-:|:-:|
+| ListIdentity (1756-ENBT/A), ListServices, ListInterfaces, RegisterSession | ✅ | ✅ | ✅ | ✅ (socket address normalized) |
+| Identity Get_Attributes_All through Unconnected_Send (port 1, link 0) | ✅ | ✅ | ✅ | ✅ (since v0.6.0: the SendRRData timeout is echoed) |
+| Identity Get_Attribute_Single (status), Get_Attribute_List of an unknown 16-bit class (0x05) | ✅ | ✅ | — | ✅ |
+| Identity attributes 0x65/0x66, Message Router class list, command 0x0001 | ✅ (0x65/0x66) | ✅ | ✅ (0x65/0x66) | differs: vendor-specific, see the README |
+| Forward_Open Class 3 (RSLinx: 500 octets, RPI 8 s), Forward_Close | ✅ | ✅ | ✅ | ✅ (target's connection ID normalized) |
+| Forward_Open Class 1, T->O multicast, Sockaddr Info (class C) | ✅ | ✅ | ✅ | ✅ (IDs and socket addresses normalized) |
+| Logix Template object: COUNTER and TIMER of the 1756-L63 | ✅ (since v0.6.0) | ✅ | ✅ | not compared (Get_Attributes_All of a template not implemented) |
+| Logix symbolic Read_Modify_Write_Tag of a bit (class C) | ✅ | ✅ | ✅ | ✅ (on SINT tags; the recorded tags' type is unknown) |
+| Class 1 I/O datagrams (class C) | ✅ | ✅ | — | — |
+
+Rockwell-private objects (0x68 to 0x8E, 0xAC, 0xB2, 0x72) of the
+recordings decode at the CIP level only; their services are not public.
+
 ## Interop matrix
 
 <!-- interop-matrix:begin -->

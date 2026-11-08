@@ -19,7 +19,7 @@ Logix programming tools do).
 | `WriteBit(ctx, "Flags.3", size, set)` | Read-Modify-Write 0x4E |
 | `ReadMany(ctx, tags)` | Read Tag in Multiple Service Packets |
 | `ListTags(ctx, program)` | Get Instance Attribute List 0x55 on the Symbol object, with continuation |
-| `Template(ctx, id)`, `DecodeStruct(ctx, id, value)` | Template object attributes and Read Template; UDT decoding |
+| `Template(ctx, id)`, `DecodeStruct(ctx, id, value)` | Template object attributes and Read Template (attribute 4 × 4 − 20 octets, as RSLogix 5000 reads a 1756-L63's templates); UDT decoding |
 | `ProgramName(ctx)` | Program Name object 0x64 |
 
 Tag names: `Tag`, `Program:Main.Tag`, `Tag[3]`, `Tag[1,2]`,

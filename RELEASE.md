@@ -1,5 +1,80 @@
 # go-ethernetip Releases
 
+## v0.6.0
+
+**Date:** unreleased (prepared 2026-11-08)
+**Previous release:** v0.5.2
+
+## Summary
+
+go-ethernetip is now tested against recorded traffic of real Rockwell
+devices: a 1756-L63/A ControlLogix (firmware 15.4) behind its EtherNet/IP
+module with RSLinx, RSLogix 5000 and FactoryTalk, and a 1756-ENBT/A
+(firmware 4.3), plus captures of unidentified targets — 14 files, 9,716
+encapsulation messages and 398 I/O datagrams
+([testdata/captures](testdata/captures/README.md)). Every message decodes
+and encodes back byte for byte; the client runs against the recorded
+replies and its requests equal RSLinx's; the server answers every recorded
+request it supports as the devices did. The recordings showed two
+differences, both fixed. This is evidence from real devices recorded by
+others, not a conformance claim.
+
+## Changes
+
+### Fixes
+
+- **logix**: `Client.Template` asks Read Template for attribute 4 × 4 − 20
+  octets, as RSLogix 5000 asks the 1756-L63 for its COUNTER (30 words, 100
+  octets) and TIMER (24 words, 76 octets) templates, which the controller
+  answers in full. It asked for × 4 − 23: against that controller the last
+  3 octets of the definition, the end of the last member's name, were not
+  read ("U" for "UN", "D" for "DN"). Servers that hold less (the emulation)
+  answer the rest, as before.
+- **server**: the SendRRData reply carries the request's timeout, as the
+  recorded ControlLogix module (32 s and 0 s) and the four targets of
+  EthernetIP-CIP (20 s) answer; it was 0.
+
+### Tests
+
+- `internal/capture`: a pcap/pcapng reader with TCP reassembly
+  (retransmissions, gaps, mid-stream starts), encapsulation framing, UDP
+  44818 and 2222, request/reply pairing by context and sequence count; its
+  counts equal Wireshark 4.6's.
+- `testdata/captures`: the corpus with `manifest.json` (provenance, SHA256,
+  evidence class A to D, devices), `coverage.json` (what each exchange
+  verifies), `SHA256SUMS`. Files whose terms do not permit redistribution
+  are held as excerpts of their EtherNet/IP messages;
+  `make captures-fetch`, `captures-check` and `captures-extended` fetch the
+  raw files and run the tests on them.
+- `encap`, `cip`, `implicit`: every recorded message decodes and encodes
+  back; truncations and malformed variants are refused. `client`: replay
+  against the 1756-L63 (session, ListServices, ListInterfaces, routed
+  Identity, Class 3 connection with RSLinx's parameters) and the
+  1756-ENBT/A's ListIdentity, a Class 1 Forward_Open with Sockaddr Info.
+  `logix`: the 1756-L63's templates; `WriteBit` byte for byte as the
+  recorded HMI; the emulation's answers to the HMI's bit writes. `server`:
+  replay with pinned differences; 300 seeded mutated streams of recorded
+  requests.
+- Fuzz seeds of recorded messages for 16 fuzz targets.
+
+### Known differences (pinned, not changed)
+
+- The server answers command 0x0001 with "invalid command", the Identity
+  attributes 0x65/0x66 with 0x14, and lists its own classes and two more
+  attributes for the Message Router's Get_Attributes_All; it does not hold
+  the Rockwell-private objects. The emulation's template definitions keep
+  the ";n…" suffix that firmware 15.4 omits; Get_Attributes_All of a
+  template is not implemented.
+
+### Documentation
+
+- testdata/captures/README.md; TESTING.md, INTEROPERABILITY.md (recorded
+  traffic), docs/LIMITATIONS.md, docs/FEATURE-STATUS.md, docs/LOGIX.md,
+  THIRD_PARTY_NOTICES.md (icsnpp-enip BSD-3-Clause, ITI CC BY 4.0),
+  README.md, AGENTS.md.
+
+---
+
 ## v0.5.2
 
 **Date:** 2026-11-06

@@ -16,6 +16,7 @@ This repository follows **otfabric/engineering policy 1.2**, profile **protocol-
 | Codes and vendors | `cip/catalog.json`, `cip/vendors.json` (generate `cip/catalog_gen.go`, CATALOG.md) |
 | What is supported and verified | docs/FEATURE-STATUS.md, INTEROPERABILITY.md, docs/LIMITATIONS.md |
 | How to test | TESTING.md |
+| Recorded traffic of real devices (sources, terms, devices, known differences) | testdata/captures/README.md, manifest.json, coverage.json |
 | Errors | ERRORS.md |
 | Release history | RELEASE.md (`## vX.Y.Z` … `---`) |
 
