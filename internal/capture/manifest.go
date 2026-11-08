@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sync"
 )
 
 // Manifest is testdata/captures/manifest.json: the sources of the recorded
@@ -146,4 +147,25 @@ func (r Recording) Exchange(n int) (Exchange, bool) {
 		}
 	}
 	return Exchange{}, false
+}
+
+var (
+	cacheMu sync.Mutex
+	cache   = map[string][]Recording{}
+)
+
+// Cached is Load, read once per directory and process: the tests of a
+// package share the corpus instead of reading its 30 MB for each test. The
+// recordings must not be modified.
+func Cached(dir string) ([]Recording, error) {
+	cacheMu.Lock()
+	defer cacheMu.Unlock()
+	if r, ok := cache[dir]; ok {
+		return r, nil
+	}
+	r, err := Load(dir)
+	if err == nil {
+		cache[dir] = r
+	}
+	return r, err
 }

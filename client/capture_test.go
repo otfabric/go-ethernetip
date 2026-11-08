@@ -27,7 +27,7 @@ var ctx = context.Background()
 
 func recordings(t *testing.T) []capture.Recording {
 	t.Helper()
-	recs, err := capture.Load(captures)
+	recs, err := capture.Cached(captures)
 	if err != nil {
 		t.Fatal(err)
 	}

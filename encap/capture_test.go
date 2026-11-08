@@ -18,7 +18,7 @@ const captures = "../testdata/captures"
 
 func recordings(t *testing.T) []capture.Recording {
 	t.Helper()
-	recs, err := capture.Load(captures)
+	recs, err := capture.Cached(captures)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -224,4 +224,67 @@ func TestCaptureRRDataTimeout(t *testing.T) {
 			t.Errorf("%s: no SendRRData exchange", id)
 		}
 	}
+}
+
+// Every recorded message cut short is refused by Decode and by
+// ReadPacket — anywhere in the header and the CPF's start, in the middle
+// and one octet short — and one whose length field claims an octet more
+// than it holds as well.
+func TestCaptureTruncations(t *testing.T) {
+	n := 0
+	seen := map[string]bool{}
+	for _, r := range recordings(t) {
+		for _, c := range r.Conversations {
+			if c.Transport == capture.UDP && strings.HasSuffix(c.Server, ":2222") {
+				continue
+			}
+			for _, m := range c.Messages {
+				// Repeated messages are checked once.
+				if len(m.Data) >= 24 {
+					// Equal but for session, context and sequence count.
+					k := string(m.Data[:4]) + string(m.Data[20:])
+					if e, err := capture.ParseExplicit(m.Data); err == nil {
+						k = string(m.Data[:2]) + string(e.CIP)
+					}
+					if seen[k] {
+						continue
+					}
+					seen[k] = true
+				}
+				n++
+				for _, k := range cuts(len(m.Data)) {
+					if _, err := encap.Decode(m.Data[:k]); err == nil {
+						t.Fatalf("%s frame %d: %d of %d octets decode", r.File.ID, m.Frame, k, len(m.Data))
+					}
+					if _, _, err := encap.ReadPacket(bytes.NewReader(m.Data[:k]), nil, 0); err == nil {
+						t.Fatalf("%s frame %d: ReadPacket of %d octets", r.File.ID, m.Frame, k)
+					}
+				}
+				long := append([]byte(nil), m.Data...)
+				long[2]++
+				if long[2] == 0 {
+					long[3]++
+				}
+				if _, err := encap.Decode(long); err == nil {
+					t.Fatalf("%s frame %d: length +1 decodes", r.File.ID, m.Frame)
+				}
+			}
+		}
+	}
+	if n < 200 {
+		t.Errorf("%d messages", n)
+	}
+}
+
+// cuts returns the lengths a message of n octets is cut to: 0 to 47, n/2
+// and n-1.
+func cuts(n int) []int {
+	var out []int
+	for k := 0; k < min(n, 48); k++ {
+		out = append(out, k)
+	}
+	if n > 48 {
+		out = append(out, n/2, n-1)
+	}
+	return out
 }

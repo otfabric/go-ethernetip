@@ -17,7 +17,7 @@ import (
 // octets; per connection the encapsulation sequence number advances by
 // one with every datagram and the Class 1 sequence count never goes back.
 func TestCaptureClass1IO(t *testing.T) {
-	recs, err := capture.Load("../testdata/captures")
+	recs, err := capture.Cached("../testdata/captures")
 	if err != nil {
 		t.Fatal(err)
 	}

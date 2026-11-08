@@ -17,7 +17,7 @@ const captures = "../testdata/captures"
 
 func recordings(t *testing.T) []capture.Recording {
 	t.Helper()
-	recs, err := capture.Load(captures)
+	recs, err := capture.Cached(captures)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -349,6 +349,7 @@ func TestCapturePathWidths(t *testing.T) {
 // refused.
 func TestCaptureMalformedVariants(t *testing.T) {
 	n := 0
+	seen := map[string]bool{}
 	for _, r := range recordings(t) {
 		for _, c := range r.Conversations {
 			for _, m := range c.Messages {
@@ -361,9 +362,10 @@ func TestCaptureMalformedVariants(t *testing.T) {
 				}
 				b := e.CIP
 				req, err := cip.DecodeRequest(b)
-				if err != nil {
-					continue
+				if err != nil || seen[string(b)] {
+					continue // repeated requests are checked once
 				}
+				seen[string(b)] = true
 				n++
 				end := 2 + 2*int(b[1])
 				for k := range end {
@@ -393,8 +395,8 @@ func TestCaptureMalformedVariants(t *testing.T) {
 			}
 		}
 	}
-	if n < 250 {
-		t.Errorf("%d requests", n)
+	if n < 200 {
+		t.Errorf("%d distinct requests", n)
 	}
 }
 

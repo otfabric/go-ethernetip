@@ -86,7 +86,7 @@ func isIO(c Conversation) bool { return c.Transport == UDP && strings.HasSuffix(
 // outside SendUnitData, the same sender context; a SendUnitData reply
 // echoes the request's sequence count.
 func TestExchangesCorrelate(t *testing.T) {
-	recs, err := Load(dir)
+	recs, err := Cached(dir)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -665,7 +665,7 @@ func TestCoverageReport(t *testing.T) {
 	if err := dec.Decode(&rep); err != nil {
 		t.Fatal(err)
 	}
-	recs, err := Load(dir)
+	recs, err := Cached(dir)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -707,7 +707,13 @@ func TestCoverageReport(t *testing.T) {
 }
 
 func TestRecordingLookups(t *testing.T) {
-	recs, err := Load(dir)
+	recs, err := Cached(dir)
+	if again, _ := Cached(dir); err != nil || &again[0] != &recs[0] {
+		t.Fatal("Cached read the corpus twice")
+	}
+	if _, err := Cached(t.TempDir()); err == nil {
+		t.Error("Cached of a directory without manifest")
+	}
 	if err != nil {
 		t.Fatal(err)
 	}
