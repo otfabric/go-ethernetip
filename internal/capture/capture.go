@@ -30,6 +30,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"math"
 	"os"
 	"path/filepath"
 	"sort"
@@ -168,10 +169,10 @@ func pcapPackets(b []byte, bo binary.ByteOrder, unit time.Duration) ([]packet, e
 	return out, nil
 }
 
-// iface is a pcapng interface: link type and time stamp resolution.
+// iface is a pcapng interface: link type and time stamp units per second.
 type iface struct {
-	link uint32
-	unit time.Duration
+	link   uint32
+	perSec uint64
 }
 
 func pcapngPackets(b []byte) ([]packet, error) {
@@ -206,7 +207,7 @@ func pcapngPackets(b []byte) ([]packet, error) {
 			if len(body) < 8 {
 				return nil, ErrFormat
 			}
-			ifaces = append(ifaces, iface{link: uint32(bo.Uint16(body)), unit: tsresol(body[8:], bo)})
+			ifaces = append(ifaces, iface{link: uint32(bo.Uint16(body)), perSec: tsresol(body[8:], bo)})
 		case 6: // enhanced packet
 			if len(body) < 20 {
 				return nil, ErrFormat
@@ -217,8 +218,12 @@ func pcapngPackets(b []byte) ([]packet, error) {
 			if ifc >= len(ifaces) || capLen > len(body)-20 {
 				return nil, ErrFormat
 			}
-			u := ifaces[ifc].unit
-			t := time.Unix(0, 0).Add(time.Duration(ts) * u).UTC()
+			ps := ifaces[ifc].perSec
+			sec, frac := ts/ps, ts%ps
+			if sec > math.MaxInt64 {
+				return nil, ErrFormat
+			}
+			t := time.Unix(int64(sec), int64(frac*(1e9/ps))).UTC()
 			out = append(out, packet{link: ifaces[ifc].link, time: t, data: body[20 : 20+capLen]})
 		case 3: // simple packet, interface 0, no time stamp
 			if len(body) < 4 || len(ifaces) == 0 {
@@ -232,25 +237,26 @@ func pcapngPackets(b []byte) ([]packet, error) {
 	return out, nil
 }
 
-// tsresol reads the if_tsresol option of an interface description block;
-// the default is microseconds. Only decimal resolutions down to 1 ns are
-// supported; others fall back to the default.
-func tsresol(opts []byte, bo binary.ByteOrder) time.Duration {
+// tsresol reads the if_tsresol option of an interface description block
+// and returns time stamp units per second; the default is microseconds.
+// Only decimal resolutions down to 1 ns are supported; others fall back to
+// the default.
+func tsresol(opts []byte, bo binary.ByteOrder) uint64 {
 	for len(opts) >= 4 {
 		code, n := bo.Uint16(opts), int(bo.Uint16(opts[2:]))
 		if code == 0 || 4+n > len(opts) {
 			break
 		}
 		if code == 9 && n == 1 && opts[4]&0x80 == 0 && opts[4] <= 9 {
-			d := time.Second
+			ps := uint64(1)
 			for range opts[4] {
-				d /= 10
+				ps *= 10
 			}
-			return d
+			return ps
 		}
 		opts = opts[4+(n+3)&^3:]
 	}
-	return time.Microsecond
+	return 1_000_000
 }
 
 // segment is the TCP payload of one frame.

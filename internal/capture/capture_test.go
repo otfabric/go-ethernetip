@@ -733,3 +733,20 @@ func TestRecordingLookups(t *testing.T) {
 		t.Error("an I/O datagram found as a request")
 	}
 }
+
+// A pcapng time stamp beyond time.Time's seconds is refused.
+func TestPcapngTimeOverflow(t *testing.T) {
+	f := frame{udp: true, src: cli, dst: srv, sport: 5000, dport: ExplicitPort, payload: encapMsg(0x63, 0, nil)}
+	b := pcapng(f.bytes(), 0) // one unit per second
+	shb := int(binary.LittleEndian.Uint32(b[4:]))
+	idb := int(binary.LittleEndian.Uint32(b[shb+4:]))
+	epb := shb + idb
+	binary.LittleEndian.PutUint32(b[epb+8+4:], 0xFFFFFFFF) // time stamp, high word
+	if _, err := Read(b); !errors.Is(err, ErrFormat) {
+		t.Errorf("time stamp 2^64-1 s: %v", err)
+	}
+	binary.LittleEndian.PutUint32(b[epb+8+4:], 1)
+	if c, err := Read(b); err != nil || c[0].Messages[0].Time.Unix() != 1<<32+1500 {
+		t.Errorf("time stamp 2^32+1500 s: %v", err)
+	}
+}
