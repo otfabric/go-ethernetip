@@ -4,6 +4,7 @@
 
 .DEFAULT_GOAL := help
 
+
 .PHONY: help all build examples fmt fmt-check lint lint-ci vet vuln test test-short coverage coverage-check cover bench fuzz fuzz-long check clean interop test-interop generate generate-check coverpkg-check cross e2e chaos stress docs-check
 
 help: ## This help
@@ -21,7 +22,7 @@ BIN_DIR := bin
 # sample package are not library code).
 TEST_PKGS := $(shell go list ./... | grep -v '/examples' | grep -v '/interop')
 # Packages whose coverage counts, including what the e2e suite exercises.
-COVER_PKGS := $(shell go list ./... | grep -v '/examples' | grep -v '/internal/cmd' | grep -v '/e2e' | grep -v '/sampledevice' | grep -v '/internal/testenv' | grep -v '/interop' | paste -sd, -)
+COVER_PKGS := $(shell go list ./... | grep -v '/examples' | grep -v '/internal/cmd' | grep -v '/e2e' | grep -v '/sampledevice' | grep -v '/internal/testenv' | grep -v '/internal/capture' | grep -v '/interop' | paste -sd, -)
 # Minimum total statement coverage enforced by coverage-check (and CI).
 COVERAGE_MIN ?= 90
 # Per-package floor (TEST-012); needs the -coverpkg coverage.out of `make coverage`.

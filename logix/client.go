@@ -404,7 +404,7 @@ func (c *Client) Template(ctx context.Context, id uint16) (*Template, error) {
 	if err != nil {
 		return nil, fmt.Errorf("%w: template attributes: %w", ethernetip.ErrProtocol, err)
 	}
-	total := definitionLen(attrs.words)
+	total := readLen(attrs.words)
 	if total <= 0 || total > maxDefinition {
 		return nil, fmt.Errorf("%w: template definition of %d words", ethernetip.ErrProtocol, attrs.words)
 	}

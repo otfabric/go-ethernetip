@@ -25,3 +25,5 @@ coverage.out
 /internal/cmd/genmatrix/genmatrix
 /internal/cmd/gensample/gensample
 /internal/cmd/interopnode/interopnode
+
+!/testdata/captures/coverage.json

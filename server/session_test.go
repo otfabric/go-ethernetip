@@ -395,3 +395,20 @@ func TestInactivityAttribute(t *testing.T) {
 		t.Errorf("closed after %v, want about 1s", d)
 	}
 }
+
+// A SendRRData reply carries the request's timeout, as a recorded
+// ControlLogix module answers.
+func TestSendRRDataTimeoutEchoed(t *testing.T) {
+	s := startServer(t)
+	p := dialPeer(t, s)
+	h := p.register()
+	good, _ := cip.Request{Service: cip.ServiceGetAttributeSingle, Path: cip.AttributePath(cip.ClassIdentity, 1, 1)}.Encode()
+	for _, timeout := range []uint16{0, 1, 32, 0xFFFF} {
+		b, _ := encap.RRData{Timeout: timeout, Items: []encap.Item{{Type: encap.ItemNullAddress}, {Type: encap.ItemUnconnectedData, Data: good}}}.Encode()
+		r := p.roundTrip(encap.CommandSendRRData, h, b)
+		rr, err := encap.DecodeRRData(r.Data)
+		if err != nil || rr.Timeout != timeout {
+			t.Errorf("timeout %d: reply %d, %v", timeout, rr.Timeout, err)
+		}
+	}
+}

@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("M\a\x91\f_IO_EM_DO_00\xc1\x00\x01\x00\xff")
