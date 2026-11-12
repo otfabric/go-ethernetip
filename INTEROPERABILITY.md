@@ -158,97 +158,86 @@ Run of 2026-11-06T23:13:49Z against otfabric/ethernetip-interop v0.8.1.
 
 ### go-ethernetip as originator (client, scanner) against the reference targets
 
-| Feature | OpENer | EIPScanner | pycomm3 | cpppo | libplctag | gologix | pylogix | etherip | eip-rs | node-ethernet-ip | EEIP.NET | loki-os go-ethernet-ip |
-|---|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|
-| Class 1 I/O, T->O multicast | ✅ |  |  |  |  |  |  |  |  |  |  |  |
-| Class 1 I/O, configuration data | ✅ |  |  |  |  |  |  |  |  |  |  |  |
-| Class 1 I/O, exclusive owner, point-to-point | ✅ |  |  | N/A |  |  |  |  |  |  |  |  |
-| Class 1 I/O, input only (heartbeat O->T) | ✅ |  |  |  |  |  |  |  |  |  |  |  |
-| Class 1 I/O, listen-only (multicast, next to its owner) | ✅ |  |  |  |  |  |  |  |  |  |  |  |
-| Class 3 connected explicit messaging | ✅ |  |  | ✅ | N/A | N/A |  |  |  |  |  |  |
-| Error responses (unknown class, attribute) | ✅ |  |  |  |  |  |  |  |  |  |  |  |
-| Forward_Open refusal (configuration size) | ✅ |  |  |  |  |  |  |  |  |  |  |  |
-| Forward_Open refusal (connection size) | ✅ |  |  |  |  |  |  |  |  |  |  |  |
-| Forward_Open refusal (listen-only without owner) | ✅ |  |  |  |  |  |  |  |  |  |  |  |
-| Get_Attribute_Single | ✅ |  |  | ✅ | N/A | N/A |  |  |  |  |  |  |
-| Get_Attributes_All (Identity) | ✅ |  |  |  | N/A | ✅ |  |  |  |  |  |  |
-| Large_Forward_Open | ✅ |  |  |  |  |  |  |  |  |  |  |  |
-| ListIdentity (TCP) | ✅ |  |  | ✅ | N/A | ✅ |  |  |  |  |  |  |
-| ListIdentity (UDP) | ✅ |  |  | ✅ | N/A | N/A |  |  |  |  |  |  |
-| ListServices | ✅ |  |  |  |  |  |  |  |  |  |  |  |
-| Logix Read Tag (atomic types) |  |  |  | ✅ | ✅ | ✅ |  |  |  |  |  |  |
-| Logix Read Tag Fragmented (1200 octets) |  |  |  | ✅ | ✅ | N/A |  |  |  |  |  |  |
-| Logix Read Tag over Class 3 |  |  |  |  | ✅ | ✅ |  |  |  |  |  |  |
-| Logix Write Tag |  |  |  | ✅ | ✅ | ✅ |  |  |  |  |  |  |
-| Logix bit write (Read Modify Write Tag) |  |  |  | N/A | N/A | N/A |  |  |  |  |  |  |
-| Logix structure read (UDT) |  |  |  | N/A |  |  |  |  |  |  |  |  |
-| Logix tag list (0x55) |  |  |  |  | N/A | N/A |  |  |  |  |  |  |
-| Logix tag list (0x55) and LogixDriver open |  |  |  | N/A |  |  |  |  |  |  |  |  |
-| Logix tag list with templates (0x6C) |  |  |  |  |  |  |  |  |  |  |  |  |
-| Logix tag services | N/A |  |  |  |  |  |  |  |  |  |  |  |
-| Multiple Service Packet | N/A |  |  | ✅ | N/A | N/A |  |  |  |  |  |  |
-| Set_Attribute_Single (assembly) | ✅ |  |  |  |  |  |  |  |  |  |  |  |
-| Unconnected_Send routing | N/A |  |  |  |  |  |  |  |  |  |  |  |
+| Feature | OpENer | EIPScanner | pycomm3 | cpppo | libplctag | gologix | pylogix | etherip | eip-rs | node-ethernet-ip | EEIP.NET | loki-os go-ethernet-ip | cB-Sigma enip |
+|---|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|
+| Class 1 I/O, T->O multicast | ✅ |  |  |  |  |  |  |  |  |  |  |  |  |
+| Class 1 I/O, configuration data | ✅ |  |  |  |  |  |  |  |  |  |  |  |  |
+| Class 1 I/O, exclusive owner, point-to-point | ✅ |  |  | N/A |  |  |  |  |  |  |  |  |  |
+| Class 1 I/O, input only (heartbeat O->T) | ✅ |  |  |  |  |  |  |  |  |  |  |  |  |
+| Class 1 I/O, listen-only (multicast, next to its owner) | ✅ |  |  |  |  |  |  |  |  |  |  |  |  |
+| Class 3 connected explicit messaging | ✅ |  |  | ✅ | N/A | N/A |  |  |  |  |  |  | ✅ |
+| Error responses (unknown class, attribute) | ✅ |  |  |  |  |  |  |  |  |  |  |  |  |
+| Forward_Open refusal (configuration size) | ✅ |  |  |  |  |  |  |  |  |  |  |  |  |
+| Forward_Open refusal (connection size) | ✅ |  |  |  |  |  |  |  |  |  |  |  |  |
+| Forward_Open refusal (listen-only without owner) | ✅ |  |  |  |  |  |  |  |  |  |  |  |  |
+| Get_Attribute_Single | ✅ |  |  | ✅ | N/A | N/A |  |  |  |  |  |  | ✅ |
+| Get_Attributes_All (Identity) | ✅ |  |  |  | N/A | ✅ |  |  |  |  |  |  | ✅ |
+| Large_Forward_Open | ✅ |  |  |  |  |  |  |  |  |  |  |  |  |
+| ListIdentity (TCP) | ✅ |  |  | ✅ | N/A | ✅ |  |  |  |  |  |  | ✅ |
+| ListIdentity (UDP) | ✅ |  |  | ✅ | N/A | N/A |  |  |  |  |  |  | ✅ |
+| ListServices | ✅ |  |  |  |  |  |  |  |  |  |  |  |  |
+| Logix Read Tag (atomic types) |  |  |  | ✅ | ✅ | ✅ |  |  |  |  |  |  | ✅ |
+| Logix Read Tag Fragmented (1200 octets) |  |  |  | ✅ | ✅ | N/A |  |  |  |  |  |  | ✅ |
+| Logix Read Tag over Class 3 |  |  |  |  | ✅ | ✅ |  |  |  |  |  |  | ✅ |
+| Logix Write Tag |  |  |  | ✅ | ✅ | ✅ |  |  |  |  |  |  | ✅ |
+| Logix bit write (Read Modify Write Tag) |  |  |  | N/A | N/A | N/A |  |  |  |  |  |  | N/A |
+| Logix structure read (UDT) |  |  |  | N/A |  |  |  |  |  |  |  |  |  |
+| Logix tag list (0x55) |  |  |  |  | N/A | N/A |  |  |  |  |  |  | ✅ |
+| Logix tag list (0x55) and LogixDriver open |  |  |  | N/A |  |  |  |  |  |  |  |  |  |
+| Logix tag list with templates (0x6C) |  |  |  |  |  |  |  |  |  |  |  |  | ✅ |
+| Logix tag services | N/A |  |  |  |  |  |  |  |  |  |  |  |  |
+| Multiple Service Packet | N/A |  |  | ✅ | N/A | N/A |  |  |  |  |  |  | ✅ |
+| Set_Attribute_Single (assembly) | ✅ |  |  |  |  |  |  |  |  |  |  |  |  |
+| Unconnected_Send routing | N/A |  |  |  |  |  |  |  |  |  |  |  |  |
 
 ### Reference originators against go-ethernetip's target (server, Logix emulation)
 
-| Feature | OpENer | EIPScanner | pycomm3 | cpppo | libplctag | gologix | pylogix | etherip | eip-rs | node-ethernet-ip | EEIP.NET | loki-os go-ethernet-ip |
-|---|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|
-| Class 1 I/O, T->O multicast |  | N/A |  |  | N/A | N/A | N/A | N/A | N/A | N/A | ✅ | N/A |
-| Class 1 I/O, configuration data |  | ✅ |  |  | N/A | N/A | N/A | N/A | N/A | N/A | N/A | N/A |
-| Class 1 I/O, exclusive owner, point-to-point |  | ✅ | N/A | N/A | N/A | N/A | N/A | N/A | N/A | N/A | ✅ | N/A |
-| Class 1 I/O, input only (heartbeat O->T) |  | ✅ |  |  | N/A | N/A | N/A | N/A | N/A | N/A | ✅ | N/A |
-| Class 1 I/O, listen-only (multicast, next to its owner) |  | N/A |  |  |  |  |  |  |  |  |  |  |
-| Class 3 connected explicit messaging |  | N/A |  |  | ✅ | ✅ | N/A | N/A | ✅ | ✅ | N/A | ✅ |
-| Class 3 connected explicit messaging (Large_Forward_Open) |  |  | ✅ |  |  |  |  |  |  |  |  |  |
-| Error responses (unknown class, attribute) |  |  | ✅ |  | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| Forward_Open refusal (configuration size) |  | ✅ |  |  |  |  |  |  |  |  |  |  |
-| Forward_Open refusal (connection size) |  | ✅ |  |  | N/A | N/A | N/A | N/A | N/A | N/A | ✅ | N/A |
-| Get_Attribute_Single |  |  | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| Get_Attribute_Single (16-bit logical segments) |  | ✅ |  |  |  |  |  |  |  |  |  |  |
-| Get_Attributes_All (Identity) |  | ✅ |  |  | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| Identity object (identity operation) |  |  |  |  | ✅ | N/A | ✅ | ✅ | N/A | ✅ | ✅ | N/A |
-| Large_Forward_Open |  | ✅ |  |  | N/A | N/A | N/A | N/A | N/A | N/A | ✅ | N/A |
-| ListIdentity (TCP) |  |  | ✅ | ✅ | N/A | ✅ | N/A | ✅ | ✅ | ✅ | N/A | ✅ |
-| ListIdentity (UDP) |  | ✅ | ✅ | ✅ | N/A | N/A | ✅ | ✅ | ✅ | ✅ | ✅ | N/A |
-| Logix BOOL array element write |  |  | ✅ |  | N/A | N/A | ✅ | N/A | ✅ | N/A | N/A | N/A |
-| Logix Read Tag (64-bit types) |  |  |  |  | ✅ | ✅ | ✅ | N/A | ✅ | ✅ | N/A | ✅ |
-| Logix Read Tag (atomic types) |  |  | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | N/A | ✅ |
-| Logix Read Tag Fragmented (1200 octets) |  |  | ✅ | ✅ | ✅ | N/A | ✅ | N/A | ✅ | N/A | N/A | N/A |
-| Logix STRING read and write |  |  | ✅ |  | N/A | N/A | N/A | N/A | ✅ | ✅ | N/A | N/A |
-| Logix Write Tag |  |  | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | N/A | N/A |
-| Logix Write Tag Fragmented (1200 octets) |  |  | ✅ |  | N/A | N/A | N/A | N/A | ✅ | N/A | N/A | N/A |
-| Logix bit write (Read Modify Write Tag) |  |  | ✅ |  | ✅ | N/A | ✅ | N/A | ✅ | ✅ | N/A | N/A |
-| Logix multiple tags in one request (read-tags) |  |  |  |  | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | N/A | ✅ |
-| Logix structure read (UDT) |  |  | ✅ |  | N/A | N/A | N/A | N/A | ✅ | ✅ | N/A | N/A |
-| Logix structure write (UDT) |  |  | ✅ |  | N/A | N/A | N/A | N/A | ✅ | ✅ | N/A | N/A |
-| Logix tag list (0x55) |  |  |  |  | ✅ | ✅ | ✅ | N/A | ✅ | ✅ | N/A | ✅ |
-| Logix tag list (0x55) and LogixDriver open |  |  | ✅ |  |  |  |  |  |  |  |  |  |
-| Logix tag list with structure and STRING tags |  |  | ✅ |  | N/A | N/A | N/A | N/A | ✅ | ✅ | N/A | N/A |
-| Logix tag services |  | N/A |  |  |  |  |  |  |  |  |  |  |
-| Multiple Service Packet |  | ✅ |  | ✅ | N/A | ✅ | N/A | N/A | ✅ | ✅ | N/A | ✅ |
-| Set_Attribute_Single (assembly) |  | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | N/A | ✅ | ✅ | ✅ | ✅ |
-| Unconnected_Send routing (backplane slot 0) |  |  | ✅ |  |  |  |  |  |  |  |  |  |
+| Feature | OpENer | EIPScanner | pycomm3 | cpppo | libplctag | gologix | pylogix | etherip | eip-rs | node-ethernet-ip | EEIP.NET | loki-os go-ethernet-ip | cB-Sigma enip |
+|---|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|
+| Class 1 I/O, T->O multicast |  | N/A |  |  | N/A | N/A | N/A | N/A | N/A | N/A | ✅ | N/A | N/A |
+| Class 1 I/O, configuration data |  | ✅ |  |  | N/A | N/A | N/A | N/A | N/A | N/A | N/A | N/A | N/A |
+| Class 1 I/O, exclusive owner, point-to-point |  | ✅ | N/A | N/A | N/A | N/A | N/A | N/A | N/A | N/A | ✅ | N/A | N/A |
+| Class 1 I/O, input only (heartbeat O->T) |  | ✅ |  |  | N/A | N/A | N/A | N/A | N/A | N/A | ✅ | N/A | N/A |
+| Class 1 I/O, listen-only (multicast, next to its owner) |  | N/A |  |  |  |  |  |  |  |  |  |  |  |
+| Class 3 connected explicit messaging |  | N/A |  |  | ✅ | ✅ | N/A | N/A | ✅ | ✅ | N/A | ✅ | ✅ |
+| Class 3 connected explicit messaging (Large_Forward_Open) |  |  | ✅ |  |  |  |  |  |  |  |  |  |  |
+| Error responses (unknown class, attribute) |  |  | ✅ |  | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Forward_Open refusal (configuration size) |  | ✅ |  |  |  |  |  |  |  |  |  |  |  |
+| Forward_Open refusal (connection size) |  | ✅ |  |  | N/A | N/A | N/A | N/A | N/A | N/A | ✅ | N/A | ✅ |
+| Get_Attribute_Single |  |  | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Get_Attribute_Single (16-bit logical segments) |  | ✅ |  |  |  |  |  |  |  |  |  |  |  |
+| Get_Attributes_All (Identity) |  | ✅ |  |  | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Identity object (identity operation) |  |  |  |  | ✅ | N/A | ✅ | ✅ | N/A | ✅ | ✅ | N/A | N/A |
+| Large_Forward_Open |  | ✅ |  |  | N/A | N/A | N/A | N/A | N/A | N/A | ✅ | N/A | N/A |
+| ListIdentity (TCP) |  |  | ✅ | ✅ | N/A | ✅ | N/A | ✅ | ✅ | ✅ | N/A | ✅ | ✅ |
+| ListIdentity (UDP) |  | ✅ | ✅ | ✅ | N/A | N/A | ✅ | ✅ | ✅ | ✅ | ✅ | N/A | ✅ |
+| Logix BOOL array element write |  |  | ✅ |  | N/A | N/A | ✅ | N/A | ✅ | N/A | N/A | N/A | N/A |
+| Logix Read Tag (64-bit types) |  |  |  |  | ✅ | ✅ | ✅ | N/A | ✅ | ✅ | N/A | ✅ | ✅ |
+| Logix Read Tag (atomic types) |  |  | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | N/A | ✅ | ✅ |
+| Logix Read Tag Fragmented (1200 octets) |  |  | ✅ | ✅ | ✅ | N/A | ✅ | N/A | ✅ | N/A | N/A | N/A | ✅ |
+| Logix STRING read and write |  |  | ✅ |  | N/A | N/A | N/A | N/A | ✅ | ✅ | N/A | N/A | N/A |
+| Logix Write Tag |  |  | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | N/A | N/A | ✅ |
+| Logix Write Tag Fragmented (1200 octets) |  |  | ✅ |  | N/A | N/A | N/A | N/A | ✅ | N/A | N/A | N/A | ✅ |
+| Logix bit write (Read Modify Write Tag) |  |  | ✅ |  | ✅ | N/A | ✅ | N/A | ✅ | ✅ | N/A | N/A | N/A |
+| Logix multiple tags in one request (read-tags) |  |  |  |  | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | N/A | ✅ | ✅ |
+| Logix structure read (UDT) |  |  | ✅ |  | N/A | N/A | N/A | N/A | ✅ | ✅ | N/A | N/A | N/A |
+| Logix structure write (UDT) |  |  | ✅ |  | N/A | N/A | N/A | N/A | ✅ | ✅ | N/A | N/A | N/A |
+| Logix tag list (0x55) |  |  |  |  | ✅ | ✅ | ✅ | N/A | ✅ | ✅ | N/A | ✅ | ✅ |
+| Logix tag list (0x55) and LogixDriver open |  |  | ✅ |  |  |  |  |  |  |  |  |  |  |
+| Logix tag list with structure and STRING tags |  |  | ✅ |  | N/A | N/A | N/A | N/A | ✅ | ✅ | N/A | N/A | N/A |
+| Logix tag services |  | N/A |  |  |  |  |  |  |  |  |  |  |  |
+| Multiple Service Packet |  | ✅ |  | ✅ | N/A | ✅ | N/A | N/A | ✅ | ✅ | N/A | ✅ | ✅ |
+| Set_Attribute_Single (assembly) |  | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | N/A | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Unconnected_Send routing (backplane slot 0) |  |  | ✅ |  |  |  |  |  |  |  |  |  |  |
 
-181 passed, 0 failed, 142 not applicable. N/A: the reference has the
-role but not the feature. Empty: not exercised with that reference in
-that direction (it lacks the role, or no case covers it yet).
+209 passed, 0 failed, 155 not applicable cells, from 383 test results.
+A cell shows every test of the feature with that reference: a failure
+outranks a pass, a pass a skip. N/A: the reference has the role but not
+the feature. Empty: not exercised with that reference in that direction
+(it lacks the role, or no case covers it yet).
 
 Notes:
 
-- **, Class 1 I/O, T->O multicast** (reference originator): the adapter declares no client feature multicast
-- **, Class 1 I/O, configuration data** (reference originator): the adapter declares no client feature configData
-- **, Class 1 I/O, exclusive owner, point-to-point** (reference originator): reference limitation: cB-Sigma's scanner sends no Forward_Close for an I/O connection (documented upstream as not yet done)
-- **, Class 1 I/O, input only (heartbeat O->T)** (reference originator): the adapter declares no client feature inputOnly
-- **, Identity object (identity operation)** (reference originator): the adapter has no identity operation
-- **, Large_Forward_Open** (reference originator): the adapter declares no client feature largeForwardOpen
-- **, Logix BOOL array element write** (reference originator): the adapter declares no client feature readModifyWrite
-- **, Logix STRING read and write** (reference originator): the adapter declares no client feature templates
-- **, Logix bit write (Read Modify Write Tag)** (go-ethernetip originator): the server declares no readModifyWrite
-- **, Logix bit write (Read Modify Write Tag)** (reference originator): the adapter declares no client feature readModifyWrite
-- **, Logix structure read (UDT)** (reference originator): the adapter declares no client feature templates
-- **, Logix structure write (UDT)** (reference originator): the adapter declares no client feature templates
-- **, Logix tag list with structure and STRING tags** (reference originator): the adapter declares no client feature templates
 - **EEIP.NET, Class 1 I/O, configuration data** (reference originator): the adapter declares no client feature configData
 - **EEIP.NET, Class 3 connected explicit messaging** (reference originator): the adapter declares no client feature class3
 - **EEIP.NET, ListIdentity (TCP)** (reference originator): the adapter declares no client feature listIdentityTcp
@@ -283,6 +272,19 @@ Notes:
 - **OpENer, Logix tag services** (go-ethernetip originator): not a Logix controller
 - **OpENer, Multiple Service Packet** (go-ethernetip originator): OpENer answers 0x08: not implemented
 - **OpENer, Unconnected_Send routing** (go-ethernetip originator): OpENer answers 0x08: not implemented
+- **cB-Sigma enip, Class 1 I/O, T->O multicast** (reference originator): the adapter declares no client feature multicast
+- **cB-Sigma enip, Class 1 I/O, configuration data** (reference originator): the adapter declares no client feature configData
+- **cB-Sigma enip, Class 1 I/O, exclusive owner, point-to-point** (reference originator): reference limitation: cB-Sigma's scanner sends no Forward_Close for an I/O connection (documented upstream as not yet done)
+- **cB-Sigma enip, Class 1 I/O, input only (heartbeat O->T)** (reference originator): the adapter declares no client feature inputOnly
+- **cB-Sigma enip, Identity object (identity operation)** (reference originator): the adapter has no identity operation
+- **cB-Sigma enip, Large_Forward_Open** (reference originator): the adapter declares no client feature largeForwardOpen
+- **cB-Sigma enip, Logix BOOL array element write** (reference originator): the adapter declares no client feature readModifyWrite
+- **cB-Sigma enip, Logix STRING read and write** (reference originator): the adapter declares no client feature templates
+- **cB-Sigma enip, Logix bit write (Read Modify Write Tag)** (go-ethernetip originator): the server declares no readModifyWrite
+- **cB-Sigma enip, Logix bit write (Read Modify Write Tag)** (reference originator): the adapter declares no client feature readModifyWrite
+- **cB-Sigma enip, Logix structure read (UDT)** (reference originator): the adapter declares no client feature templates
+- **cB-Sigma enip, Logix structure write (UDT)** (reference originator): the adapter declares no client feature templates
+- **cB-Sigma enip, Logix tag list with structure and STRING tags** (reference originator): the adapter declares no client feature templates
 - **cpppo, Class 1 I/O, exclusive owner, point-to-point** (go-ethernetip originator): cpppo has no implicit messaging
 - **cpppo, Class 1 I/O, exclusive owner, point-to-point** (reference originator): cpppo has no implicit messaging
 - **cpppo, Class 3 connected explicit messaging** (go-ethernetip originator): connected
@@ -436,6 +438,7 @@ Images:
 - node-ethernet-ip: `{"adapter":"nodeeip","adapterVersion":"v0.8.1","upstream":"node-ethernet-ip","upstreamVersion":"2.0.0","upstreamRevision":"4743b077abd3cc8826d511acde8f890372826e16","contract":"1.0"}`
 - EEIP.NET: `{"adapter":"eeip","adapterVersion":"v0.8.1","upstream":"EEIP.NET","upstreamVersion":"1.6.0","upstreamRevision":"58b91a0c8e30227b1b97a637635d147a2a9655dc","contract":"1.0"}`
 - loki-os go-ethernet-ip: `{"adapter":"lokieip","adapterVersion":"v0.8.1","contract":"1.0","upstream":"go-ethernet-ip","upstreamRevision":"535f79752f63a4122c37c7f0f9b95ece01a8f7b4","upstreamVersion":"0.0.0-20221229063210-535f797"}`
+- cB-Sigma enip: `{"adapter":"cbsigma","adapterVersion":"v0.8.1","contract":"1.0","upstream":"cB-Sigma/enip","upstreamRevision":"a3cb007728bbaf830cf89b24c3a06bba8075ec3b","upstreamVersion":"0.2.0"}`
 <!-- interop-matrix:end -->
 
 ## Known deviations of the references
