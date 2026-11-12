@@ -157,10 +157,11 @@ generate: ## Generate the CIP catalog code and CATALOG.md, and the sample EDS pa
 	@echo "Generating"
 	@go generate ./...
 
-generate-check: ## Fail when the generated files differ from their sources
+generate-check: ## Fail when the generated files (catalog, sample EDS, interop matrix) differ from their sources
 	@echo "Checking the generated files"
 	@go run ./internal/cmd/gencatalog -check
 	@go run ./internal/cmd/gensample -check
+	@go run ./internal/cmd/genmatrix -check
 
 coverpkg-check: ## Fail when CI's coverpkg (.github/workflows/ci.yml) is not COVER_PKGS
 	@grep -qF -- "$(COVER_PKGS)" .github/workflows/ci.yml || { echo "coverpkg in .github/workflows/ci.yml must be: $(COVER_PKGS)"; exit 1; }

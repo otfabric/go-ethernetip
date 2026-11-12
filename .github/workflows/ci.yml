@@ -48,7 +48,8 @@ jobs:
           go-version-file: go.mod
       - run: make coverage-check coverage-pkg-check
 
-  # The generated catalog and sample EDS package follow their sources.
+  # The generated catalog, sample EDS package and interop matrix follow
+  # their sources.
   generate:
     name: Generated code
     runs-on: ubuntu-latest

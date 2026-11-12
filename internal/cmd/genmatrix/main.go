@@ -49,11 +49,55 @@ func main() {
 	}
 }
 
-var refs = []string{"opener", "eipscanner", "pycomm3", "cpppo", "libplctag", "gologix", "pylogix", "etherip", "eiprs", "nodeeip", "eeip", "lokieip"}
+// names are the display names of the references, in the order of the
+// matrix columns. The columns themselves come from the results file: every
+// reference that has a row or an image is shown, and one without a display
+// name here is an error, so a new reference cannot be left out.
+var names = []struct{ ref, name string }{
+	{"opener", "OpENer"}, {"eipscanner", "EIPScanner"}, {"pycomm3", "pycomm3"}, {"cpppo", "cpppo"},
+	{"libplctag", "libplctag"}, {"gologix", "gologix"}, {"pylogix", "pylogix"}, {"etherip", "etherip"},
+	{"eiprs", "eip-rs"}, {"nodeeip", "node-ethernet-ip"}, {"eeip", "EEIP.NET"},
+	{"lokieip", "loki-os go-ethernet-ip"}, {"cbsigma", "cB-Sigma enip"},
+}
 
-var names = map[string]string{"opener": "OpENer", "eipscanner": "EIPScanner", "pycomm3": "pycomm3", "cpppo": "cpppo",
-	"libplctag": "libplctag", "gologix": "gologix", "pylogix": "pylogix", "etherip": "etherip", "eiprs": "eip-rs",
-	"nodeeip": "node-ethernet-ip", "eeip": "EEIP.NET", "lokieip": "loki-os go-ethernet-ip"}
+// rank orders the results of the tests of one cell: the highest is shown.
+var rank = map[string]int{"skipped": 1, "n/a": 2, "pass": 3, "fail": 4}
+
+// references returns the references of m in column order with their
+// display names.
+func references(m matrix) ([]string, map[string]string, error) {
+	present := map[string]bool{}
+	for _, r := range m.Rows {
+		present[r.Reference] = true
+	}
+	for r := range m.Images {
+		present[r] = true
+	}
+	var refs []string
+	display := map[string]string{}
+	for _, n := range names {
+		if present[n.ref] {
+			refs = append(refs, n.ref)
+			display[n.ref] = n.name
+		}
+	}
+	var unnamed []string
+	for r := range present {
+		if _, ok := display[r]; !ok {
+			unnamed = append(unnamed, r)
+		}
+	}
+	if len(unnamed) > 0 {
+		sort.Strings(unnamed)
+		return nil, nil, fmt.Errorf("%s: references without a display name in internal/cmd/genmatrix: %s", results, strings.Join(unnamed, ", "))
+	}
+	for _, r := range refs {
+		if _, ok := m.Images[r]; !ok {
+			return nil, nil, fmt.Errorf("%s: reference %s has rows but no image", results, r)
+		}
+	}
+	return refs, display, nil
+}
 
 func run(check bool) error {
 	// The files are read and written under the working directory, the
@@ -71,6 +115,10 @@ func run(check bool) error {
 	if err := json.Unmarshal(b, &m); err != nil {
 		return fmt.Errorf("%s: %w", results, err)
 	}
+	refs, names, err := references(m)
+	if err != nil {
+		return err
+	}
 	type key struct{ feature, dir string }
 	cells := map[key]map[string]row{}
 	var keys []key
@@ -81,8 +129,11 @@ func run(check bool) error {
 			keys = append(keys, k)
 		}
 		prev, ok := cells[k][r.Reference]
-		// A feature tested several times passes only when every test passed.
-		if !ok || prev.Status == "pass" || prev.Status == "n/a" {
+		// A feature tested several times passes only when every test that
+		// ran passed: a failure outranks a pass, and a test that ran
+		// outranks one that was skipped (its fixture lacks what the case
+		// needs) or not applicable.
+		if !ok || rank[r.Status] > rank[prev.Status] {
 			cells[k][r.Reference] = r
 		}
 	}
@@ -130,8 +181,12 @@ func run(check bool) error {
 		}
 		p("\n")
 	}
-	p("%d passed, %d failed, %d not applicable. N/A: the reference has the\n", counts["pass"], counts["fail"], counts["n/a"])
-	p("role but not the feature. Empty: not exercised with that reference in\nthat direction (it lacks the role, or no case covers it yet).\n\n")
+	p("%d passed, %d failed, %d not applicable", counts["pass"], counts["fail"], counts["n/a"])
+	if counts["skipped"] > 0 {
+		p(", %d skipped", counts["skipped"])
+	}
+	p(" cells, from %d test results.\nA cell shows every test of the feature with that reference: a failure\n", len(m.Rows))
+	p("outranks a pass, a pass a skip. N/A: the reference has the role but not\nthe feature. Empty: not exercised with that reference in that direction\n(it lacks the role, or no case covers it yet).\n\n")
 	var notes []string
 	seen := map[string]bool{}
 	for _, r := range m.Rows {
