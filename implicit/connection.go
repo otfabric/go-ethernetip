@@ -8,9 +8,12 @@ import (
 	"net"
 	"net/netip"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	ethernetip "github.com/otfabric/go-ethernetip"
+	"github.com/otfabric/go-ethernetip/internal/callback"
+	"github.com/otfabric/go-ethernetip/internal/goid"
 )
 
 // Config describes one I/O connection as seen from one end. "Produce" is
@@ -35,8 +38,14 @@ type Config struct {
 	ProduceFormat Format
 	ProduceSize   int
 	// Produce returns the data to send and whether to send run (true) or
-	// idle; it is called at every production. The slice is copied. A nil
-	// Produce sends ProduceSize zero octets, run.
+	// idle; it is called at every production, on the connection's
+	// goroutine. The slice is copied. A nil Produce sends ProduceSize zero
+	// octets, run. Produce may call Close of the connection or of the
+	// endpoint: Close then returns without waiting for the goroutine it
+	// is called on, which ends when Produce returns, and what that call
+	// returns is not sent. A Close on another goroutine waits for a
+	// Produce call in progress. When Produce does not return normally, the
+	// failure is logged with its stack and that production sends nothing.
 	Produce func() (data []byte, run bool)
 
 	// ConsumedID is the connection ID of the datagrams this end receives;
@@ -66,10 +75,18 @@ type Config struct {
 	// carries new data (a newer Class 1 sequence count; every datagram for
 	// Class 0), and whether it says run. It runs on the endpoint's
 	// receiving goroutine: it must not block. data is only valid during
-	// the call.
+	// the call. OnData may call Close of the connection or of the
+	// endpoint: Endpoint.Close then returns without waiting for the
+	// receiving goroutine, which ends when OnData returns. An
+	// Endpoint.Close on another goroutine waits for an OnData call in
+	// progress. When OnData does not return normally, the failure is
+	// logged with its stack and the endpoint goes on with the next
+	// datagram.
 	OnData func(data []byte, run bool)
-	// OnTimeout is called once when consumption times out; the connection
-	// stops producing and is closed.
+	// OnTimeout is called once when consumption times out, on the
+	// connection's goroutine; the connection stops producing and is
+	// closed. When it does not return normally, the failure is logged with
+	// its stack.
 	OnTimeout func()
 }
 
@@ -92,6 +109,10 @@ type Connection struct {
 	trigger chan struct{} // produce now
 	done    chan struct{}
 	wg      sync.WaitGroup
+	// runID is the identifier (internal/goid) of the connection's
+	// goroutine, set when it starts: Close called on it does not wait for
+	// it.
+	runID atomic.Uint64
 
 	mu        sync.Mutex
 	stats     Stats
@@ -104,6 +125,9 @@ type Connection struct {
 	consumed  bool   // a datagram was consumed
 	closed    bool
 	timedOut  bool
+	// closedOnRun is set when Close was called on the connection's
+	// goroutine, from Produce: what that call returns is not sent.
+	closedOnRun bool
 }
 
 // Open opens a connection on the endpoint: it registers ConsumedID,
@@ -180,18 +204,27 @@ func (c *Connection) unregister() {
 }
 
 // Close stops the connection: production ends and consumed datagrams are
-// no longer accepted. OnTimeout is not called. Close is idempotent.
-func (c *Connection) Close() {
+// no longer accepted. OnTimeout is not called. Close is idempotent. It
+// waits for the connection's goroutine, a Produce call in progress
+// included, unless it is called on that goroutine (from Produce): the
+// goroutine then ends when Produce returns.
+func (c *Connection) Close() { c.close(goid.ID()) }
+
+// close is Close called on the goroutine whose identifier is caller.
+func (c *Connection) close(caller uint64) {
+	onRun := caller != 0 && caller == c.runID.Load()
 	c.mu.Lock()
 	if c.closed {
 		c.mu.Unlock()
 		return
 	}
-	c.closed = true
+	c.closed, c.closedOnRun = true, onRun
 	c.mu.Unlock()
 	c.unregister()
 	close(c.done)
-	c.wg.Wait()
+	if !onRun {
+		c.wg.Wait()
+	}
 	if c.cfg.Group.IsValid() {
 		c.e.leave(c.cfg.Group)
 	}
@@ -225,6 +258,7 @@ func (c *Connection) Trigger() {
 
 func (c *Connection) run() {
 	defer c.wg.Done()
+	c.runID.Store(goid.ID())
 	var tick <-chan time.Time
 	if c.cfg.ProducedID != 0 {
 		t := time.NewTicker(c.cfg.ProduceRPI)
@@ -283,20 +317,26 @@ func (c *Connection) timeout() {
 	if c.cfg.Group.IsValid() {
 		c.e.leave(c.cfg.Group)
 	}
-	if c.cfg.OnTimeout != nil {
-		c.cfg.OnTimeout()
+	if f := c.cfg.OnTimeout; f != nil {
+		callback.Do(c.e.log, "OnTimeout", f)
 	}
 }
 
 func (c *Connection) produce() {
 	var data []byte
 	run := true
-	if c.cfg.Produce != nil {
-		data, run = c.cfg.Produce()
+	if f := c.cfg.Produce; f != nil {
+		if !callback.Do(c.e.log, "Produce", func() { data, run = f() }) {
+			return
+		}
 	} else {
 		data = make([]byte, c.cfg.ProduceSize)
 	}
 	c.mu.Lock()
+	if c.closedOnRun {
+		c.mu.Unlock()
+		return
+	}
 	c.encapSeq++
 	// The sequence count follows new data (and a change of run/idle): a
 	// consumer recognises a repeat by its count.
@@ -325,8 +365,8 @@ func (c *Connection) produce() {
 	c.stats.Sent++
 	c.stats.LastSent = time.Now()
 	c.mu.Unlock()
-	if c.e.metrics != nil {
-		c.e.metrics.OnIOSent(c.cfg.ProducedID, len(b))
+	if m := c.e.metrics; m != nil {
+		callback.Do(c.e.log, "IOMetrics.OnIOSent", func() { m.OnIOSent(c.cfg.ProducedID, len(b)) })
 	}
 }
 
@@ -372,11 +412,12 @@ func (c *Connection) consume(from netip.AddrPort, m Message) {
 	case c.kick <- struct{}{}:
 	default:
 	}
-	if c.e.metrics != nil {
-		c.e.metrics.OnIOReceived(m.ConnID, len(m.Payload))
+	if mt := c.e.metrics; mt != nil {
+		callback.Do(c.e.log, "IOMetrics.OnIOReceived", func() { mt.OnIOReceived(m.ConnID, len(m.Payload)) })
 	}
-	if fresh && c.cfg.OnData != nil {
-		c.cfg.OnData(p.Data, p.Run(c.cfg.ConsumeFormat))
+	if f := c.cfg.OnData; fresh && f != nil {
+		run := p.Run(c.cfg.ConsumeFormat)
+		callback.Do(c.e.log, "OnData", func() { f(p.Data, run) })
 	}
 }
 

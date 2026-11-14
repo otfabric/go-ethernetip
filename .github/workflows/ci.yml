@@ -25,7 +25,7 @@ jobs:
       # the e2e suite and the client and server tests exercise each other's
       # packages. make coverpkg-check keeps it equal to COVER_PKGS.
       coverpkg: >-
-        github.com/otfabric/go-ethernetip,github.com/otfabric/go-ethernetip/cip,github.com/otfabric/go-ethernetip/client,github.com/otfabric/go-ethernetip/eds,github.com/otfabric/go-ethernetip/encap,github.com/otfabric/go-ethernetip/implicit,github.com/otfabric/go-ethernetip/internal/logx,github.com/otfabric/go-ethernetip/logix,github.com/otfabric/go-ethernetip/scanner,github.com/otfabric/go-ethernetip/server
+        github.com/otfabric/go-ethernetip,github.com/otfabric/go-ethernetip/cip,github.com/otfabric/go-ethernetip/client,github.com/otfabric/go-ethernetip/eds,github.com/otfabric/go-ethernetip/encap,github.com/otfabric/go-ethernetip/implicit,github.com/otfabric/go-ethernetip/internal/callback,github.com/otfabric/go-ethernetip/internal/goid,github.com/otfabric/go-ethernetip/internal/logx,github.com/otfabric/go-ethernetip/logix,github.com/otfabric/go-ethernetip/scanner,github.com/otfabric/go-ethernetip/server
       go-versions: '["1.26", "1.27"]'
       # The race and e2e suites need more than the default 15 minutes on
       # loaded runners.

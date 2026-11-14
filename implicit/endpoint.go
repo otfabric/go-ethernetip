@@ -8,9 +8,12 @@ import (
 	"net"
 	"net/netip"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	ethernetip "github.com/otfabric/go-ethernetip"
+	"github.com/otfabric/go-ethernetip/internal/callback"
+	"github.com/otfabric/go-ethernetip/internal/goid"
 	"github.com/otfabric/go-ethernetip/internal/logx"
 )
 
@@ -40,6 +43,9 @@ type Endpoint struct {
 	sendMu sync.Mutex
 
 	wg sync.WaitGroup
+	// recvID is the identifier (internal/goid) of the receiving goroutine,
+	// set when it starts: Close called on it does not wait for it.
+	recvID atomic.Uint64
 }
 
 // EndpointOption configures an [Endpoint].
@@ -111,8 +117,13 @@ func (e *Endpoint) LocalAddr() netip.AddrPort {
 	return e.conn.LocalAddr().(*net.UDPAddr).AddrPort()
 }
 
-// Close closes the endpoint and every connection on it.
+// Close closes the endpoint and every connection on it. It waits for the
+// goroutines of the endpoint and of its connections, the OnData and
+// Produce calls in progress included, except the goroutine it is called
+// on: called from OnData or Produce, it returns, and that goroutine ends
+// when the callback returns.
 func (e *Endpoint) Close() error {
+	caller := goid.ID()
 	e.mu.Lock()
 	if e.closed {
 		e.mu.Unlock()
@@ -127,15 +138,18 @@ func (e *Endpoint) Close() error {
 	e.groups = map[netip.Addr]int{}
 	e.mu.Unlock()
 	for _, c := range conns {
-		c.Close()
+		c.close(caller)
 	}
 	err := e.conn.Close()
-	e.wg.Wait()
+	if caller == 0 || caller != e.recvID.Load() {
+		e.wg.Wait()
+	}
 	return err
 }
 
 func (e *Endpoint) receive(c *net.UDPConn) {
 	defer e.wg.Done()
+	e.recvID.Store(goid.ID())
 	buf := make([]byte, 65536)
 	for {
 		n, from, err := c.ReadFromUDPAddrPort(buf)
@@ -176,8 +190,8 @@ func (e *Endpoint) handle(from netip.AddrPort, b []byte) {
 }
 
 func (e *Endpoint) drop(from netip.AddrPort, reason string) {
-	if e.metrics != nil {
-		e.metrics.OnIODropped(net.UDPAddrFromAddrPort(from), reason)
+	if m := e.metrics; m != nil {
+		callback.Do(e.log, "IOMetrics.OnIODropped", func() { m.OnIODropped(net.UDPAddrFromAddrPort(from), reason) })
 	}
 }
 

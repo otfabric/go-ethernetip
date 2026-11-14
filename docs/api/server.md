@@ -68,7 +68,7 @@ Kind returns the kind.
 func (a *Assembly) OnWrite(f func(data []byte, run bool))
 ```
 
-OnWrite sets a function called with the new data whenever an originator writes the assembly, by an I/O connection (with its run/idle state) or by Set\_Attribute\_Single (run true). It is called on a server goroutine and must not block; data is only valid during the call.
+OnWrite sets a function called with the new data whenever an originator writes the assembly, by an I/O connection (with its run/idle state), by Set\_Attribute\_Single (run true) or, for a configuration assembly, by the configuration data of a Forward\_Open (run true). It is called on a server goroutine and must not block; data is only valid during the call. When it does not return normally, the failure is logged with its stack: the data stays written, a Set\_Attribute\_Single is answered with general status 0x10 (device state conflict), a Forward\_Open is refused with it, and an I/O connection goes on.
 
 #### func (Assembly) Run
 
@@ -207,6 +207,8 @@ type Object interface {
 
 Object is a CIP object class the Message Router dispatches requests to. ServeCIP is called from the goroutine of the session that received the request, concurrently for different sessions: an Object must be safe for concurrent use.
 
+The handlers of a request (ServeCIP, a [SymbolHandler](#type-symbolhandler), a [ServiceFunc](#type-servicefunc), the functions of an [Attribute](#type-attribute), the reset handler) may call the server's methods, Close included (see [Server.Close](#func-server-close)). A handler that does not return normally is logged with its stack, at Error level, and its request is answered with general status 0x10 (device state conflict); the session goes on, and within a Multiple Service Packet so do the other services.
+
 ### type Option
 
 ```go
@@ -317,7 +319,7 @@ WithRPIRange sets the requested packet intervals Forward\_Open accepts; others a
 func WithResetHandler(f func(resetType uint8) cip.GeneralStatus) Option
 ```
 
-WithResetHandler sets the function the Identity object's Reset service calls with the reset type (0: emulate a power cycle, 1: return to factory defaults). It returns the status of the reply; without a handler Reset answers success and does nothing.
+WithResetHandler sets the function the Identity object's Reset service calls with the reset type (0: emulate a power cycle, 1: return to factory defaults). It returns the status of the reply; without a handler Reset answers success and does nothing. It is a request handler: see [Object](#type-object).
 
 #### func WithRunIdleHeader
 
@@ -438,7 +440,7 @@ Classes returns the class codes of the registered objects, sorted.
 func (s *Server) Close() error
 ```
 
-Close stops the server: listeners close, sessions end, every connection is closed. It waits for the server's goroutines to end. Close is idempotent.
+Close stops the server: listeners close, sessions end, every connection is closed. It waits for the server's goroutines to end, the request handlers in progress included, except the session goroutine it is called on: a handler may call Close, which then returns while the handler's session goroutine ends when the handler returns. Close is idempotent.
 
 #### func (Server) Connections
 
@@ -550,7 +552,7 @@ UseListeners makes the server serve sockets the application opened: a TCP (or TL
 type ServiceFunc func(ctx context.Context, r *Request) cip.Response
 ```
 
-ServiceFunc implements a service of a [StandardObject](#type-standardobject). As for [Object.ServeCIP](#func-object-servecip), r.Data is only valid until the function returns; copy what you keep.
+ServiceFunc implements a service of a [StandardObject](#type-standardobject). As for [Object.ServeCIP](#func-object-servecip), r.Data is only valid until the function returns; copy what you keep. It is a request handler: see [Object](#type-object).
 
 ### type StandardObject
 
@@ -634,4 +636,4 @@ type SymbolHandler interface {
 }
 ```
 
-SymbolHandler handles requests whose path starts with a symbol segment (Logix tag services). See the logix package for an emulation. As for [Object.ServeCIP](#func-object-servecip), r.Data is only valid until ServeSymbol returns; copy what you keep.
+SymbolHandler handles requests whose path starts with a symbol segment (Logix tag services). See the logix package for an emulation. As for [Object.ServeCIP](#func-object-servecip), r.Data is only valid until ServeSymbol returns; copy what you keep. ServeSymbol is a request handler: see [Object](#type-object) for what it may call and how a call that does not return normally is answered.

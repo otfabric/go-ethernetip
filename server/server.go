@@ -22,6 +22,8 @@ import (
 	"github.com/otfabric/go-ethernetip/cip"
 	"github.com/otfabric/go-ethernetip/encap"
 	"github.com/otfabric/go-ethernetip/implicit"
+	"github.com/otfabric/go-ethernetip/internal/callback"
+	"github.com/otfabric/go-ethernetip/internal/goid"
 	"github.com/otfabric/go-ethernetip/internal/logx"
 )
 
@@ -319,9 +321,13 @@ func (s *Server) IOAddr() netip.AddrPort {
 }
 
 // Close stops the server: listeners close, sessions end, every connection
-// is closed. It waits for the server's goroutines to end. Close is
+// is closed. It waits for the server's goroutines to end, the request
+// handlers in progress included, except the session goroutine it is
+// called on: a handler may call Close, which then returns while the
+// handler's session goroutine ends when the handler returns. Close is
 // idempotent.
 func (s *Server) Close() error {
+	caller := goid.ID()
 	s.mu.Lock()
 	if s.closed {
 		s.mu.Unlock()
@@ -329,12 +335,16 @@ func (s *Server) Close() error {
 	}
 	s.closed = true
 	s.cancel()
-	l, udp, ep, own := s.tcp, s.udp, s.io, s.ownIO
+	l, udp, ep, ownIO := s.tcp, s.udp, s.io, s.ownIO
 	// Every TCP connection, not only the registered ones: one that never
 	// registers would otherwise hold Close until its inactivity timeout.
 	sessions := make([]*session, 0, len(s.conns))
+	var own *session
 	for ss := range s.conns {
 		sessions = append(sessions, ss)
+		if caller != 0 && ss.goroutine == caller {
+			own = ss
+		}
 	}
 	delayed := s.delayed
 	s.delayed = nil
@@ -357,8 +367,14 @@ func (s *Server) Close() error {
 		ss.close()
 	}
 	s.cm.closeAll(ethernetip.ErrClosed)
-	if ep != nil && own {
+	if ep != nil && ownIO {
 		_ = ep.Close()
+	}
+	if own != nil {
+		// Called from a handler on the session goroutine own: it no longer
+		// counts in s.wg, and reads no further request.
+		own.counted = false
+		s.wg.Done()
 	}
 	s.wg.Wait()
 	return nil
@@ -395,11 +411,20 @@ func (s *Server) dispatch(ctx context.Context, req cip.Request, remote net.Addr,
 		// else with the request's.
 		resp.Service = req.Service
 	}
-	if s.sm != nil {
-		s.sm.OnHandled(remote, req.Service, resp.Status, time.Since(start))
+	if m := s.sm; m != nil {
+		s.call("ServerMetrics.OnHandled", func() { m.OnHandled(remote, req.Service, resp.Status, time.Since(start)) })
 	}
 	return resp
 }
+
+// statusHandlerFailed is the general status of the answer to a request
+// whose handler did not return normally: device state conflict (0x10), as
+// for a service the server cannot carry out in its present state.
+const statusHandlerFailed = cip.StatusDeviceStateConflict
+
+// call runs the application's code named name: when it does not return
+// normally, the failure is logged with its stack and call returns false.
+func (s *Server) call(name string, f func()) bool { return callback.Do(s.log, name, f) }
 
 func (s *Server) route(ctx context.Context, req cip.Request, remote net.Addr, connected bool) cip.Response {
 	r := &Request{Request: req, Remote: remote, Connected: connected}
@@ -413,7 +438,11 @@ func (s *Server) route(ctx context.Context, req cip.Request, remote net.Addr, co
 		if h == nil {
 			return cip.Response{Status: cip.StatusPathDestinationUnknown}
 		}
-		return h.ServeSymbol(ctx, r)
+		var resp cip.Response
+		if !s.call("SymbolHandler.ServeSymbol", func() { resp = h.ServeSymbol(ctx, r) }) {
+			return cip.Response{Status: statusHandlerFailed}
+		}
+		return resp
 	}
 	var class uint32
 	i := 0
@@ -442,7 +471,12 @@ func (s *Server) route(ctx context.Context, req cip.Request, remote net.Addr, co
 	if o == nil {
 		return cip.Response{Status: cip.StatusPathDestinationUnknown}
 	}
-	return o.ServeCIP(ctx, r)
+	// The object's services and attribute functions run within ServeCIP.
+	var resp cip.Response
+	if !s.call("Object.ServeCIP", func() { resp = o.ServeCIP(ctx, r) }) {
+		return cip.Response{Status: statusHandlerFailed}
+	}
+	return resp
 }
 
 // logicalAt returns the value of the logical segment of type t at p[*i]

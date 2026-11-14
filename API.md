@@ -16,9 +16,20 @@ timeout rules.
   `implicit.Endpoint`, `implicit.Connection`, `logix.Client` and
   `logix.TagServer` are safe for concurrent use. Codec values (`cip.Request`,
   `cip.Path`, ...) are plain values.
-- **Callbacks** (`OnWrite`, `OnInput`, `OnData`, `OnState`, metrics, state
-  handlers) run on library goroutines: they must not block, and slices
-  passed to them are valid only during the call.
+- **Callbacks** (`OnWrite`, `OnInput`, `OnData`, `OnState`, `Produce`,
+  request handlers, metrics, state handlers) run on library goroutines:
+  they must not block, and slices passed to them are valid only during the
+  call. `Produce`, `OnData`, `OnTimeout`, `OnInput`, `OnState` and a
+  server's request handlers may call the methods of the object that calls
+  them, `Close` included; the client's state handler must not call the
+  client. A `Close` called from such a callback returns without waiting
+  for the goroutine it runs on, which ends when the callback returns; it
+  waits for the others. A `Close` on another goroutine waits for a
+  callback in progress, except `OnState` (see `IOConfig.OnState`). A
+  callback that does not return normally is logged at Error
+  level with its stack ([OBSERVABILITY.md](OBSERVABILITY.md)), and the
+  library goes on as the callback's documentation states; a request
+  handler's request is answered with general status 0x10.
 - **Ownership**: byte slices returned by decoders alias their input unless
   documented otherwise; values returned by clients (`Response.Data`,
   attribute values) are owned by the caller.
@@ -56,7 +67,7 @@ timeout rules.
 |---|---|
 | `New(client, opts...)` with `WithLocalAddr`, `WithEndpoint`, `WithLogger` | a scanner of the client's target |
 | `Scanner.Open(ctx, IOConfig)` → `*IO`; `Scanner.Close(ctx)`, `Endpoint` | I/O connections |
-| `IOConfig` | instances, sizes, RPIs, formats, class 0, multicast, timeout multiplier, large, key, `Reconnect`, `OnInput`, `OnState` |
+| `IOConfig` | instances, sizes, RPIs, floors on the O->T API (`OTAPIDivisor`, `MinOTAPI`), formats, class 0, multicast, timeout multiplier, large, key, `Reconnect`, `OnInput`, `OnState` |
 | `IO.SetOutput`, `SetRun`, `Input`, `State`, `Err`, `Done`, `Info`, `Stats`, `Close` | one connection |
 
 ## `server`
@@ -72,7 +83,8 @@ timeout rules.
 
 ## `logix` (vendor specific)
 
-`NewClient(doer, WithMaxData)` with `Read`, `Write`, `WriteBit`,
+`NewClient(doer, WithMaxData, WithMaxTagListReplies, WithMaxTagListData,
+WithMaxTemplateReplies)` with `Read`, `Write`, `WriteBit`,
 `ReadMany`, `ListTags`, `Template`, `DecodeStruct`, `ProgramName`;
 `ParseTag`; `Value` (`Int`, `Uint`, `Float`, `Bool`, `Text`) with `Ints`,
 `Uints`, `Floats`, `Strings`; `Template`, `Member`, `Field`, `SymbolType`;

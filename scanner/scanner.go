@@ -37,6 +37,7 @@ import (
 	"github.com/otfabric/go-ethernetip/client"
 	"github.com/otfabric/go-ethernetip/encap"
 	"github.com/otfabric/go-ethernetip/implicit"
+	"github.com/otfabric/go-ethernetip/internal/callback"
 	"github.com/otfabric/go-ethernetip/internal/logx"
 )
 
@@ -192,9 +193,23 @@ type IOConfig struct {
 	// or the O->T API is below a quarter of the O->T RPI or below 100 µs
 	// (the O->T RPI itself when that is shorter), so that the scanner
 	// never produces more than four times as often as asked.
+	// OTAPIDivisor and MinOTAPI change these two floors; an O->T API of 0
+	// is refused in any case.
 	RPI   time.Duration
 	OTRPI time.Duration
 	TORPI time.Duration
+	// OTAPIDivisor sets the first floor on the O->T API of the reply: the
+	// O->T RPI divided by it. It bounds how much more often than asked the
+	// scanner produces when the target answers a shorter interval: four
+	// times with the default. Zero means 4; a larger value lowers the
+	// floor, 1 to 3 raise it, a negative value disables it.
+	OTAPIDivisor int
+	// MinOTAPI sets the second floor on the O->T API of the reply: MinOTAPI,
+	// or the O->T RPI when that is shorter. It bounds the rate of
+	// production whatever the RPI, so that the interval a target names
+	// cannot keep the connection's goroutine sending datagrams back to
+	// back. Zero means 100 µs; a negative value disables it.
+	MinOTAPI time.Duration
 	// OutputFormat is the O->T real-time format: the zero value means the
 	// 32-bit run/idle header, or heartbeat when OutputSize is 0.
 	// InputFormat is the T->O format: the zero value is modeless.
@@ -223,7 +238,10 @@ type IOConfig struct {
 	Idle   bool
 	// OnInput is called with each new input (T->O) data and its run
 	// state, on the endpoint's goroutine: it must not block. data is only
-	// valid during the call.
+	// valid during the call. It may call the methods of the IO and of its
+	// Scanner, Close included (see implicit.Config.OnData). When it does
+	// not return normally, the failure is logged with its stack and the
+	// connection goes on.
 	OnInput func(data []byte, run bool)
 	// OnState is called when the connection's state changes, on the
 	// goroutine that changes it: the caller of Open (StateConnecting,
@@ -235,7 +253,9 @@ type IOConfig struct {
 	// before it returns, in a nested OnState call. Calls on different
 	// goroutines are not ordered with each other: a Close on another
 	// goroutine does not wait for an OnState call in progress. Once the
-	// connection is closed, its own goroutines report nothing more.
+	// connection is closed, its own goroutines report nothing more. When
+	// OnState does not return normally, the failure is logged with its
+	// stack and the state change stands.
 	OnState func(ethernetip.State, error)
 }
 
@@ -382,7 +402,7 @@ func (io *IO) setState(st ethernetip.State, err error) {
 	f := io.cfg.OnState
 	io.mu.Unlock()
 	if changed && f != nil {
-		f(st, err)
+		callback.Do(io.s.log, "OnState", func() { f(st, err) })
 	}
 }
 
@@ -399,7 +419,7 @@ func (io *IO) setStateOpen(st ethernetip.State, err error) bool {
 	f := io.cfg.OnState
 	io.mu.Unlock()
 	if changed && f != nil {
-		f(st, err)
+		callback.Do(io.s.log, "OnState", func() { f(st, err) })
 	}
 	return true
 }
@@ -455,7 +475,7 @@ func (io *IO) open(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	if err := checkAPIs(reply, otRPI); err != nil {
+	if err := checkAPIs(reply, otRPI, cfg.otAPIFloor(otRPI)); err != nil {
 		_ = c.ForwardClose(ctx, cip.ForwardClose{Triad: fo.Triad, Path: path})
 		return err
 	}
@@ -533,27 +553,48 @@ func (io *IO) open(ctx context.Context) error {
 	return nil
 }
 
-// minAPI is the fixed part of the smallest O->T actual packet interval
-// the scanner accepts from a Forward_Open reply; see [IOConfig.RPI].
-const minAPI = 100 * time.Microsecond
+// The defaults of the two floors on the O->T actual packet interval the
+// scanner accepts from a Forward_Open reply; see [IOConfig.RPI].
+const (
+	defaultOTAPIDivisor = 4
+	minAPI              = 100 * time.Microsecond
+)
 
-// minOTAPI returns the smallest O->T actual packet interval accepted for
-// the requested O->T RPI: a quarter of it, but at least minAPI, or the
-// requested RPI itself when that is below minAPI.
-func minOTAPI(requested time.Duration) time.Duration {
-	return max(requested/4, min(requested, minAPI))
+// otAPIFloor returns the smallest O->T actual packet interval accepted for
+// the requested O->T RPI: the larger of the two floors, the requested RPI
+// divided by OTAPIDivisor and MinOTAPI (or the requested RPI itself when
+// that is shorter); a floor that is disabled counts as 0.
+func (c IOConfig) otAPIFloor(requested time.Duration) time.Duration {
+	var ratio, fixed time.Duration
+	switch d := c.OTAPIDivisor; {
+	case d == 0:
+		ratio = requested / defaultOTAPIDivisor
+	case d > 0:
+		ratio = requested / time.Duration(d)
+	}
+	switch m := c.MinOTAPI; {
+	case m == 0:
+		fixed = min(requested, minAPI)
+	case m > 0:
+		fixed = min(requested, m)
+	}
+	return max(ratio, fixed)
 }
 
 // checkAPIs refuses a Forward_Open reply whose actual packet intervals
-// would make the scanner produce faster than minOTAPI allows or consume
-// without a timeout.
-func checkAPIs(reply cip.ForwardOpenReply, otRPI time.Duration) error {
+// would make the scanner produce faster than floor allows, or at an
+// interval of 0, or consume without a timeout.
+func checkAPIs(reply cip.ForwardOpenReply, otRPI, floor time.Duration) error {
 	ot := time.Duration(reply.OTAPI) * time.Microsecond
 	switch {
 	case reply.TOAPI == 0:
 		return fmt.Errorf("%w: Forward_Open reply with T->O API 0", ethernetip.ErrProtocol)
-	case ot < minOTAPI(otRPI):
-		return fmt.Errorf("%w: Forward_Open reply with O->T API %v for RPI %v (minimum %v)", ethernetip.ErrProtocol, ot, otRPI, minOTAPI(otRPI))
+	case ot < floor:
+		return fmt.Errorf("%w: Forward_Open reply with O->T API %v for RPI %v (minimum %v)", ethernetip.ErrProtocol, ot, otRPI, floor)
+	case ot == 0:
+		// Both floors disabled: the connection cannot produce at an
+		// interval of 0.
+		return fmt.Errorf("%w: Forward_Open reply with O->T API 0", ethernetip.ErrProtocol)
 	}
 	return nil
 }
@@ -580,7 +621,7 @@ func (io *IO) input(data []byte, run bool) {
 	f := io.cfg.OnInput
 	io.mu.Unlock()
 	if f != nil {
-		f(data, run)
+		callback.Do(io.s.log, "OnInput", func() { f(data, run) })
 	}
 }
 

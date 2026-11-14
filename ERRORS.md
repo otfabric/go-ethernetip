@@ -72,6 +72,8 @@ length 0x65, unsupported protocol 0x69).
 | set of a read-only attribute | 0x0E |
 | set data too short / too long | 0x13 / 0x15 |
 | output assembly owned by an I/O connection | 0x0C object state conflict |
+| a request handler that does not return normally (`ServeCIP`, a `SymbolHandler`, a `ServiceFunc`, an `Attribute` function, the reset handler, `Assembly.OnWrite` for Set_Attribute_Single, `logix.TagServer.OnWrite`); within a Multiple Service Packet, that service only | 0x10 device state conflict, logged at Error level with its stack |
+| a Forward_Open whose configuration data's `Assembly.OnWrite` does not return normally | 0x10 device state conflict; no connection is opened |
 | malformed path | 0x04 path segment error; a path that runs past the message 0x26 |
 | Forward_Open refusals | 0x01 with the extended status of [CATALOG.md](CATALOG.md) (0x0100 duplicate triad, 0x0106 ownership conflict, 0x0109/0x0127/0x0128 sizes, 0x0112 RPI, 0x0113 out of connections (`WithMaxConnections`, `WithMaxConnectionsPerOriginator`), Class 3 O->T below 4 or T->O below 6 octets 0x0127/0x0128 with the smallest size, 0x0114-0x0116 electronic key, 0x0117/0x012A/0x012B paths, 0x0119 listen-only without producer, 0x0311 port, 0x0315 segment, ...) |
 | Forward_Close of an unknown connection | 0x01 / 0x0107 |

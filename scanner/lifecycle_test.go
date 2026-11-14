@@ -15,6 +15,7 @@ import (
 	"github.com/otfabric/go-ethernetip/cip"
 	"github.com/otfabric/go-ethernetip/encap"
 	"github.com/otfabric/go-ethernetip/implicit"
+	"github.com/otfabric/go-ethernetip/internal/testenv"
 )
 
 // TestForwardOpenReplyConnectionID: a Forward_Open reply whose O->T
@@ -291,4 +292,74 @@ func TestCallbacksCallMethods(t *testing.T) {
 	if err := io.Close(ctx); err != nil {
 		t.Fatal(err)
 	}
+}
+
+// TestOnInputCallsScannerClose (L10): OnInput may call Scanner.Close,
+// which closes the scanner's own endpoint, whose receiving goroutine is
+// the one OnInput runs on; the call returns and the connection is closed
+// at the target.
+func TestOnInputCallsScannerClose(t *testing.T) {
+	a := startAdapter(t, "127.0.0.1:0")
+	s := newScanner(t, dial(t, a.addr))
+	ready := make(chan struct{})
+	returned := make(chan error, 1)
+	var once sync.Once
+	cfg := owner(5 * time.Millisecond)
+	cfg.OnInput = func([]byte, bool) {
+		once.Do(func() {
+			<-ready
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			returned <- s.Close(ctx)
+		})
+	}
+	io, err := s.Open(ctxT(t), cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	close(ready)
+	select {
+	case err := <-returned:
+		if err != nil {
+			t.Fatalf("Scanner.Close from OnInput = %v", err)
+		}
+	case <-time.After(10 * time.Second):
+		t.Fatal("an OnInput handler that calls Scanner.Close has not returned")
+	}
+	select {
+	case <-io.Done():
+	default:
+		t.Fatal("Done not closed")
+	}
+	if st := io.State(); st != ethernetip.StateDisconnected {
+		t.Errorf("state %v after Close", st)
+	}
+	eventually(t, 3*time.Second, "no connection at the target", func() bool { return len(a.srv.Connections()) == 0 })
+}
+
+// TestScannerCloseWaitsForOnInput (contract of Close): a Scanner.Close on
+// another goroutine waits for an OnInput call in progress on the scanner's
+// own endpoint. It returns only once the call returned, the connection is
+// closed at the target, and no goroutine of the endpoint is left.
+func TestScannerCloseWaitsForOnInput(t *testing.T) {
+	a := startAdapter(t, "127.0.0.1:0")
+	s := newScanner(t, dial(t, a.addr))
+	b := testenv.NewBlocking()
+	cfg := owner(5 * time.Millisecond)
+	cfg.OnInput = func([]byte, bool) { b.Call() }
+	if _, err := s.Open(ctxT(t), cfg); err != nil {
+		t.Fatal(err)
+	}
+	b.Check(t, func() {
+		go func() {
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			_ = s.Close(ctx)
+			b.Closed()
+		}()
+	}, "implicit.(*Endpoint).Close", "scanner.(*Scanner).Close")
+	eventually(t, 3*time.Second, "no connection at the target", func() bool { return len(a.srv.Connections()) == 0 })
+	// The target's endpoint too has a receiving goroutine.
+	_ = a.srv.Close()
+	testenv.NoGoroutine(t, "implicit.(*Endpoint).receive")
 }

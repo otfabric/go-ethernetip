@@ -135,7 +135,10 @@ func NewTagServer(opts ...TagServerOption) *TagServer {
 }
 
 // OnWrite sets a function called with the full name of a tag after an
-// originator wrote it.
+// originator wrote it, on the server's session goroutine, as a handler of
+// the request (see server.Object): when it does not return normally, the
+// server logs the failure with its stack and answers the request with
+// general status 0x10 (device state conflict); the tag stays written.
 func (ts *TagServer) OnWrite(f func(name string)) {
 	ts.mu.Lock()
 	defer ts.mu.Unlock()

@@ -63,7 +63,18 @@ goroutine only while reopening after a timeout.
 
 Every goroutine is tied to a `Close`: `Client.Close`, `Server.Close`,
 `Scanner.Close`, `IO.Close`, `Endpoint.Close`. The e2e suite checks after
-all its tests that no goroutine or file descriptor is left.
+all its tests that no goroutine or file descriptor is left. A goroutine
+that runs application callbacks which may call `Close` (an I/O
+connection's for `Produce`, an endpoint's receiving one for `OnData` and
+`OnInput`, a server session's for its request handlers) records its
+identifier when it starts (`internal/goid`). `Close` compares the
+identifier of the goroutine it is called on with them: it does not wait
+for its own goroutine, which ends when the callback returns, and waits
+for every other one, the callbacks in progress included. The reopening
+goroutine of a scanner's connection instead leaves the count `Close`
+waits for while it reports a state to `OnState`. Application code is
+called through `internal/callback`, which stops a call that does not
+return normally at the library's boundary and logs it.
 
 ## Protocol machines
 

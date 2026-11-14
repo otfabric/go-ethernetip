@@ -273,7 +273,8 @@ func WithRunIdleHeader(consumed, produced bool) Option {
 // WithResetHandler sets the function the Identity object's Reset service
 // calls with the reset type (0: emulate a power cycle, 1: return to
 // factory defaults). It returns the status of the reply; without a
-// handler Reset answers success and does nothing.
+// handler Reset answers success and does nothing. It is a request handler:
+// see [Object].
 func WithResetHandler(f func(resetType uint8) cip.GeneralStatus) Option {
 	return func(o *options) error { o.onReset = f; return nil }
 }

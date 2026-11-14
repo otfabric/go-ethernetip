@@ -349,7 +349,7 @@ func (s *session) dispatchConnected(pkt encap.Packet) {
 	}
 	if err != nil {
 		if m := s.c.opts.metrics; m != nil {
-			m.OnDecodeError(s.remote, err)
+			s.c.call("Metrics.OnDecodeError", func() { m.OnDecodeError(s.remote, err) })
 		}
 		s.c.log.Warn("SendUnitData dropped", "error", err)
 		return

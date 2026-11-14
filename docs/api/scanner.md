@@ -132,9 +132,23 @@ type IOConfig struct {
 	// or the O->T API is below a quarter of the O->T RPI or below 100 µs
 	// (the O->T RPI itself when that is shorter), so that the scanner
 	// never produces more than four times as often as asked.
+	// OTAPIDivisor and MinOTAPI change these two floors; an O->T API of 0
+	// is refused in any case.
 	RPI   time.Duration
 	OTRPI time.Duration
 	TORPI time.Duration
+	// OTAPIDivisor sets the first floor on the O->T API of the reply: the
+	// O->T RPI divided by it. It bounds how much more often than asked the
+	// scanner produces when the target answers a shorter interval: four
+	// times with the default. Zero means 4; a larger value lowers the
+	// floor, 1 to 3 raise it, a negative value disables it.
+	OTAPIDivisor int
+	// MinOTAPI sets the second floor on the O->T API of the reply: MinOTAPI,
+	// or the O->T RPI when that is shorter. It bounds the rate of
+	// production whatever the RPI, so that the interval a target names
+	// cannot keep the connection's goroutine sending datagrams back to
+	// back. Zero means 100 µs; a negative value disables it.
+	MinOTAPI time.Duration
 	// OutputFormat is the O->T real-time format: the zero value means the
 	// 32-bit run/idle header, or heartbeat when OutputSize is 0.
 	// InputFormat is the T->O format: the zero value is modeless.
@@ -163,7 +177,10 @@ type IOConfig struct {
 	Idle   bool
 	// OnInput is called with each new input (T->O) data and its run
 	// state, on the endpoint's goroutine: it must not block. data is only
-	// valid during the call.
+	// valid during the call. It may call the methods of the IO and of its
+	// Scanner, Close included (see implicit.Config.OnData). When it does
+	// not return normally, the failure is logged with its stack and the
+	// connection goes on.
 	OnInput func(data []byte, run bool)
 	// OnState is called when the connection's state changes, on the
 	// goroutine that changes it: the caller of Open (StateConnecting,
@@ -175,7 +192,9 @@ type IOConfig struct {
 	// before it returns, in a nested OnState call. Calls on different
 	// goroutines are not ordered with each other: a Close on another
 	// goroutine does not wait for an OnState call in progress. Once the
-	// connection is closed, its own goroutines report nothing more.
+	// connection is closed, its own goroutines report nothing more. When
+	// OnState does not return normally, the failure is logged with its
+	// stack and the state change stands.
 	OnState func(ethernetip.State, error)
 }
 ```

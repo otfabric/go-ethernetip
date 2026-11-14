@@ -19,6 +19,15 @@ Messages are constant strings ("session registered", "connection opened",
 "Forward_Open refused", "I/O connection timed out", ...): filter on them.
 Debug entries are only built when the handler is enabled for debug.
 
+Application code that does not return normally (a handler, a callback, a
+metrics hook, the state handler) is logged at Error level with the message
+"application code did not return normally" and the fields `callback` (the
+call site: `OnData`, `Produce`, `OnTimeout`, `OnInput`, `OnState`,
+`Object.ServeCIP`, `SymbolHandler.ServeSymbol`, `Assembly.OnWrite`,
+`state handler`, `Metrics.OnConnect`, `ServerMetrics.OnHandled`,
+`IOMetrics.OnIOSent`, ...), `value` (what it ended with) and `stack`. The
+library then goes on as the callback's documentation states.
+
 ## Metrics
 
 `WithMetrics(m)` takes an `ethernetip.Metrics`: `OnConnect`, `OnDisconnect`,
@@ -37,7 +46,8 @@ need. A value that also implements:
   "wrong source", "wrong size", "old encapsulation sequence", "malformed").
 
 Callbacks run on the protocol goroutines: they must be safe for concurrent
-use and must not block.
+use and must not block. A metrics hook that does not return normally is
+logged as above; what the library sends and answers does not change.
 
 ## State
 

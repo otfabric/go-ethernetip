@@ -1,5 +1,113 @@
 # go-ethernetip Releases
 
+## v0.8.0
+
+**Date:** 2026-11-14
+**Previous release:** v0.7.1
+
+## Summary
+
+A minor release on v0.7.1. Application code the library calls (a handler,
+a callback, a metrics hook, a state handler) that does not return normally
+is stopped at the library's boundary and logged at Error level with its
+stack, and the process keeps running; a request whose handler it was is
+answered with general status 0x10. `implicit.Config.Produce`, `OnData`,
+`OnInput` and the server's request handlers may call `Close` of the
+object that calls them; a `Close` on another goroutine still waits for
+them. New `IOConfig` fields and Logix client options
+lower, raise or disable the scanner's floors on the O->T actual packet
+interval and the bounds of `ListTags` and `Template`; their defaults are
+the values of v0.7.1. No exported identifier is removed or changed.
+
+## Changes
+
+### Breaking
+
+- **all packages**: application code that does not return normally is
+  logged at Error level ("application code did not return normally", with
+  the fields `callback`, `value` and `stack`), and the library goes on:
+  - **server**: the request of a handler (`Object.ServeCIP`,
+    `SymbolHandler.ServeSymbol`, a `ServiceFunc`, an `Attribute` function,
+    the reset handler, `Assembly.OnWrite` for Set_Attribute_Single,
+    `logix.TagServer.OnWrite`) is answered with 0x10 (device state
+    conflict), within a Multiple Service Packet that service only, and the
+    session goes on. A Forward_Open whose configuration data's
+    `Assembly.OnWrite` does not return normally is refused with 0x10 and
+    opens no connection; the data stays written. For I/O data, the
+    connection goes on.
+  - **implicit**: a `Produce` call sends nothing at that interval; after
+    `OnData` the endpoint goes on with the next datagram; after `OnTimeout`
+    the connection is closed, as after any timeout.
+  - **scanner**: after `OnInput` the connection goes on; after `OnState`
+    the state change stands.
+  - **client**: after the state handler the state change stands.
+  - **metrics**: after a hook of the client, the server or an I/O
+    endpoint, what the library sends and answers does not change.
+
+### Fixes
+
+- **implicit, scanner, server**: `Close` called from a callback that runs
+  on a goroutine it waits for returns: `Connection.Close` and
+  `Endpoint.Close` from `Produce`, `Endpoint.Close` from `OnData`,
+  `Scanner.Close` with the scanner's own endpoint from `OnInput`,
+  `Server.Close` from a request's handler. In v0.7.1 these calls did not
+  return. Such a `Close` does not wait for the goroutine it is called on,
+  which ends when the callback returns, and waits for every other one, as
+  a `Close` on another goroutine does. What a `Produce` call that called
+  `Close` returns is not sent. The goroutines that run these callbacks
+  record their identifier when they start (`internal/goid`), and `Close`
+  compares it with the goroutine it runs on.
+
+### Additions
+
+- **scanner**: `IOConfig.OTAPIDivisor` and `IOConfig.MinOTAPI` set the two
+  floors on the O->T actual packet interval of a Forward_Open reply: the
+  O->T RPI divided by `OTAPIDivisor` (default 4), and `MinOTAPI` (default
+  100 µs, or the RPI when that is shorter). Zero keeps the default, a
+  positive value replaces it and a negative value disables that floor; an
+  O->T interval of 0 is refused in any case.
+- **logix**: `WithMaxTagListReplies`, `WithMaxTagListData` and
+  `WithMaxTemplateReplies` set the bounds of `ListTags` (65536 replies,
+  16 MiB of them) and `Template` (65536 Read Template replies for one
+  definition); a value below 1 keeps the default.
+
+### Tests
+
+- One test per call site of application code that does not return
+  normally, in the `callbacks_test.go` of `server`, `implicit`, `scanner`
+  and `client`, in `logix/tagserver_test.go` and in `internal/callback`
+  (TESTING.md lists them).
+- Row L10 of the lifecycle matrix: `TestCloseFromProduceAndOnData`,
+  `TestOnInputCallsScannerClose` and `TestHandlerCallsClose`; and that
+  a `Close` on another goroutine, or from a callback for the other
+  goroutines, waits for a callback in progress: `TestCloseWaitsForCallback`
+  (implicit), `TestScannerCloseWaitsForOnInput`, `TestCloseWaitsForHandler`
+  (server), with `testenv.Blocking`, which observes the `Close` waiting.
+  `internal/goid` has its own tests.
+- Boundary tables for the new fields and options: `TestOTAPIFloor`,
+  `TestReplyAPIFloors`, `TestListAndTemplateBoundDefaults`,
+  `TestListTagsRepliesOption`, `TestListTagsDataOption`,
+  `TestTemplateRepliesOption`. The defaults stay those of v0.7.1
+  (`TestMinOTAPI`, `TestReplyAPIs`, `TestListTagsReplyLimit`,
+  `TestTemplateReplyLimit`).
+- **client**: `TestConnWriteFailureBoundedByContext` ends the request by
+  its context in every run, and `TestConnWriteFailureAfterRequestTaken`
+  covers a failed write whose request is no longer the connection's
+  pending one: both sides of that branch of `Conn.do` are covered.
+- TESTING.md gives the figure of `BenchmarkConsume` for v0.8.0.
+
+### Documentation
+
+- The doc comments of the callbacks, of the `Close` methods and of the new
+  fields and options.
+- API.md, ARCHITECTURE.md (the goroutines `Close` waits for,
+  `internal/callback` and `internal/goid`), ERRORS.md (the 0x10 answers),
+  OBSERVABILITY.md (the Error entry), SECURITY.md, TESTING.md,
+  docs/LIMITATIONS.md, docs/IMPLICIT.md, docs/LOGIX.md, docs/OBJECTS.md,
+  docs/api.
+
+---
+
 ## v0.7.1
 
 **Date:** 2026-11-14

@@ -108,20 +108,20 @@ func checkResponse(req cip.Request, resp cip.Response, routed bool, items []enca
 
 func (c *Client) protocolError(what string, err error) error {
 	if m := c.opts.metrics; m != nil {
-		m.OnDecodeError(nil, err)
+		c.call("Metrics.OnDecodeError", func() { m.OnDecodeError(nil, err) })
 	}
 	return fmt.Errorf("%w: %s: %w", ethernetip.ErrProtocol, what, err)
 }
 
 func (c *Client) reportRequest(s cip.Service) {
-	if c.rm != nil {
-		c.rm.OnRequest(c.remote(), s)
+	if m := c.rm; m != nil {
+		c.call("RequestMetrics.OnRequest", func() { m.OnRequest(c.remote(), s) })
 	}
 }
 
 func (c *Client) reportDone(s cip.Service, start time.Time, err error) {
-	if c.rm != nil {
-		c.rm.OnRequestDone(c.remote(), s, time.Since(start), err)
+	if m := c.rm; m != nil {
+		c.call("RequestMetrics.OnRequestDone", func() { m.OnRequestDone(c.remote(), s, time.Since(start), err) })
 	}
 }
 

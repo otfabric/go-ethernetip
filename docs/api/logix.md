@@ -79,7 +79,9 @@ StringTemplate is the template of the predefined STRING type.
 
 ```go
 type Client struct {
-	// contains filtered or unexported fields
+
+	// The bounds of ListTags and Template; see the ClientOptions.
+
 }
 ```
 
@@ -107,7 +109,7 @@ DecodeStruct decodes the first element of a structure value, reading the templat
 func (c *Client) ListTags(ctx context.Context, program string) ([]Tag, error)
 ```
 
-ListTags reads the tag list of the Symbol object with Get Instance Attribute List (0x55): controller-scoped tags when program is "", the tags of a program ("Program:Main") otherwise. System tags and the names of programs are included as the controller reports them. Like a fragmented read, the list stops with ethernetip.ErrProtocol beyond 16 MiB of replies or 65536 replies.
+ListTags reads the tag list of the Symbol object with Get Instance Attribute List (0x55): controller-scoped tags when program is "", the tags of a program ("Program:Main") otherwise. System tags and the names of programs are included as the controller reports them. Like a fragmented read, the list stops with ethernetip.ErrProtocol beyond 16 MiB of replies or 65536 replies (WithMaxTagListData, WithMaxTagListReplies).
 
 #### func (Client) ProgramName
 
@@ -139,7 +141,7 @@ ReadMany reads one element of each tag in one Multiple Service Packet (per batch
 func (c *Client) Template(ctx context.Context, id uint16) (*Template, error)
 ```
 
-Template reads a structure template (Template object instance id): its attributes, then its definition with Read\_Template (at most 65536 replies, like a fragmented read). Templates are cached.
+Template reads a structure template (Template object instance id): its attributes, then its definition with Read\_Template (at most 65536 replies, like a fragmented read; WithMaxTemplateReplies). Templates are cached.
 
 #### func (Client) Write
 
@@ -172,6 +174,30 @@ func WithMaxData(n int) ClientOption
 ```
 
 WithMaxData sets the largest data a request or reply may carry before the fragmented services are used: about the connection size of a Class 3 connection less 40 octets, and 480 for unconnected messaging (the default).
+
+#### func WithMaxTagListData
+
+```go
+func WithMaxTagListData(n int) ClientOption
+```
+
+WithMaxTagListData sets the most octets of replies ListTags reads before it stops with ethernetip.ErrProtocol: what the list may hold. Default 16 MiB, as for a fragmented read; n below 1 is ignored.
+
+#### func WithMaxTagListReplies
+
+```go
+func WithMaxTagListReplies(n int) ClientOption
+```
+
+WithMaxTagListReplies sets the most replies ListTags reads before it stops with ethernetip.ErrProtocol: the requests a controller that keeps answering with partial transfers can draw. Default 65536, as for a fragmented read; n below 1 is ignored.
+
+#### func WithMaxTemplateReplies
+
+```go
+func WithMaxTemplateReplies(n int) ClientOption
+```
+
+WithMaxTemplateReplies sets the most Read\_Template replies Template reads for one definition before it stops with ethernetip.ErrProtocol. Default 65536, as for a fragmented read; n below 1 is ignored.
 
 ### type Field
 
@@ -421,7 +447,7 @@ Get returns the whole value of a tag.
 func (ts *TagServer) OnWrite(f func(name string))
 ```
 
-OnWrite sets a function called with the full name of a tag after an originator wrote it.
+OnWrite sets a function called with the full name of a tag after an originator wrote it, on the server's session goroutine, as a handler of the request (see server.Object): when it does not return normally, the server logs the failure with its stack and answers the request with general status 0x10 (device state conflict); the tag stays written.
 
 #### func (TagServer) ServeSymbol
 

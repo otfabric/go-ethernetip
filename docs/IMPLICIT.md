@@ -56,6 +56,13 @@ O->T connection ID is 0. O->T data of a point-to-point connection goes to
 the target's address, at the port of the reply's Sockaddr Info O->T item
 when it has one; another address in that item is ignored.
 
+The two floors on the O->T interval are `IOConfig` fields. `OTAPIDivisor`
+(default 4) bounds how much more often than asked the scanner produces: the
+floor is the O->T RPI divided by it. `MinOTAPI` (default 100 µs, or the RPI
+when that is shorter) bounds the rate of production whatever the RPI.
+Zero keeps the default, a positive value replaces it, a negative value
+disables that floor; an O->T interval of 0 is refused in any case.
+
 ## Timeouts and recovery
 
 The consumer of each direction times out after RPI × 4 << multiplier
@@ -75,6 +82,18 @@ and of its `Scanner`, `Close` included, with or without `Reconnect`. A
 `Close` called from `OnState` returns without waiting for the goroutine
 it runs on. Once the connection is closed, its own goroutines report no
 further state.
+
+`OnInput` (the endpoint's `OnData`) and `implicit.Config.Produce` may
+call `Close` too: `IO.Close`, `Scanner.Close` (which closes the scanner's
+own endpoint), `Connection.Close` and `Endpoint.Close` return without
+waiting for the goroutine they are called on, which ends when the
+callback returns, and wait for the other goroutines; what a `Produce`
+call that called `Close` returns is not sent. A `Close` on another
+goroutine waits for an `OnData`, `OnInput` or `Produce` call in progress.
+A callback that does not return normally is logged at Error level with
+its stack: a `Produce` call sends nothing at that interval, the next one
+is called at the next; after `OnData` or `OnInput` the endpoint goes on
+with the next datagram; after `OnState` the state change stands.
 
 ## Sequence numbers
 

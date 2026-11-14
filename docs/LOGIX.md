@@ -33,6 +33,12 @@ Logix: `Bits[1]` is the DWORD of bits 32 to 63 (the index counts DWORDs),
 and the tag list reports a BOOL array as a DWORD array whose dimension is
 the number of bits. `Bool(i)` of a DWORD value is bit i.
 
+`ListTags` stops with `ErrProtocol` beyond 65536 replies or 16 MiB of
+them, and `Template` beyond 65536 Read Template replies for one
+definition, as a fragmented read does: `WithMaxTagListReplies`,
+`WithMaxTagListData` and `WithMaxTemplateReplies` raise or lower these
+bounds (a value below 1 keeps the default).
+
 ## Emulation
 
 `logix.NewTagServer()` holds tags (`AddTag`, `AddStructTag`,
@@ -42,5 +48,7 @@ Read-Modify-Write, the tag list with continuation, templates, the program
 name. pycomm3's `LogixDriver` and cpppo's client work against it (see the
 interop matrix). Write Tag ignores octets after the data, as controllers
 do: pycomm3 1.2.16 sends its write requests twice in one message.
+`OnWrite` runs as a handler of the request: when it does not return
+normally, the server logs it and answers 0x10; the tag stays written.
 
 It is a test tool: no programs, tasks, modes, alarms or access control.

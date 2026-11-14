@@ -145,12 +145,12 @@ func (cm *connectionManager) remove(c conn, err error) {
 		cm.count(cntTimeouts)
 	}
 	cm.s.log.Info("connection closed", "ot", info.OTConnID, "to", info.TOConnID, "class", info.Class, "error", err)
-	if cm.s.sm != nil {
+	if m := cm.s.sm; m != nil {
 		var remote net.Addr
 		if a := c.originator(); a.IsValid() {
 			remote = &net.IPAddr{IP: a.AsSlice()}
 		}
-		cm.s.sm.OnConnectionClosed(remote, info, err)
+		cm.s.call("ServerMetrics.OnConnectionClosed", func() { m.OnConnectionClosed(remote, info, err) })
 	}
 }
 
@@ -213,6 +213,11 @@ func (cm *connectionManager) forwardOpen(ctx context.Context, r *Request) cip.Re
 		return cip.Response{Status: cip.StatusDeviceStateConflict}
 	}
 	reply, items, f := cm.open(ex, fo, r.Remote)
+	if f != nil && f.status != cip.StatusConnectionFailure {
+		// The configuration data's OnWrite did not return normally.
+		cm.count(cntOpenOtherRejects)
+		return cip.Response{Status: f.status}
+	}
 	if f != nil {
 		switch f.extended[0] {
 		case uint16(cip.ConnStatusOutOfConnections), uint16(cip.ConnStatusTargetOutOfConnections):
@@ -479,8 +484,8 @@ func (cm *connectionManager) openExplicit(ex *exchange, fo cip.ForwardOpen, part
 
 func (cm *connectionManager) opened(remote net.Addr, info ethernetip.ConnectionInfo) {
 	cm.s.log.Info("connection opened", "remote", addrString(remote), "class", info.Class, "ot", info.OTConnID, "to", info.TOConnID)
-	if cm.s.sm != nil {
-		cm.s.sm.OnConnectionOpened(remote, info)
+	if m := cm.s.sm; m != nil {
+		cm.s.call("ServerMetrics.OnConnectionOpened", func() { m.OnConnectionOpened(remote, info) })
 	}
 }
 

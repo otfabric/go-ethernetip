@@ -81,8 +81,10 @@ The server bounds what a peer can make it hold:
   interval is 0, whose O->T actual packet interval is below a quarter of
   the O->T RPI or below 100 µs (the RPI itself when that is shorter), or
   whose O->T connection ID is 0, and closes that connection at the
-  target; O->T data goes to the target's address, whatever address the
-  reply's Sockaddr Info O->T item names;
+  target; the two floors are `IOConfig.OTAPIDivisor` and
+  `IOConfig.MinOTAPI`, which lower, raise or disable them, and an O->T
+  interval of 0 is refused in any case; O->T data goes to the target's
+  address, whatever address the reply's Sockaddr Info O->T item names;
 - `eds.Parse` reads at most 16 MiB, 16384 sections, 262144 entries, 4096
   fields per entry and 1048576 fields in all;
 - replies are written with a deadline, so a peer that stops reading loses

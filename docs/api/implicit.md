@@ -81,8 +81,14 @@ type Config struct {
 	ProduceFormat Format
 	ProduceSize   int
 	// Produce returns the data to send and whether to send run (true) or
-	// idle; it is called at every production. The slice is copied. A nil
-	// Produce sends ProduceSize zero octets, run.
+	// idle; it is called at every production, on the connection's
+	// goroutine. The slice is copied. A nil Produce sends ProduceSize zero
+	// octets, run. Produce may call Close of the connection or of the
+	// endpoint: Close then returns without waiting for the goroutine it
+	// is called on, which ends when Produce returns, and what that call
+	// returns is not sent. A Close on another goroutine waits for a
+	// Produce call in progress. When Produce does not return normally, the
+	// failure is logged with its stack and that production sends nothing.
 	Produce func() (data []byte, run bool)
 
 	// ConsumedID is the connection ID of the datagrams this end receives;
@@ -112,10 +118,18 @@ type Config struct {
 	// carries new data (a newer Class 1 sequence count; every datagram for
 	// Class 0), and whether it says run. It runs on the endpoint's
 	// receiving goroutine: it must not block. data is only valid during
-	// the call.
+	// the call. OnData may call Close of the connection or of the
+	// endpoint: Endpoint.Close then returns without waiting for the
+	// receiving goroutine, which ends when OnData returns. An
+	// Endpoint.Close on another goroutine waits for an OnData call in
+	// progress. When OnData does not return normally, the failure is
+	// logged with its stack and the endpoint goes on with the next
+	// datagram.
 	OnData func(data []byte, run bool)
-	// OnTimeout is called once when consumption times out; the connection
-	// stops producing and is closed.
+	// OnTimeout is called once when consumption times out, on the
+	// connection's goroutine; the connection stops producing and is
+	// closed. When it does not return normally, the failure is logged with
+	// its stack.
 	OnTimeout func()
 }
 ```
@@ -130,6 +144,10 @@ type Connection struct {
 	// a datagram was consumed: reset the watchdog
 	// produce now
 
+	// runID is the identifier (internal/goid) of the connection's
+	// goroutine, set when it starts: Close called on it does not wait for
+	// it.
+
 	// last produced
 	// last produced
 	// last produced data
@@ -137,6 +155,9 @@ type Connection struct {
 	// last consumed
 	// last consumed
 	// a datagram was consumed
+
+	// closedOnRun is set when Close was called on the connection's
+	// goroutine, from Produce: what that call returns is not sent.
 
 }
 ```
@@ -149,7 +170,7 @@ Connection is one open I/O connection on an [Endpoint](#type-endpoint).
 func (c *Connection) Close()
 ```
 
-Close stops the connection: production ends and consumed datagrams are no longer accepted. OnTimeout is not called. Close is idempotent.
+Close stops the connection: production ends and consumed datagrams are no longer accepted. OnTimeout is not called. Close is idempotent. It waits for the connection's goroutine, a Produce call in progress included, unless it is called on that goroutine (from Produce): the goroutine then ends when Produce returns.
 
 #### func (Connection) Done
 
@@ -199,6 +220,9 @@ type Endpoint struct {
 	// be none (dropped), the datagram twice (duplicated) or older ones
 	// (reordered). It is called with the endpoint's send lock held.
 
+	// recvID is the identifier (internal/goid) of the receiving goroutine,
+	// set when it starts: Close called on it does not wait for it.
+
 }
 ```
 
@@ -226,7 +250,7 @@ NewEndpoint returns an endpoint serving an open UDP socket. The endpoint owns it
 func (e *Endpoint) Close() error
 ```
 
-Close closes the endpoint and every connection on it.
+Close closes the endpoint and every connection on it. It waits for the goroutines of the endpoint and of its connections, the OnData and Produce calls in progress included, except the goroutine it is called on: called from OnData or Produce, it returns, and that goroutine ends when the callback returns.
 
 #### func (Endpoint) Connections
 

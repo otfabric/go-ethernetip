@@ -169,7 +169,9 @@ func WithOriginator(vendorID uint16, serial uint32) Option {
 
 // WithStateHandler sets a function called when the session's state
 // changes, with the error that caused a disconnection. It is called from
-// the client's goroutines and must not block or call the client.
+// the client's goroutines and must not block or call the client. When it
+// does not return normally, the failure is logged with its stack and the
+// state change stands.
 func WithStateHandler(f func(ethernetip.State, error)) Option {
 	return func(o *options) error { o.stateChange = f; return nil }
 }

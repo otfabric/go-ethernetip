@@ -18,6 +18,7 @@ import (
 
 	ethernetip "github.com/otfabric/go-ethernetip"
 	"github.com/otfabric/go-ethernetip/encap"
+	"github.com/otfabric/go-ethernetip/internal/callback"
 	"github.com/otfabric/go-ethernetip/internal/logx"
 )
 
@@ -150,10 +151,14 @@ func (c *Client) setState(s ethernetip.State, err error) {
 	changed := c.state != s
 	c.state = s
 	c.mu.Unlock()
-	if changed && c.opts.stateChange != nil {
-		c.opts.stateChange(s, err)
+	if f := c.opts.stateChange; changed && f != nil {
+		c.call("state handler", func() { f(s, err) })
 	}
 }
+
+// call runs the application's code named name: when it does not return
+// normally, the failure is logged with its stack and the client goes on.
+func (c *Client) call(name string, f func()) { callback.Do(c.log, name, f) }
 
 // Connect dials the target and registers a session. It does nothing when
 // the client is connected. It fails with an error that matches
@@ -218,7 +223,7 @@ func (c *Client) dial(ctx context.Context) (*session, error) {
 		conn = tc
 	}
 	if m := c.opts.metrics; m != nil {
-		m.OnConnect(conn.RemoteAddr())
+		c.call("Metrics.OnConnect", func() { m.OnConnect(conn.RemoteAddr()) })
 	}
 	s := &session{
 		c:       c,
@@ -282,7 +287,7 @@ func (c *Client) deadline(ctx context.Context) (context.Context, context.CancelF
 
 func (c *Client) onReceived(remote net.Addr, pkt encap.Packet) {
 	if m := c.opts.metrics; m != nil {
-		m.OnPacketReceived(remote, pkt.Command, encap.HeaderSize+len(pkt.Data))
+		c.call("Metrics.OnPacketReceived", func() { m.OnPacketReceived(remote, pkt.Command, encap.HeaderSize+len(pkt.Data)) })
 	}
 }
 
@@ -377,7 +382,7 @@ func (c *Client) readLoop(s *session) {
 		if !errors.Is(s.err, ethernetip.ErrClosed) {
 			cause = s.err
 		}
-		m.OnDisconnect(s.remote, cause)
+		c.call("Metrics.OnDisconnect", func() { m.OnDisconnect(s.remote, cause) })
 	}
 	close(s.done)
 }
@@ -396,8 +401,8 @@ func (c *Client) detach(s *session, err error) {
 	c.state = ethernetip.StateDisconnected
 	c.mu.Unlock()
 	c.log.Warn("session lost", "error", err)
-	if changed && c.opts.stateChange != nil {
-		c.opts.stateChange(ethernetip.StateDisconnected, err)
+	if f := c.opts.stateChange; changed && f != nil {
+		c.call("state handler", func() { f(ethernetip.StateDisconnected, err) })
 	}
 }
 
@@ -478,7 +483,7 @@ func (s *session) writeBy(pkt encap.Packet, dl time.Time) (int, error) {
 		return n, err
 	}
 	if m := s.c.opts.metrics; m != nil {
-		m.OnPacketSent(s.remote, pkt.Command, len(b))
+		s.c.call("Metrics.OnPacketSent", func() { m.OnPacketSent(s.remote, pkt.Command, len(b)) })
 	}
 	return n, nil
 }

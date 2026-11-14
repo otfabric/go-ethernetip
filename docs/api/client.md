@@ -537,7 +537,7 @@ WithRoute routes every unconnected request through the target's Connection Manag
 func WithStateHandler(f func(ethernetip.State, error)) Option
 ```
 
-WithStateHandler sets a function called when the session's state changes, with the error that caused a disconnection. It is called from the client's goroutines and must not block or call the client.
+WithStateHandler sets a function called when the session's state changes, with the error that caused a disconnection. It is called from the client's goroutines and must not block or call the client. When it does not return normally, the failure is logged with its stack and the state change stands.
 
 #### func WithTLS
 

@@ -223,8 +223,9 @@ func (cm *connectionManager) openIO(ex *exchange, fo cip.ForwardOpen, parts open
 	cm.conns[fo.Triad] = c
 	cm.mu.Unlock()
 
-	if parts.hasData {
-		cfg.write(parts.config, true)
+	if parts.hasData && !cfg.write(parts.config, true) {
+		cm.remove(c, errHandlerFailed)
+		return reply, nil, &failure{status: statusHandlerFailed}
 	}
 	ep := cm.s.io
 	timeout := cip.ConnectionTimeout(c.info.OTRPI, fo.TimeoutMultiplier)
@@ -308,6 +309,10 @@ func sizeOK(p cip.NetworkParams, want int) bool {
 // errProductionEnded reports that a multicast production ended (its last
 // connection closed) before it started.
 var errProductionEnded = errors.New("production ended")
+
+// errHandlerFailed ends a connection whose opening ran application code
+// that did not return normally.
+var errHandlerFailed = errors.New("application code did not return normally")
 
 // startProduction starts the multicast production of prod unless it runs.
 // The producer is installed under cm.mu only while prod is still the

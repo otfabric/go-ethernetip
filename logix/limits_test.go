@@ -481,3 +481,133 @@ func TestTagServerTagSizeOverflow(t *testing.T) {
 	must(t, ts.AddTag("MaxBOOL", cip.TypeBOOL, 1<<20, 1<<7))
 	must(t, ts.AddStructTag("MaxStruct", 0x41, 1<<20, 4))
 }
+
+// The ClientOptions of the ListTags and Template bounds keep the released
+// values as their defaults, and ignore a value below 1.
+func TestListAndTemplateBoundDefaults(t *testing.T) {
+	for name, opts := range map[string][]ClientOption{
+		"no option":  nil,
+		"0 ignored":  {WithMaxTagListReplies(0), WithMaxTagListData(0), WithMaxTemplateReplies(0)},
+		"-1 ignored": {WithMaxTagListReplies(-1), WithMaxTagListData(-1), WithMaxTemplateReplies(-1)},
+		"min int ignored": {WithMaxTagListReplies(math.MinInt), WithMaxTagListData(math.MinInt),
+			WithMaxTemplateReplies(math.MinInt)},
+	} {
+		c := NewClient(&fakeDoer{t: t}, opts...)
+		if c.maxListReplies != 65536 || c.maxListData != 16<<20 || c.maxTemplateReplies != 65536 {
+			t.Errorf("%s: list replies %d, list data %d, template replies %d; want 65536, 16 MiB, 65536",
+				name, c.maxListReplies, c.maxListData, c.maxTemplateReplies)
+		}
+	}
+}
+
+// WithMaxTagListReplies bounds the replies of ListTags: a list of that many
+// replies is read, one more stops it with ErrProtocol after the bound.
+func TestListTagsRepliesOption(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		n, last int // the option's value; the reply that ends the list
+		ok      bool
+	}{
+		{"1, one reply", 1, 1, true},
+		{"1, two replies", 1, 2, false},
+		{"10, nine replies", 10, 9, true},
+		{"10, ten replies", 10, 10, true},
+		{"10, eleven replies", 10, 11, false},
+		{"raised by one, at the bound", maxReadFragments + 1, maxReadFragments + 1, true},
+		{"raised by one, beyond it", maxReadFragments + 1, maxReadFragments + 2, false},
+		{"max int", math.MaxInt, 5, true},
+	} {
+		d := &tagListDoer{last: tc.last, nameLen: 1}
+		tags, err := NewClient(d, WithMaxTagListReplies(tc.n)).ListTags(ctx, "")
+		if tc.ok {
+			if err != nil || len(tags) != tc.last {
+				t.Errorf("%s: %d tags, %v", tc.name, len(tags), err)
+			}
+			continue
+		}
+		if !errors.Is(err, ethernetip.ErrProtocol) || d.n != tc.n || len(tags) != tc.n {
+			t.Errorf("%s: %v after %d replies, %d tags; want ErrProtocol after %d", tc.name, err, d.n, len(tags), tc.n)
+		}
+	}
+}
+
+// WithMaxTagListData bounds the octets of the replies of ListTags: replies
+// that reach the bound are read, one octet beyond it stops the list with
+// ErrProtocol at the reply that crosses it.
+func TestListTagsDataOption(t *testing.T) {
+	const entry = 21 // the octets of one reply of a tagListDoer with names of 1 octet
+	for _, tc := range []struct {
+		name          string
+		n             int // the option's value
+		nameLen, last int // the tagListDoer
+		ok            bool
+		replies       int // the replies read when the list stops
+	}{
+		{"1, one reply", 1, 1, 1, false, 1},
+		{"one reply less one octet", entry - 1, 1, 1, false, 1},
+		{"one reply", entry, 1, 1, true, 1},
+		{"three replies less one octet", 3*entry - 1, 1, 3, false, 3},
+		{"three replies", 3 * entry, 1, 3, true, 3},
+		{"three replies, a fourth", 3 * entry, 1, 4, false, 4},
+		{"three replies and one octet", 3*entry + 1, 1, 3, true, 3},
+		{"max int", math.MaxInt, 1, 5, true, 5},
+		// Replies of almost 64 KiB: 16 MiB stops the list after 257.
+		{"raised to 32 MiB", 32 << 20, 0xFFFF, 300, true, 300},
+	} {
+		d := &tagListDoer{last: tc.last, nameLen: tc.nameLen}
+		tags, err := NewClient(d, WithMaxTagListData(tc.n)).ListTags(ctx, "")
+		if tc.ok {
+			if err != nil || len(tags) != tc.last {
+				t.Errorf("%s: %d tags, %v", tc.name, len(tags), err)
+			}
+			continue
+		}
+		if !errors.Is(err, ethernetip.ErrProtocol) || d.n != tc.replies {
+			t.Errorf("%s: %v after %d replies; want ErrProtocol after %d", tc.name, err, d.n, tc.replies)
+		}
+	}
+}
+
+// WithMaxTemplateReplies bounds the Read_Template replies of one
+// definition: a definition of that many replies is read, one more stops
+// Template with ErrProtocol after the bound.
+func TestTemplateRepliesOption(t *testing.T) {
+	_, outer := testTemplates()
+	def := outer.definition()
+	total := definitionLen(definitionWords(len(def)))
+	padded := append(append([]byte(nil), def...), make([]byte, total-len(def))...)
+	for _, tc := range []struct {
+		n  int
+		ok bool
+	}{{1, false}, {2, false}, {3, true}, {4, true}, {math.MaxInt, true}} {
+		// The definition comes in three replies.
+		d := &fakeDoer{t: t, resps: []cip.Response{templateAttrs(&outer), partial(padded[:20]...), partial(padded[20:40]...), ok(padded[40:]...)}}
+		got, err := NewClient(d, WithMaxTemplateReplies(tc.n)).Template(ctx, outer.ID)
+		if tc.ok {
+			if err != nil || got.Name != "Outer" {
+				t.Errorf("%d: %+v, %v", tc.n, got, err)
+			}
+			continue
+		}
+		if !errors.Is(err, ethernetip.ErrProtocol) || len(d.reqs) != 1+tc.n {
+			t.Errorf("%d: %v after %d requests; want ErrProtocol after %d", tc.n, err, len(d.reqs), 1+tc.n)
+		}
+	}
+	// Raised by one: a definition of one octet per reply is read one reply
+	// beyond the default.
+	words := uint32((maxDefinition + 20) / 4)
+	h := &hostileDoer{limit: 4 * maxReadFragments, answer: func(_ int, req cip.Request) cip.Response {
+		if req.Service == cip.ServiceGetAttributeList {
+			return ok(cat(le16(4),
+				le16(4), le16(0), le32(words),
+				le16(5), le16(0), le32(8),
+				le16(2), le16(0), le16(1),
+				le16(1), le16(0), le16(0x1234))...)
+		}
+		return partial(0)
+	}}
+	_, err := NewClient(h, WithMaxTemplateReplies(maxReadFragments+1)).Template(ctx, 0x20)
+	if !errors.Is(err, ethernetip.ErrProtocol) || h.n != 1+maxReadFragments+1 {
+		t.Fatalf("raised by one: %v after %d requests, want %d", err, h.n, 1+maxReadFragments+1)
+	}
+}

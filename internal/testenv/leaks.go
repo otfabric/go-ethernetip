@@ -8,6 +8,8 @@ import (
 	"os"
 	"runtime"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 )
@@ -128,4 +130,130 @@ func leftOver(stacks []string, before map[string]bool, frame string) []string {
 		out = append(out, s)
 	}
 	return out
+}
+
+// Blocking is a callback whose first call blocks until it is released: it
+// checks that a Close waits for a callback in progress ([Blocking.Check]).
+type Blocking struct {
+	entered, release, done chan struct{}
+	first                  sync.Once
+	releaseOnce            sync.Once
+	returned               atomic.Bool // the first call returned
+	after                  bool        // returned, when the Close returned
+}
+
+// NewBlocking returns a Blocking.
+func NewBlocking() *Blocking {
+	return &Blocking{entered: make(chan struct{}), release: make(chan struct{}), done: make(chan struct{})}
+}
+
+// Call is the callback: its first call reports that it runs and waits
+// until Check releases it; later calls return at once.
+func (b *Blocking) Call() {
+	first := false
+	b.first.Do(func() { first = true })
+	if !first {
+		return
+	}
+	close(b.entered)
+	<-b.release
+	b.returned.Store(true)
+}
+
+// Closed is called by the code under test once its Close returned.
+func (b *Blocking) Closed() {
+	b.after = b.returned.Load()
+	close(b.done)
+}
+
+func (b *Blocking) unblock() { b.releaseOnce.Do(func() { close(b.release) }) }
+
+// Check waits for the first call of Call and runs start, which starts a
+// Close that calls Closed when it returns. It fails t unless that Close
+// waits in sync.(*WaitGroup).Wait called from waiter, with each of in in
+// its stack (see [Waiting]), while the call is in progress, and returns
+// only once the call, released then, returned. Each wait is bounded by
+// LeakWait.
+func (b *Blocking) Check(t reporterF, start func(), waiter string, in ...string) {
+	t.Helper()
+	b.check(t, start, waiter, in, LeakWait)
+}
+
+// check is Check with the wait given.
+func (b *Blocking) check(t reporterF, start func(), waiter string, in []string, wait time.Duration) {
+	t.Helper()
+	defer b.unblock()
+	select {
+	case <-b.entered:
+	case <-time.After(wait):
+		t.Fatalf("the callback was not called")
+		return
+	}
+	start()
+	if !waiting(t, b.done, waiter, in, wait) {
+		t.Fatalf("Close returned while the callback was in progress")
+		return
+	}
+	b.unblock()
+	select {
+	case <-b.done:
+	case <-time.After(wait):
+		t.Fatalf("Close has not returned after the callback returned")
+		return
+	}
+	if !b.after {
+		t.Fatalf("Close returned before the callback returned")
+	}
+}
+
+// Waiting reports whether a goroutine of this module other than the
+// caller's waits in sync.(*WaitGroup).Wait called from a function whose
+// name contains waiter (such as "implicit.(*Endpoint).Close"), with each
+// of in in its stack. It polls until there is one, and returns true, or
+// until done is closed, and returns false; it fails t when neither happens
+// within LeakWait.
+func Waiting(t reporterF, done <-chan struct{}, waiter string, in ...string) bool {
+	t.Helper()
+	return waiting(t, done, waiter, in, LeakWait)
+}
+
+// waiting is Waiting with the wait given.
+func waiting(t reporterF, done <-chan struct{}, waiter string, in []string, d time.Duration) bool {
+	t.Helper()
+	deadline := time.Now().Add(d)
+	for {
+		select {
+		case <-done:
+			return false
+		default:
+		}
+		for _, s := range leftOver(stacks(), nil, "") {
+			if waitsIn(s, waiter, in) {
+				return true
+			}
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("no goroutine waits in %s", waiter)
+			return false
+		}
+		time.Sleep(time.Millisecond)
+	}
+}
+
+// waitsIn reports whether stack waits in sync.(*WaitGroup).Wait called from
+// a function whose name contains waiter, with each of in in the stack.
+func waitsIn(stack, waiter string, in []string) bool {
+	for _, f := range in {
+		if !strings.Contains(stack, f) {
+			return false
+		}
+	}
+	lines := strings.Split(stack, "\n")
+	for i, l := range lines {
+		// A function's line, its file's line, then its caller's line.
+		if strings.HasPrefix(l, "sync.(*WaitGroup).Wait(") && i+2 < len(lines) && strings.Contains(lines[i+2], waiter) {
+			return true
+		}
+	}
+	return false
 }

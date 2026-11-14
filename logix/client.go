@@ -21,6 +21,8 @@ import (
 type Client struct {
 	d       client.Doer
 	maxData int
+	// The bounds of ListTags and Template; see the ClientOptions.
+	maxListReplies, maxListData, maxTemplateReplies int
 
 	mu        sync.Mutex
 	templates map[uint16]*Template
@@ -41,9 +43,44 @@ func WithMaxData(n int) ClientOption {
 	}
 }
 
+// WithMaxTagListReplies sets the most replies ListTags reads before it
+// stops with ethernetip.ErrProtocol: the requests a controller that keeps
+// answering with partial transfers can draw. Default 65536, as for a
+// fragmented read; n below 1 is ignored.
+func WithMaxTagListReplies(n int) ClientOption {
+	return func(c *Client) {
+		if n >= 1 {
+			c.maxListReplies = n
+		}
+	}
+}
+
+// WithMaxTagListData sets the most octets of replies ListTags reads before
+// it stops with ethernetip.ErrProtocol: what the list may hold. Default
+// 16 MiB, as for a fragmented read; n below 1 is ignored.
+func WithMaxTagListData(n int) ClientOption {
+	return func(c *Client) {
+		if n >= 1 {
+			c.maxListData = n
+		}
+	}
+}
+
+// WithMaxTemplateReplies sets the most Read_Template replies Template reads
+// for one definition before it stops with ethernetip.ErrProtocol. Default
+// 65536, as for a fragmented read; n below 1 is ignored.
+func WithMaxTemplateReplies(n int) ClientOption {
+	return func(c *Client) {
+		if n >= 1 {
+			c.maxTemplateReplies = n
+		}
+	}
+}
+
 // NewClient returns a client of the controller d speaks to.
 func NewClient(d client.Doer, opts ...ClientOption) *Client {
-	c := &Client{d: d, maxData: 480, templates: map[uint16]*Template{}}
+	c := &Client{d: d, maxData: 480, templates: map[uint16]*Template{},
+		maxListReplies: maxReadFragments, maxListData: maxReadData, maxTemplateReplies: maxReadFragments}
 	for _, o := range opts {
 		o(c)
 	}
@@ -329,7 +366,8 @@ type Tag struct {
 // tags of a program ("Program:Main") otherwise. System tags and the names
 // of programs are included as the controller reports them. Like a
 // fragmented read, the list stops with ethernetip.ErrProtocol beyond 16
-// MiB of replies or 65536 replies.
+// MiB of replies or 65536 replies (WithMaxTagListData,
+// WithMaxTagListReplies).
 func (c *Client) ListTags(ctx context.Context, program string) ([]Tag, error) {
 	var prefix cip.Path
 	if program != "" {
@@ -342,8 +380,8 @@ func (c *Client) ListTags(ctx context.Context, program string) ([]Tag, error) {
 	next := uint32(0)
 	size := 0
 	for replies := 1; ; replies++ {
-		if replies > maxReadFragments {
-			return out, fmt.Errorf("%w: tag list of more than %d replies", ethernetip.ErrProtocol, maxReadFragments)
+		if replies > c.maxListReplies {
+			return out, fmt.Errorf("%w: tag list of more than %d replies", ethernetip.ErrProtocol, c.maxListReplies)
 		}
 		start := next
 		path := append(append(cip.Path{}, prefix...), cip.ClassSegment(cip.ClassSymbol), cip.InstanceSegment(next))
@@ -353,9 +391,12 @@ func (c *Client) ListTags(ctx context.Context, program string) ([]Tag, error) {
 		if err != nil && !partial {
 			return out, err
 		}
-		if size += len(resp.Data); size > maxReadData {
-			return out, fmt.Errorf("%w: tag list beyond 16 MiB", ethernetip.ErrProtocol)
+		// Compared with what is left, so that a limit near the largest int
+		// cannot wrap the sum.
+		if len(resp.Data) > c.maxListData-size {
+			return out, fmt.Errorf("%w: tag list beyond %d octets", ethernetip.ErrProtocol, c.maxListData)
 		}
+		size += len(resp.Data)
 		r := cip.NewReader(resp.Data)
 		n := 0
 		for r.Len() > 0 && r.Err() == nil {
@@ -393,7 +434,8 @@ func (c *Client) ListTags(ctx context.Context, program string) ([]Tag, error) {
 
 // Template reads a structure template (Template object instance id): its
 // attributes, then its definition with Read_Template (at most 65536
-// replies, like a fragmented read). Templates are cached.
+// replies, like a fragmented read; WithMaxTemplateReplies). Templates are
+// cached.
 func (c *Client) Template(ctx context.Context, id uint16) (*Template, error) {
 	if id == StringTemplate.ID {
 		t := StringTemplate
@@ -420,8 +462,8 @@ func (c *Client) Template(ctx context.Context, id uint16) (*Template, error) {
 	}
 	var def []byte
 	for replies := 1; len(def) < total; replies++ {
-		if replies > maxReadFragments {
-			return nil, fmt.Errorf("%w: template definition of more than %d replies", ethernetip.ErrProtocol, maxReadFragments)
+		if replies > c.maxTemplateReplies {
+			return nil, fmt.Errorf("%w: template definition of more than %d replies", ethernetip.ErrProtocol, c.maxTemplateReplies)
 		}
 		// len(def) is below total, at most maxDefinition.
 		off := uint32(int64(len(def)) & 0xFFFFFFFF)

@@ -70,13 +70,31 @@ the OT Fabric testing standard): `client.Client` (C), `client.Conn` (Cn),
 | L7 Response after the timeout | C `TestDroppedPackets`; Cn `TestConnDroppedReplies`; e2e `TestStressCancellation` | late replies are dropped with a Debug log, not counted |
 | L8 Response after a reconnect | — (a session's pending requests and connections belong to that session; sender contexts come from a counter that does not repeat) | no test that a reply of the old session completes nothing |
 | L9 A callback calls a public method | S `TestHandlerCallsServer`; Sc, IO `TestCallbacksCallMethods` (`OnInput`, `OnState`); E, IC `TestCallbacksCallConnection` (`OnData`, `OnTimeout`) | C: the state handler must not call the client (`WithStateHandler`) |
-| L10 A callback calls Close | IO `TestOnStateCallsClose` (`IO.Close` and `Scanner.Close` from `OnState`, with and without `Reconnect`); IC `TestCallbacksCallConnection` (`Connection.Close` from `OnData` and `OnTimeout`) | `implicit.Config.Produce` calling `Connection.Close`, `OnData` calling `Endpoint.Close`, `OnInput` calling `Scanner.Close`, a server handler calling `Server.Close`: these wait for the goroutine the callback runs on, and are not supported |
+| L10 A callback calls Close | IO `TestOnStateCallsClose` (`IO.Close` and `Scanner.Close` from `OnState`, with and without `Reconnect`); IC `TestCallbacksCallConnection` (`Connection.Close` from `OnData` and `OnTimeout`); E, IC `TestCloseFromProduceAndOnData` (`Connection.Close` from `Produce` at the first, a cyclic and a triggered production, `Endpoint.Close` from `Produce` and from `OnData`); Sc `TestOnInputCallsScannerClose` (`Scanner.Close`, with the scanner's own endpoint, from `OnInput`); S `TestHandlerCallsClose` (`Server.Close` from the handler of an unconnected and of a Class 3 request). That such a `Close` still waits for the other goroutines, and that a `Close` on another goroutine waits for a callback in progress (it returns only once the callback returned, and no goroutine is left): E, IC `TestCloseWaitsForCallback` (`Connection.Close` and `Endpoint.Close` for `Produce`, `Endpoint.Close` for `OnData`, `Endpoint.Close` from `OnData` for a `Produce` and from `Produce` for an `OnData`); Sc `TestScannerCloseWaitsForOnInput`; S `TestCloseWaitsForHandler` (an unconnected and a Class 3 request, and `Server.Close` from a handler for the handler of another session) | a metrics hook calling `Close` is not supported; `IO.Close` and `Scanner.Close` do not wait for an `OnState` call in progress on another goroutine (`IOConfig.OnState`) |
 | L11 Slow callback | documented: callbacks must not block (API.md) | no test; a slow `OnData` or `OnInput` holds every connection of its endpoint |
 | L12 Queue at capacity | C `TestMaxPendingCorrelation`; S `TestDelayedDiscoveryBound`, `TestTCPConnectionLimit`, `TestForwardOpenLimits`, `TestMaxConnectionsPerOriginator`; e2e `TestStressSessionLimit` | — |
 | L13 Concurrent sessions | S `TestHostileForeignSessionHandle`, `TestForwardCloseOtherOriginator`, `TestConcurrentOwners`; e2e `TestStressSharedSession`, `TestStressManyClients` | — |
 | L14 Failure during construction | C `TestDialFailures`, `TestHostileRegisterReplies`; S `TestListenErrors`, `TestIOEndpointFailure`, `TestTLSHandshakeFailureReleasesSlot`; E, IC `TestOpenErrors`, `TestMulticastJoinFailure`, `TestEndpointClose`; Sc `TestOpenWithoutTarget`, `TestReplyAPIs`, `TestForwardOpenReplyConnectionID`; the leak checks of each package | — |
 | L15 Shutdown(ctx) | n/a: there is no `Shutdown`; `Scanner.Close(ctx)`, `IO.Close(ctx)` and `Conn.Close(ctx)` bound their Forward_Close by the context | — |
 | L16 Close racing a reconnect | IO `TestCloseDuringReconnect`; Sc `TestOpenRacingClose`; C reconnects only inside a request (L5) | — |
+
+Application code that does not return normally is stopped at each call
+site of the library and logged at Error level with its stack; one test per
+call site checks the entry and what the library does next:
+`server/callbacks_test.go` (`TestHandlerDoesNotReturnNormally`: a
+`ServiceFunc`, `Attribute.Get` and `Set`, an application `Object`'s
+`ServeCIP`, a `SymbolHandler`, `Assembly.OnWrite` by Set_Attribute_Single,
+each answered 0x10 with the session going on;
+`TestResetHandlerDoesNotReturnNormally`,
+`TestMultipleServiceHandlerDoesNotReturnNormally`,
+`TestConfigurationOnWriteDoesNotReturnNormally`,
+`TestIOOnWriteDoesNotReturnNormally`, `TestMetricsDoNotReturnNormally`:
+every hook of `Metrics`, `ServerMetrics` and `IOMetrics`),
+`logix/tagserver_test.go` (`TestTagServerOnWriteDoesNotReturnNormally`),
+`implicit/callbacks_test.go` (`Produce`, `OnData`, `OnTimeout`, the
+`IOMetrics` hooks), `scanner/callbacks_test.go` (`OnInput`, `OnState`),
+`client/callbacks_test.go` (the state handler, every hook of `Metrics` and
+`RequestMetrics`) and `internal/callback` itself.
 
 ## Benchmarks
 
@@ -93,7 +111,7 @@ On an Apple M-series laptop (darwin/arm64, Go 1.27, loopback), from
 | Encapsulation packet encode (500 octets) | 45 ns, 0 allocs |
 | `ReadPacket` (500 octets) | 66 ns, 0 allocs |
 | I/O datagram decode | 30 ns, 1 alloc |
-| I/O receive path (decode, checks, callback) | 109–153 ns, 2 allocs (72 B)\* |
+| I/O receive path (decode, checks, callback) | 138–417 ns, 2 allocs (72 B)\* |
 | Explicit request round trip (unconnected) | 30 µs |
 | Explicit request round trip (Class 3) | 31 µs |
 | Shared session, 8 in flight | 11 µs per request |
@@ -102,10 +120,13 @@ On an Apple M-series laptop (darwin/arm64, Go 1.27, loopback), from
 | Logix read of 1000 INT (Class 3, 2000 octets) | 34 µs |
 
 \* Measured on an Apple M1 (darwin/arm64), Go 1.27.4, on 2026-11-14, for
-v0.7.1: `go test -run '^$' -bench 'BenchmarkConsume$' -benchtime 2s
--count 5 ./implicit`, the range of the five runs. Every datagram of the
-benchmark is newer than the last and reaches the callback
-(`TestConsumeDatagram`).
+v0.8.0: `go test -run '^$' -bench 'BenchmarkConsume$' -benchtime 2s
+./implicit`, fifteen runs interleaved with fifteen of v0.7.1's code on a
+loaded machine (load average 15 to 21), the range of the fifteen. v0.7.1
+measured 139–465 ns in the same runs (109–153 ns on an idle machine): the
+lowest figures are the same, and the stop of a callback that does not
+return normally adds no measurable cost. Every datagram of the benchmark
+is newer than the last and reaches the callback (`TestConsumeDatagram`).
 
 Numbers depend on the machine; compare runs on the same one. No
 comparison with the reference implementations is published: they run in

@@ -10,6 +10,8 @@ import (
 	ethernetip "github.com/otfabric/go-ethernetip"
 	"github.com/otfabric/go-ethernetip/cip"
 	"github.com/otfabric/go-ethernetip/implicit"
+	"github.com/otfabric/go-ethernetip/internal/callback"
+	"github.com/otfabric/go-ethernetip/internal/logx"
 )
 
 // AssemblyKind is the role of an assembly instance in I/O connections.
@@ -61,6 +63,7 @@ type Assembly struct {
 	instance uint32
 	kind     AssemblyKind
 	size     int
+	log      *logx.Logger
 
 	mu      sync.Mutex
 	data    []byte
@@ -119,25 +122,29 @@ func (a *Assembly) SetData(data []byte) error {
 }
 
 // OnWrite sets a function called with the new data whenever an originator
-// writes the assembly, by an I/O connection (with its run/idle state) or by
-// Set_Attribute_Single (run true). It is called on a server goroutine and
-// must not block; data is only valid during the call.
+// writes the assembly, by an I/O connection (with its run/idle state), by
+// Set_Attribute_Single (run true) or, for a configuration assembly, by the
+// configuration data of a Forward_Open (run true). It is called on a
+// server goroutine and must not block; data is only valid during the call.
+// When it does not return normally, the failure is logged with its stack:
+// the data stays written, a Set_Attribute_Single is answered with general
+// status 0x10 (device state conflict), a Forward_Open is refused with it,
+// and an I/O connection goes on.
 func (a *Assembly) OnWrite(f func(data []byte, run bool)) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	a.onWrite = f
 }
 
-// write stores data written by an originator.
-func (a *Assembly) write(data []byte, run bool) {
+// write stores data written by an originator, and reports whether OnWrite
+// returned normally.
+func (a *Assembly) write(data []byte, run bool) bool {
 	a.mu.Lock()
 	copy(a.data, data)
 	a.run = run
 	f := a.onWrite
 	a.mu.Unlock()
-	if f != nil {
-		f(data, run)
-	}
+	return f == nil || callback.Do(a.log, "Assembly.OnWrite", func() { f(data, run) })
 }
 
 // assemblyObject is the Assembly object (class 0x04).
@@ -176,7 +183,7 @@ func (s *Server) AddAssembly(instance uint32, kind AssemblyKind, size int) (*Ass
 	if o.insts[instance] != nil {
 		return nil, invalidOption("assembly instance %d exists", instance)
 	}
-	a := &Assembly{instance: instance, kind: kind, size: size, data: make([]byte, size)}
+	a := &Assembly{instance: instance, kind: kind, size: size, data: make([]byte, size), log: s.log}
 	o.insts[instance] = a
 	in := o.AddInstance(instance)
 	settable := kind == AssemblyOutput || kind == AssemblyConfig
@@ -193,7 +200,9 @@ func (s *Server) AddAssembly(instance uint32, kind AssemblyKind, size int) (*Ass
 				// An I/O connection owns the data.
 				return cip.StatusObjectStateConflict
 			}
-			a.write(d, true)
+			if !a.write(d, true) {
+				return statusHandlerFailed
+			}
 			return cip.StatusSuccess
 		}
 	}

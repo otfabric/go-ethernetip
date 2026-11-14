@@ -175,11 +175,53 @@ func TestConnWriteFailureBoundedByContext(t *testing.T) {
 	done := make(chan error, 1)
 	go func() { _, err := cn.Identity(ctx); done <- err }()
 	g.waitEntered(t)
-	// The connection leaves the session, so that the session's end does
-	// not reach it, and the request's context ends.
-	cn.s.mu.Lock()
-	delete(cn.s.conns, cn.info.OTConnID)
-	cn.s.mu.Unlock()
+	// The connection leaves the session under both of its IDs, so that the
+	// session's end does not reach it, and the request's context ends.
+	leaveSession(cn)
+	cancel()
+	g.release <- timeoutErr{}
+	if err := returnsWithin(t, 3*time.Second, "Conn.Do", done); !errors.Is(err, ethernetip.ErrConnectionLost) {
+		t.Fatalf("request = %v, want ErrConnectionLost", err)
+	}
+	cn.mu.Lock()
+	pending, ended := cn.pending, cn.err
+	cn.mu.Unlock()
+	if ended != nil {
+		t.Fatalf("the session's end reached the connection (%v): the request did not end by its context", ended)
+	}
+	if pending != nil {
+		t.Error("request still pending")
+	}
+}
+
+// TestConnWriteFailureAfterRequestTaken: a request whose write fails, and
+// whose registration was taken by another party (Close or the session's
+// end, which then fail it) that has not failed it yet, returns when its
+// context ends with the write's error and leaves the registration as that
+// party left it.
+func TestConnWriteFailureAfterRequestTaken(t *testing.T) {
+	_, addr := startServer(t)
+	g := newGate()
+	c := dialT(t, addr, WithDialer(g), WithTimeout(3*time.Second))
+	cn, err := c.OpenConnection(ctxT(t), ConnectionOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	g.armed.Store(true)
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan error, 1)
+	go func() { _, err := cn.Identity(ctx); done <- err }()
+	g.waitEntered(t)
+	leaveSession(cn)
+	// The registration is no longer the request's.
+	other := make(chan reply, 1)
+	cn.mu.Lock()
+	taken := cn.pending
+	cn.pending = other
+	cn.mu.Unlock()
+	if taken == nil {
+		t.Fatal("no request registered while its write is held")
+	}
 	cancel()
 	g.release <- timeoutErr{}
 	if err := returnsWithin(t, 3*time.Second, "Conn.Do", done); !errors.Is(err, ethernetip.ErrConnectionLost) {
@@ -188,9 +230,24 @@ func TestConnWriteFailureBoundedByContext(t *testing.T) {
 	cn.mu.Lock()
 	pending := cn.pending
 	cn.mu.Unlock()
-	if pending != nil {
-		t.Error("request still pending")
+	if pending != other {
+		t.Error("the request cleared a registration that was not its own")
 	}
+	// The party that took the request fails it late: the reply channel
+	// has room for that, nobody waits for it.
+	select {
+	case taken <- reply{err: ethernetip.ErrClosed}:
+	default:
+		t.Error("a late failure of the request would block")
+	}
+}
+
+// leaveSession removes cn from its session under both connection IDs.
+func leaveSession(cn *Conn) {
+	cn.s.mu.Lock()
+	delete(cn.s.conns, cn.info.OTConnID)
+	delete(cn.s.conns, cn.info.TOConnID)
+	cn.s.mu.Unlock()
 }
 
 // TestClientCloseDuringRead (L3): Client.Close fails the request waiting

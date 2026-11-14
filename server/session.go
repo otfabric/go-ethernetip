@@ -17,6 +17,7 @@ import (
 
 	"github.com/otfabric/go-ethernetip/cip"
 	"github.com/otfabric/go-ethernetip/encap"
+	"github.com/otfabric/go-ethernetip/internal/goid"
 )
 
 // session is one TCP connection of an originator, with its registered
@@ -29,6 +30,14 @@ type session struct {
 	local  net.Addr
 
 	handle uint32 // owned by the session goroutine; 0 until registered
+	// goroutine is the identifier (internal/goid) of the session's
+	// goroutine, set before the session is registered: Close called on it
+	// does not wait for it.
+	goroutine uint64
+	// counted is whether the session goroutine counts in s.wg; owned by
+	// it. Close called on it, from a handler, sets it to false (see
+	// Server.Close).
+	counted bool
 
 	wmu sync.Mutex
 
@@ -56,8 +65,12 @@ func exchangeOf(ctx context.Context) *exchange {
 }
 
 func (s *Server) serveConn(c net.Conn) {
-	defer s.wg.Done()
-	ss := &session{s: s, conn: c, remote: c.RemoteAddr(), local: c.LocalAddr()}
+	ss := &session{s: s, conn: c, remote: c.RemoteAddr(), local: c.LocalAddr(), goroutine: goid.ID(), counted: true}
+	defer func() {
+		if ss.counted {
+			s.wg.Done()
+		}
+	}()
 	s.mu.Lock()
 	if s.closed || len(s.conns) >= s.maxTCPConns() {
 		closed := s.closed
@@ -71,7 +84,7 @@ func (s *Server) serveConn(c net.Conn) {
 	s.conns[ss] = true
 	s.mu.Unlock()
 	if m := s.opts.metrics; m != nil {
-		m.OnConnect(ss.remote)
+		s.call("Metrics.OnConnect", func() { m.OnConnect(ss.remote) })
 	}
 	if tc, ok := c.(*tls.Conn); ok {
 		_ = tc.SetDeadline(time.Now().Add(10 * time.Second))
@@ -80,7 +93,7 @@ func (s *Server) serveConn(c net.Conn) {
 			// The connection's slot is released with it.
 			ss.close()
 			if m := s.opts.metrics; m != nil {
-				m.OnDisconnect(ss.remote, err)
+				s.call("Metrics.OnDisconnect", func() { m.OnDisconnect(ss.remote, err) })
 			}
 			return
 		}
@@ -93,7 +106,7 @@ func (s *Server) serveConn(c net.Conn) {
 		if errors.Is(err, io.EOF) || s.ctx.Err() != nil {
 			err = nil
 		}
-		m.OnDisconnect(ss.remote, err)
+		s.call("Metrics.OnDisconnect", func() { m.OnDisconnect(ss.remote, err) })
 	}
 }
 
@@ -134,14 +147,16 @@ func (ss *session) serve() error {
 			return err
 		}
 		if m := ss.s.opts.metrics; m != nil {
-			m.OnPacketReceived(ss.remote, pkt.Command, encap.HeaderSize+len(pkt.Data))
+			ss.s.call("Metrics.OnPacketReceived", func() { m.OnPacketReceived(ss.remote, pkt.Command, encap.HeaderSize+len(pkt.Data)) })
 		}
 		if pkt.Options != 0 {
 			// Encapsulation packets with options set are discarded.
 			ss.s.log.Debug("packet with options discarded", "command", pkt.Command)
 			continue
 		}
-		if !ss.handle0(pkt) {
+		// A session whose handler called Close (see Server.Close) reads
+		// no further request.
+		if !ss.handle0(pkt) || !ss.counted {
 			return nil
 		}
 	}
@@ -258,7 +273,7 @@ func (ss *session) reply(h encap.Header, st encap.Status, data []byte) {
 		return
 	}
 	if m := ss.s.opts.metrics; m != nil {
-		m.OnPacketSent(ss.remote, h.Command, len(b))
+		ss.s.call("Metrics.OnPacketSent", func() { m.OnPacketSent(ss.remote, h.Command, len(b)) })
 	}
 }
 
@@ -266,7 +281,7 @@ func (ss *session) replyData(h encap.Header, data []byte) { ss.reply(h, encap.St
 
 func (ss *session) decodeError(err error) {
 	if m := ss.s.opts.metrics; m != nil {
-		m.OnDecodeError(ss.remote, err)
+		ss.s.call("Metrics.OnDecodeError", func() { m.OnDecodeError(ss.remote, err) })
 	}
 }
 
@@ -318,7 +333,7 @@ func (s *Server) handleMessage(ctx context.Context, b []byte, remote net.Addr, c
 	req, err := cip.DecodeRequest(b)
 	if err != nil {
 		if m := s.opts.metrics; m != nil {
-			m.OnDecodeError(remote, err)
+			s.call("Metrics.OnDecodeError", func() { m.OnDecodeError(remote, err) })
 		}
 		var svc cip.Service
 		if len(b) > 0 {

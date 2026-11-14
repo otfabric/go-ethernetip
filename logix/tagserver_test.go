@@ -7,8 +7,10 @@ import (
 	"context"
 	"encoding/binary"
 	"errors"
+	"fmt"
 	"reflect"
 	"strings"
+	"sync"
 	"testing"
 
 	ethernetip "github.com/otfabric/go-ethernetip"
@@ -969,5 +971,68 @@ func TestTagServerWriteBOOLNormalized(t *testing.T) {
 		if !r.OK() || !bytes.Equal(r.Data, []byte{0xC1, 0, c.want}) {
 			t.Errorf("wrote %#x, read % x", c.in, r.Data)
 		}
+	}
+}
+
+// errorLogger keeps the Error entries of a server.
+type errorLogger struct {
+	mu     sync.Mutex
+	errors []string
+}
+
+func (*errorLogger) Debugf(string, ...any) {}
+func (*errorLogger) Infof(string, ...any)  {}
+func (*errorLogger) Warnf(string, ...any)  {}
+
+func (l *errorLogger) Errorf(f string, a ...any) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	l.errors = append(l.errors, fmt.Sprintf(f, a...))
+}
+
+func (l *errorLogger) entries() []string {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	return append([]string(nil), l.errors...)
+}
+
+// stopAbnormally ends the application's code that calls it without a
+// normal return.
+func stopAbnormally() { panic(errors.New("stopped by test")) }
+
+// TestTagServerOnWriteDoesNotReturnNormally: a write whose OnWrite does
+// not return normally is answered with 0x10, the tag stays written, the
+// server logs the failure with its stack, and the session goes on.
+func TestTagServerOnWriteDoesNotReturnNormally(t *testing.T) {
+	ts := NewTagServer()
+	must(t, ts.AddTag("Count", cip.TypeDINT))
+	ts.OnWrite(func(string) { stopAbnormally() })
+	log := &errorLogger{}
+	srv, err := server.New(server.WithIOAddress("127.0.0.1:0"), server.WithLogger(log))
+	must(t, err)
+	ts.Attach(srv)
+	must(t, srv.Listen("127.0.0.1:0"))
+	go func() { _ = srv.Serve() }()
+	t.Cleanup(func() { _ = srv.Close() })
+	cl, err := client.Dial(ctx, srv.Addr().String())
+	must(t, err)
+	t.Cleanup(func() { _ = cl.Close() })
+	c := NewClient(cl)
+
+	v, _ := Ints(cip.TypeDINT, 77)
+	var ce *ethernetip.CIPError
+	if err := c.Write(ctx, "Count", v); !errors.As(err, &ce) || ce.Status != cip.StatusDeviceStateConflict {
+		t.Fatalf("Write = %v, want general status 0x10", err)
+	}
+	if g, _ := ts.Get("Count"); !bytes.Equal(g.Data, v.Data) {
+		t.Errorf("Count %x after the write, want %x", g.Data, v.Data)
+	}
+	es := log.entries()
+	if len(es) != 1 || !strings.Contains(es[0], "callback=SymbolHandler.ServeSymbol ") ||
+		!strings.Contains(es[0], "value=stopped by test") || !strings.Contains(es[0], "stopAbnormally") {
+		t.Errorf("Error entries %q, want one for SymbolHandler.ServeSymbol with its stack", es)
+	}
+	if got, err := c.Read(ctx, "Count", 1); err != nil || !bytes.Equal(got.Data, v.Data) {
+		t.Errorf("read after the write: %x, %v", got.Data, err)
 	}
 }

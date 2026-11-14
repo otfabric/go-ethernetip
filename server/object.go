@@ -40,6 +40,14 @@ type Request struct {
 // ServeCIP is called from the goroutine of the session that received the
 // request, concurrently for different sessions: an Object must be safe for
 // concurrent use.
+//
+// The handlers of a request (ServeCIP, a [SymbolHandler], a
+// [ServiceFunc], the functions of an [Attribute], the reset handler) may
+// call the server's methods, Close included (see [Server.Close]). A
+// handler that does not return normally is logged with its stack, at
+// Error level, and its request is answered with general status 0x10
+// (device state conflict); the session goes on, and within a Multiple
+// Service Packet so do the other services.
 type Object interface {
 	// Class returns the class code.
 	Class() cip.Class
@@ -54,7 +62,8 @@ type Object interface {
 // SymbolHandler handles requests whose path starts with a symbol segment
 // (Logix tag services). See the logix package for an emulation. As for
 // [Object.ServeCIP], r.Data is only valid until ServeSymbol returns; copy
-// what you keep.
+// what you keep. ServeSymbol is a request handler: see [Object] for what
+// it may call and how a call that does not return normally is answered.
 type SymbolHandler interface {
 	ServeSymbol(ctx context.Context, r *Request) cip.Response
 }
@@ -77,7 +86,7 @@ type Attribute struct {
 
 // ServiceFunc implements a service of a [StandardObject]. As for
 // [Object.ServeCIP], r.Data is only valid until the function returns;
-// copy what you keep.
+// copy what you keep. It is a request handler: see [Object].
 type ServiceFunc func(ctx context.Context, r *Request) cip.Response
 
 // StandardObject is an [Object] made of attributes and services: the class
