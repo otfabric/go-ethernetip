@@ -241,6 +241,7 @@ func TestDelayedDiscoveryBound(t *testing.T) {
 	var ctx [8]byte
 	binary.LittleEndian.PutUint16(ctx[:], 1)
 	s.pendingDiscovery.Store(maxPendingDiscovery - 1)
+	delayNext(s, ctx)
 	udpRoundTrip(t, s, encap.CommandListIdentity, ctx)
 	waitFor(t, "pending reply done", func() bool { return s.pendingDiscovery.Load() == maxPendingDiscovery-1 })
 
@@ -251,6 +252,7 @@ func TestDelayedDiscoveryBound(t *testing.T) {
 	}
 	defer func() { _ = c.Close() }()
 	b, _ := encap.Packet{Header: encap.Header{Command: encap.CommandListIdentity, Context: ctx}}.Encode()
+	delayNext(s, ctx)
 	if _, err := c.Write(b); err != nil {
 		t.Fatal(err)
 	}
@@ -265,6 +267,21 @@ func TestDelayedDiscoveryBound(t *testing.T) {
 	s.pendingDiscovery.Store(maxPendingDiscovery)
 	udpRoundTrip(t, s, encap.CommandListServices, [8]byte{})
 	s.pendingDiscovery.Store(0)
+}
+
+// delayNext makes the delay s draws for the next ListIdentity with sender
+// context ctx nonzero. The delay is drawn at random up to the maximum, and a
+// reply without delay is sent at once, outside the bound on delayed replies:
+// with a maximum of 1 ms, one request in 1000.
+func delayNext(s *Server, ctx [8]byte) {
+	pkt := encap.Packet{Header: encap.Header{Command: encap.CommandListIdentity, Context: ctx}}
+	for seed := uint64(0); ; seed++ {
+		s.jitterState.Store(seed)
+		if s.discoveryDelay(pkt) > 0 {
+			s.jitterState.Store(seed)
+			return
+		}
+	}
 }
 
 func (s *Server) tcpConns() int {

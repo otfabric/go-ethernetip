@@ -94,6 +94,11 @@ the values of v0.7.1. No exported identifier is removed or changed.
   its context in every run, and `TestConnWriteFailureAfterRequestTaken`
   covers a failed write whose request is no longer the connection's
   pending one: both sides of that branch of `Conn.do` are covered.
+- **server**: `TestDelayedDiscoveryBound` failed in one run in about
+  1000: the delay of a ListIdentity reply is drawn at random up to the
+  maximum the request asks for, and a draw of zero is answered at once,
+  outside the bound the test checks. The test now sets the server's
+  generator so that its requests draw a delay.
 - TESTING.md gives the figure of `BenchmarkConsume` for v0.8.0.
 
 ### Documentation
