@@ -378,6 +378,9 @@ type Server struct {
 
 	// pendingDiscovery counts the delayed UDP replies waiting in timers.
 
+	// delayed are the timers of the delayed UDP replies, by a sequence
+	// number; under mu. Close stops them.
+
 }
 ```
 

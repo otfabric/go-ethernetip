@@ -208,24 +208,38 @@ func (f *File) Device() (Device, error) {
 }
 
 // numbered returns the entries of s whose keyword is prefix followed by a
-// number, sorted by the number.
+// number, sorted by the number. Spellings such as Param1 and Param01 name
+// the same number; only the first entry of each number is returned
+// ([Validate] reports the others).
 func numbered(s *Section, prefix string) []numberedEntry {
 	if s == nil {
 		return nil
 	}
 	var out []numberedEntry
+	seen := map[int]bool{}
 	for _, e := range s.Entries {
-		if len(e.Keyword) <= len(prefix) || !strings.EqualFold(e.Keyword[:len(prefix)], prefix) {
+		n, ok := keywordNumber(e.Keyword, prefix)
+		if !ok || seen[n] {
 			continue
 		}
-		n, err := strconv.Atoi(e.Keyword[len(prefix):])
-		if err != nil || n < 0 {
-			continue
-		}
+		seen[n] = true
 		out = append(out, numberedEntry{n, e})
 	}
 	sort.SliceStable(out, func(i, j int) bool { return out[i].n < out[j].n })
 	return out
+}
+
+// keywordNumber returns N of a keyword that is prefix (case-insensitive)
+// followed by a non-negative decimal number N.
+func keywordNumber(kw, prefix string) (int, bool) {
+	if len(kw) <= len(prefix) || !strings.EqualFold(kw[:len(prefix)], prefix) {
+		return 0, false
+	}
+	n, err := strconv.Atoi(kw[len(prefix):])
+	if err != nil || n < 0 {
+		return 0, false
+	}
+	return n, true
 }
 
 type numberedEntry struct {

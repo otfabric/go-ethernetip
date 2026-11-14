@@ -655,3 +655,102 @@ func TestConcurrentOwners(t *testing.T) {
 		}
 	}
 }
+
+// TestForwardCloseDuringMulticastOpen: a Forward_Close of a multicast
+// connection that arrives, from another session of the originator, while
+// the Forward_Open is still being handled (here: while it writes the
+// configuration) closes it, and the production it would start does not
+// run: nothing is left producing the input assembly.
+func TestForwardCloseDuringMulticastOpen(t *testing.T) {
+	s := startIOServer(t)
+	a, b := dialPeer(t, s), dialPeer(t, s)
+	a.register()
+	b.register()
+	entered, release := make(chan struct{}), make(chan struct{})
+	var once sync.Once
+	s.Assembly(asmCfg).OnWrite(func([]byte, bool) {
+		once.Do(func() { close(entered); <-release })
+	})
+	fo := fwdOpen(1, cip.TriggerCyclic, append(ioPath(asmCfg, asmInputOnly, asmIn), cip.DataSegment{Data: []byte{9, 9, 9, 9}}))
+	fo.OTParams.Size, fo.TOParams.Type = 2, cip.ConnectionMulticast
+	res := make(chan cip.Response, 1)
+	go func() { r, _ := a.openNoFatal(fo); res <- r }()
+	<-entered
+	if r := b.close(fo.Triad, fo.Path); !r.OK() {
+		t.Fatalf("Forward_Close: %s", r.Status)
+	}
+	close(release)
+	if r := <-res; connStatus(r) != cip.ConnStatusMiscellaneous {
+		t.Errorf("Forward_Open: %s %x", r.Status, r.Extended)
+	}
+	s.cm.mu.Lock()
+	conns, prods := len(s.cm.conns), len(s.cm.productions)
+	s.cm.mu.Unlock()
+	in := s.Assembly(asmIn)
+	in.mu.Lock()
+	producers := len(in.producers)
+	in.mu.Unlock()
+	if conns != 0 || prods != 0 || producers != 0 {
+		t.Errorf("after the close: %d connections, %d productions, %d producers", conns, prods, producers)
+	}
+	// The point produces again for the next connection.
+	fo2 := fwdOpen(1, cip.TriggerCyclic, ioPath(0, asmInputOnly, asmIn))
+	fo2.OTParams.Size, fo2.TOParams.Type = 2, cip.ConnectionMulticast
+	a.mustOpen(fo2)
+	in.mu.Lock()
+	producers = len(in.producers)
+	in.mu.Unlock()
+	if producers != 1 {
+		t.Errorf("%d producers for an open production", producers)
+	}
+}
+
+// TestStartProductionEnded: a production whose last connection left before
+// it started is not started.
+func TestStartProductionEnded(t *testing.T) {
+	s := startIOServer(t)
+	in := s.Assembly(asmIn)
+	prod := &production{point: asmIn, toID: 1, group: s.multicastGroup(0), port: 2222, rpi: 10000,
+		owners: map[*ioConn]bool{}, listen: map[*ioConn]bool{}}
+	// Not registered.
+	if err := s.cm.startProduction(prod, in, implicit.FormatModeless); !errors.Is(err, errProductionEnded) {
+		t.Errorf("unregistered production: %v", err)
+	}
+	// Registered without owners.
+	s.cm.mu.Lock()
+	s.cm.productions[asmIn] = prod
+	s.cm.mu.Unlock()
+	if err := s.cm.startProduction(prod, in, implicit.FormatModeless); !errors.Is(err, errProductionEnded) {
+		t.Errorf("production without owners: %v", err)
+	}
+	s.cm.mu.Lock()
+	delete(s.cm.productions, asmIn)
+	s.cm.mu.Unlock()
+	in.mu.Lock()
+	producers := len(in.producers)
+	in.mu.Unlock()
+	if producers != 0 || prod.conn != nil {
+		t.Errorf("ended production started: %d producers", producers)
+	}
+}
+
+// TestOpenWhileClosing: once the server closes its connections, no
+// connection is opened any more (it would outlive Close).
+func TestOpenWhileClosing(t *testing.T) {
+	s := startIOServer(t)
+	p := dialPeer(t, s)
+	p.register()
+	s.cm.closeAll(ethernetip.ErrClosed)
+	for _, fo := range []cip.ForwardOpen{
+		fwdOpen(3, cip.TriggerApplication, explicitPath),
+		fwdOpen(1, cip.TriggerCyclic, ioPath(0, asmOut, asmIn)),
+	} {
+		r, _ := p.open(fo)
+		if connStatus(r) != cip.ConnStatusMiscellaneous {
+			t.Errorf("class %d Forward_Open while closing: %s %x", fo.Transport.Class(), r.Status, r.Extended)
+		}
+	}
+	if n := len(s.Connections()); n != 0 {
+		t.Errorf("%d connections opened while closing", n)
+	}
+}

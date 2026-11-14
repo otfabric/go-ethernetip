@@ -25,6 +25,7 @@ type Endpoint struct {
 
 	mu      sync.Mutex
 	conns   map[uint32][]*Connection  // consumers by consumed connection ID
+	all     map[*Connection]struct{}  // every open connection, producers too
 	groups  map[netip.Addr]int        // multicast memberships, counted
 	groupIf map[netip.Addr]netip.Addr // the interface address each group was joined on
 	local   netip.Addr                // the default multicast interface address
@@ -83,7 +84,7 @@ func Listen(addr string, opts ...EndpointOption) (*Endpoint, error) {
 // NewEndpoint returns an endpoint serving an open UDP socket. The endpoint
 // owns it and closes it on Close.
 func NewEndpoint(c *net.UDPConn, opts ...EndpointOption) *Endpoint {
-	e := &Endpoint{conn: c, conns: map[uint32][]*Connection{}, groups: map[netip.Addr]int{}, groupIf: map[netip.Addr]netip.Addr{}}
+	e := &Endpoint{conn: c, conns: map[uint32][]*Connection{}, all: map[*Connection]struct{}{}, groups: map[netip.Addr]int{}, groupIf: map[netip.Addr]netip.Addr{}}
 	for _, o := range opts {
 		o(e)
 	}
@@ -118,9 +119,10 @@ func (e *Endpoint) Close() error {
 		return nil
 	}
 	e.closed = true
-	conns := make([]*Connection, 0, len(e.conns))
-	for _, cs := range e.conns {
-		conns = append(conns, cs...)
+	// Every connection, those that only produce too.
+	conns := make([]*Connection, 0, len(e.all))
+	for c := range e.all {
+		conns = append(conns, c)
 	}
 	e.groups = map[netip.Addr]int{}
 	e.mu.Unlock()

@@ -360,7 +360,7 @@ func Validate(f *File) []Issue
 
 Validate checks a file and returns its issues, errors first. A file with no Error issue can be used by the typed views and the generator.
 
-It checks: [File](#type-file) and [Device](#type-device) come first, with their required entries; dates, times and revisions are well formed; numbers are numbers; data types of parameters are elementary types whose size matches; minimum, maximum and default are ordered; ParamN and AssemN references resolve; EPATHs decode; assembly members fill their size; keywords are not repeated within a section.
+It checks: [File](#type-file) and [Device](#type-device) come first, with their required entries; dates, times and revisions are well formed; numbers are numbers; data types of parameters are elementary types whose size matches; minimum, maximum and default are ordered; ParamN and AssemN references resolve; EPATHs decode; assembly members fill their size; keywords are not repeated within a section, and no two ParamN, EnumN, AssemN or ConnectionN keywords name the same number (Param1 and Param01).
 
 #### func (Issue) String
 

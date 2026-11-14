@@ -45,6 +45,7 @@ type connectionManager struct {
 	ids         map[uint32]bool          // connection IDs in use
 	counters    [numCounters]uint16
 	nextGroup   uint32
+	closed      bool // closeAll ran: no connection is added
 }
 
 // conn is an open connection of the registry.
@@ -110,9 +111,10 @@ func (cm *connectionManager) list() []ethernetip.ConnectionInfo {
 	return out
 }
 
-// closeAll closes every connection.
+// closeAll closes every connection, and refuses those opened from now on.
 func (cm *connectionManager) closeAll(err error) {
 	cm.mu.Lock()
+	cm.closed = true
 	all := make([]conn, 0, len(cm.conns))
 	for _, c := range cm.conns {
 		all = append(all, c)
@@ -446,6 +448,10 @@ func (cm *connectionManager) openExplicit(ex *exchange, fo cip.ForwardOpen, part
 		cm.mu.Unlock()
 		return cip.ForwardOpenReply{}, nil, connFailure(cip.ConnStatusInUse)
 	}
+	if cm.closed {
+		cm.mu.Unlock()
+		return cip.ForwardOpenReply{}, nil, connFailure(cip.ConnStatusMiscellaneous)
+	}
 	if cm.full(ec.orig) {
 		cm.mu.Unlock()
 		return cip.ForwardOpenReply{}, nil, connFailure(cip.ConnStatusOutOfConnections)
@@ -457,12 +463,13 @@ func (cm *connectionManager) openExplicit(ex *exchange, fo cip.ForwardOpen, part
 		OTRPI: time.Duration(fo.OTRPI) * time.Microsecond, TORPI: time.Duration(fo.TORPI) * time.Microsecond,
 		Path: fo.Path,
 	}
+	// The inactivity timer exists before the connection is published: a
+	// shutdown (Forward_Close, the session or the server closing) always
+	// finds it to stop.
+	ec.timer = time.AfterFunc(ec.timeout, func() { cm.remove(ec, ethernetip.ErrTimeout) })
 	cm.conns[fo.Triad] = ec
 	cm.explicit[ot] = ec
 	cm.mu.Unlock()
-	ec.mu.Lock()
-	ec.timer = time.AfterFunc(ec.timeout, func() { cm.remove(ec, ethernetip.ErrTimeout) })
-	ec.mu.Unlock()
 	cm.opened(remote, ec.info)
 	return cip.ForwardOpenReply{
 		OTConnID: ot, TOConnID: fo.TOConnID, Triad: fo.Triad,

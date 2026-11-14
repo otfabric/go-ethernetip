@@ -17,7 +17,9 @@
 //
 // The scanner's I/O endpoint listens on UDP port 2222 by default, the port
 // targets send to; WithLocalAddr picks another, which Forward_Open then
-// announces in a Sockaddr Info item (not every target honours it).
+// announces in a Sockaddr Info item (not every target honours it). O->T
+// data goes to the target's address, at the port the target's Sockaddr
+// Info O->T item names (2222 without one).
 package scanner
 
 import (
@@ -172,6 +174,14 @@ type IOConfig struct {
 	InputSize  int
 	// RPI is the requested packet interval of both directions; OTRPI and
 	// TORPI, when set, replace it per direction.
+	//
+	// The target answers with the actual packet intervals (APIs), which
+	// the connection then uses and [IO.Info] reports; they may differ from
+	// the RPIs. Open refuses the reply with ErrProtocol, and closes the
+	// connection again, when the T->O API is 0 (no consumption timeout)
+	// or the O->T API is below a quarter of the O->T RPI or below 100 µs
+	// (the O->T RPI itself when that is shorter), so that the scanner
+	// never produces more than four times as often as asked.
 	RPI   time.Duration
 	OTRPI time.Duration
 	TORPI time.Duration
@@ -398,6 +408,10 @@ func (io *IO) open(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	if err := checkAPIs(reply, otRPI); err != nil {
+		_ = c.ForwardClose(ctx, cip.ForwardClose{Triad: fo.Triad, Path: path})
+		return err
+	}
 	target := targetIP(c.RemoteAddr())
 	dst := netip.AddrPortFrom(target, encap.IOPort)
 	var group netip.Addr
@@ -408,11 +422,14 @@ func (io *IO) open(ctx context.Context) error {
 		}
 		switch it.Type {
 		case encap.ItemSockaddrOT:
+			// The O->T connection is point-to-point: its data goes to
+			// the target this session talks to, at the port the target
+			// names. An address other than the target's is not used.
 			if sa.Port != 0 {
 				dst = netip.AddrPortFrom(dst.Addr(), sa.Port)
 			}
-			if a := netip.AddrFrom4(sa.Addr); !a.IsUnspecified() {
-				dst = netip.AddrPortFrom(a, dst.Port())
+			if a := netip.AddrFrom4(sa.Addr); !a.IsUnspecified() && a != target {
+				io.s.log.Debug("O->T Sockaddr Info address ignored", "addr", a, "target", target)
 			}
 		case encap.ItemSockaddrTO:
 			if a := netip.AddrFrom4(sa.Addr); a.IsMulticast() {
@@ -459,6 +476,31 @@ func (io *IO) open(ctx context.Context) error {
 	io.mu.Unlock()
 	io.setState(ethernetip.StateConnected, nil)
 	io.s.log.Info("I/O connection opened", "ot", reply.OTConnID, "to", reply.TOConnID, "rpi", otRPI)
+	return nil
+}
+
+// minAPI is the fixed part of the smallest O->T actual packet interval
+// the scanner accepts from a Forward_Open reply; see [IOConfig.RPI].
+const minAPI = 100 * time.Microsecond
+
+// minOTAPI returns the smallest O->T actual packet interval accepted for
+// the requested O->T RPI: a quarter of it, but at least minAPI, or the
+// requested RPI itself when that is below minAPI.
+func minOTAPI(requested time.Duration) time.Duration {
+	return max(requested/4, min(requested, minAPI))
+}
+
+// checkAPIs refuses a Forward_Open reply whose actual packet intervals
+// would make the scanner produce faster than minOTAPI allows or consume
+// without a timeout.
+func checkAPIs(reply cip.ForwardOpenReply, otRPI time.Duration) error {
+	ot := time.Duration(reply.OTAPI) * time.Microsecond
+	switch {
+	case reply.TOAPI == 0:
+		return fmt.Errorf("%w: Forward_Open reply with T->O API 0", ethernetip.ErrProtocol)
+	case ot < minOTAPI(otRPI):
+		return fmt.Errorf("%w: Forward_Open reply with O->T API %v for RPI %v (minimum %v)", ethernetip.ErrProtocol, ot, otRPI, minOTAPI(otRPI))
+	}
 	return nil
 }
 

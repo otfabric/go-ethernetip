@@ -10,6 +10,7 @@ import (
 	"sync"
 
 	"github.com/otfabric/go-ethernetip/cip"
+	"github.com/otfabric/go-ethernetip/encap"
 )
 
 // Request is an explicit request as an object sees it.
@@ -285,9 +286,9 @@ func (o *StandardObject) ServeCIP(ctx context.Context, r *Request) cip.Response 
 		}
 		return cip.Response{Status: a.Set(r.Data)}
 	case cip.ServiceGetAttributesAll:
-		return cip.Response{Data: o.getAll(attrs)}
+		return o.getAll(attrs, newReplyBound(ctx, r))
 	case cip.ServiceGetAttributeList:
-		return o.getList(attrs, r.Data)
+		return o.getList(attrs, r.Data, newReplyBound(ctx, r))
 	default:
 		return cip.Response{Status: cip.StatusServiceNotSupported}
 	}
@@ -300,7 +301,62 @@ func (o *StandardObject) attr(attrs map[uint16]Attribute, id uint16) (Attribute,
 	return a, ok
 }
 
-func (o *StandardObject) getAll(attrs map[uint16]Attribute) []byte {
+// maxUnconnectedReplyData is the largest reply data of an unconnected
+// request: the encapsulation data less the interface handle (4), timeout
+// (2), item count (2), the null address item (4), the data item header (4)
+// and the reply header (4).
+const maxUnconnectedReplyData = encap.MaxData - 4 - 2 - 2 - 4 - 4 - 4
+
+// replyBudget returns the most reply data the answer to r can carry: on a
+// Class 3 connection what the connection carries, elsewhere what fits an
+// encapsulation packet. A reply built beyond it is refused with 0x11 (reply
+// data too large) anyway, so the services that assemble their reply from
+// parts stop as soon as it is exceeded.
+func replyBudget(r *Request) int {
+	if r.Connected && r.MaxReply > 0 {
+		return min(r.MaxReply, maxConnectedReply-4)
+	}
+	return maxUnconnectedReplyData
+}
+
+// replyRoom is what is left of a Multiple Service Packet reply for the
+// embedded service being handled; it travels in the context.
+type replyRoom struct {
+	n        int  // the reply data left for the embedded response
+	exceeded bool // the embedded service's reply outgrew n
+}
+
+type replyRoomKey struct{}
+
+// replyBound is the reply data limit of one request.
+type replyBound struct {
+	n    int
+	room *replyRoom // nil outside a Multiple Service Packet
+}
+
+// newReplyBound returns the limit of the reply to r: the request's own
+// budget, and within a Multiple Service Packet what is left of its reply.
+func newReplyBound(ctx context.Context, r *Request) replyBound {
+	b := replyBound{n: replyBudget(r)}
+	if room, ok := ctx.Value(replyRoomKey{}).(*replyRoom); ok {
+		b.n, b.room = min(b.n, room.n), room
+	}
+	return b
+}
+
+// tooLarge reports a reply of n octets beyond the bound; the enclosing
+// Multiple Service Packet, if any, learns that its reply cannot fit.
+func (b replyBound) tooLarge(n int) bool {
+	if n <= b.n {
+		return false
+	}
+	if b.room != nil {
+		b.room.exceeded = true
+	}
+	return true
+}
+
+func (o *StandardObject) getAll(attrs map[uint16]Attribute, bound replyBound) cip.Response {
 	o.mu.RLock()
 	ids := make([]uint16, 0, len(attrs))
 	sel := make(map[uint16]Attribute, len(attrs))
@@ -315,14 +371,17 @@ func (o *StandardObject) getAll(attrs map[uint16]Attribute) []byte {
 	var b []byte
 	for _, id := range ids {
 		b = append(b, sel[id].Get()...)
+		if bound.tooLarge(len(b)) {
+			return cip.Response{Status: cip.StatusReplyDataTooLarge}
+		}
 	}
-	return b
+	return cip.Response{Data: b}
 }
 
 // maxListAttributes bounds the attributes of one Get_Attribute_List.
 const maxListAttributes = 256
 
-func (o *StandardObject) getList(attrs map[uint16]Attribute, data []byte) cip.Response {
+func (o *StandardObject) getList(attrs map[uint16]Attribute, data []byte, bound replyBound) cip.Response {
 	r := cip.NewReader(data)
 	n := int(r.Uint16())
 	if r.Err() != nil {
@@ -347,6 +406,10 @@ func (o *StandardObject) getList(attrs map[uint16]Attribute, data []byte) cip.Re
 		}
 		out = cip.AppendUint16(out, 0)
 		out = append(out, a.Get()...)
+		if bound.tooLarge(len(out)) {
+			// An ID may repeat: the reply would grow with every one.
+			return cip.Response{Status: cip.StatusReplyDataTooLarge}
+		}
 	}
 	return cip.Response{Status: st, Data: out}
 }
