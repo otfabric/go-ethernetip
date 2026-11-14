@@ -691,6 +691,29 @@ func TestEndpointClose(t *testing.T) {
 	c1.Close()
 }
 
+// TestEndpointCloseStopsProducers: Close stops every connection of the
+// endpoint, those that only produce included.
+func TestEndpointCloseStopsProducers(t *testing.T) {
+	e, err := Listen("127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	sink := listen(t)
+	c, err := e.Open(Config{Class: 1, ProducedID: 0x77, Destination: sink.LocalAddr(), ProduceRPI: time.Millisecond, ProduceSize: 4})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := e.Close(); err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case <-c.Done():
+	default:
+		t.Fatal("producing connection still open after Endpoint.Close")
+	}
+	testenv.NoGoroutine(t, "implicit.(*Connection).run")
+}
+
 func TestListenErrors(t *testing.T) {
 	if _, err := Listen("not an address"); !errors.Is(err, ethernetip.ErrInvalidOption) {
 		t.Errorf("bad address: %v", err)

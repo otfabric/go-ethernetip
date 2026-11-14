@@ -44,12 +44,16 @@ type Object interface {
 	Class() cip.Class
 	// ServeCIP handles a request addressed to the class or one of its
 	// instances and returns the response; its Service is set by the
-	// router.
+	// router. r.Data is only valid until ServeCIP returns: it aliases the
+	// session's read buffer, which the next packet overwrites. Copy what
+	// you keep.
 	ServeCIP(ctx context.Context, r *Request) cip.Response
 }
 
 // SymbolHandler handles requests whose path starts with a symbol segment
-// (Logix tag services). See the logix package for an emulation.
+// (Logix tag services). See the logix package for an emulation. As for
+// [Object.ServeCIP], r.Data is only valid until ServeSymbol returns; copy
+// what you keep.
 type SymbolHandler interface {
 	ServeSymbol(ctx context.Context, r *Request) cip.Response
 }
@@ -61,14 +65,18 @@ type Attribute struct {
 	// Set stores an encoded value and returns the status of the reply:
 	// cip.StatusSuccess, cip.StatusNotEnoughData, cip.StatusTooMuchData,
 	// cip.StatusInvalidAttributeValue, ... nil makes the attribute
-	// read-only (attribute not settable).
+	// read-only (attribute not settable). data is only valid until Set
+	// returns: it aliases the session's read buffer, which the next
+	// packet overwrites. Copy what you keep.
 	Set func(data []byte) cip.GeneralStatus
 	// InGetAll includes the attribute in Get_Attributes_All replies, in
 	// the order of the attribute IDs.
 	InGetAll bool
 }
 
-// ServiceFunc implements a service of a [StandardObject].
+// ServiceFunc implements a service of a [StandardObject]. As for
+// [Object.ServeCIP], r.Data is only valid until the function returns;
+// copy what you keep.
 type ServiceFunc func(ctx context.Context, r *Request) cip.Response
 
 // StandardObject is an [Object] made of attributes and services: the class
@@ -285,9 +293,9 @@ func (o *StandardObject) ServeCIP(ctx context.Context, r *Request) cip.Response 
 		}
 		return cip.Response{Status: a.Set(r.Data)}
 	case cip.ServiceGetAttributesAll:
-		return cip.Response{Data: o.getAll(attrs)}
+		return o.getAll(ctx, attrs)
 	case cip.ServiceGetAttributeList:
-		return o.getList(attrs, r.Data)
+		return o.getList(ctx, attrs, r.Data)
 	default:
 		return cip.Response{Status: cip.StatusServiceNotSupported}
 	}
@@ -300,7 +308,11 @@ func (o *StandardObject) attr(attrs map[uint16]Attribute, id uint16) (Attribute,
 	return a, ok
 }
 
-func (o *StandardObject) getAll(attrs map[uint16]Attribute) []byte {
+// getAll answers Get_Attributes_All. The reply stops at the request's
+// budget (reply data too large) without calling the remaining Get
+// functions.
+func (o *StandardObject) getAll(ctx context.Context, attrs map[uint16]Attribute) cip.Response {
+	budget, bounded := replyBudget(ctx)
 	o.mu.RLock()
 	ids := make([]uint16, 0, len(attrs))
 	sel := make(map[uint16]Attribute, len(attrs))
@@ -314,15 +326,23 @@ func (o *StandardObject) getAll(attrs map[uint16]Attribute) []byte {
 	slices.Sort(ids)
 	var b []byte
 	for _, id := range ids {
-		b = append(b, sel[id].Get()...)
+		v := sel[id].Get()
+		if bounded && len(b)+len(v) > budget {
+			return overBudget(ctx)
+		}
+		b = append(b, v...)
 	}
-	return b
+	return cip.Response{Data: b}
 }
 
 // maxListAttributes bounds the attributes of one Get_Attribute_List.
 const maxListAttributes = 256
 
-func (o *StandardObject) getList(attrs map[uint16]Attribute, data []byte) cip.Response {
+// getList answers Get_Attribute_List. The reply stops at the request's
+// budget (reply data too large) without calling the remaining Get
+// functions.
+func (o *StandardObject) getList(ctx context.Context, attrs map[uint16]Attribute, data []byte) cip.Response {
+	budget, bounded := replyBudget(ctx)
 	r := cip.NewReader(data)
 	n := int(r.Uint16())
 	if r.Err() != nil {
@@ -343,10 +363,17 @@ func (o *StandardObject) getList(attrs map[uint16]Attribute, data []byte) cip.Re
 		if !ok || a.Get == nil {
 			out = cip.AppendUint16(out, uint16(cip.StatusAttributeNotSupported))
 			st = cip.StatusAttributeListError
-			continue
+		} else {
+			out = cip.AppendUint16(out, 0)
+			v := a.Get()
+			if bounded && len(out)+len(v) > budget {
+				return overBudget(ctx)
+			}
+			out = append(out, v...)
 		}
-		out = cip.AppendUint16(out, 0)
-		out = append(out, a.Get()...)
+		if bounded && len(out) > budget {
+			return overBudget(ctx)
+		}
 	}
 	return cip.Response{Status: st, Data: out}
 }

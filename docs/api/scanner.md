@@ -37,7 +37,7 @@ IO is an open I/O connection. It is safe for concurrent use.
 func (io *IO) Close(ctx context.Context) error
 ```
 
-Close stops the exchange and closes the connection with Forward\_Close (bounded by ctx). Close is idempotent.
+Close stops the exchange and closes the connection with Forward\_Close (bounded by ctx). Close is idempotent: of concurrent calls, one closes the connection and the others return nil.
 
 #### func (IO) Done
 
@@ -157,7 +157,17 @@ type IOConfig struct {
 	// state, on the endpoint's goroutine: it must not block. data is only
 	// valid during the call.
 	OnInput func(data []byte, run bool)
-	// OnState is called when the connection's state changes.
+	// OnState is called when the connection's state changes, on the
+	// goroutine that changes it: the caller of Open (StateConnecting,
+	// StateConnected), the connection's own goroutines for a timeout and
+	// for reopening it, and the caller of Close (StateDisconnected). It
+	// must not block. It may call the methods of the IO and of its
+	// Scanner, Close included: a Close called from OnState does not wait
+	// for the goroutine it is called on, and reports StateDisconnected
+	// before it returns, in a nested OnState call. Calls on different
+	// goroutines are not ordered with each other: a Close on another
+	// goroutine does not wait for an OnState call in progress. Once the
+	// connection is closed, its own goroutines report nothing more.
 	OnState func(ethernetip.State, error)
 }
 ```
@@ -208,21 +218,23 @@ WithMulticastInterface sets the interface the scanner's own endpoint joins multi
 
 ```go
 type Reconnect struct {
-	// MinDelay is the delay before the first attempt; it doubles after
-	// each failure. Zero means 100 ms.
+	// MinDelay is d before the first attempt. Zero means 100 ms.
 	MinDelay time.Duration
-	// MaxDelay caps the delay. Zero means 10 seconds.
+	// MaxDelay caps d. Zero means 10 seconds.
 	MaxDelay time.Duration
 }
 ```
 
-Reconnect configures the reopening of a connection that timed out or whose Forward\_Open failed transiently.
+Reconnect configures the reopening of a connection that timed out or whose Forward\_Open failed transiently. Before each attempt the connection waits a delay drawn at random from \[d/2, d] (equal jitter), so that scanners that lose a target at the same moment do not retry in step; d starts at MinDelay and doubles after each failed attempt, up to MaxDelay.
 
 ### type Scanner
 
 ```go
 type Scanner struct {
-	// contains filtered or unexported fields
+
+	// after and rnd are the timer and the random source of the reopen
+	// delays (time.After and rand.Int64N; the tests replace them).
+
 }
 ```
 

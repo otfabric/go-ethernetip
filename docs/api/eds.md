@@ -25,6 +25,8 @@ const (
 	MaxFileSize = 16 << 20 // octets
 	// fields of one entry
 	// entries of the file
+	// sections of the file
+	// fields of the file
 )
 ```
 

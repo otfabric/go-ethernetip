@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 
 // Package testenv decides what a test does when the machine lacks something
-// it needs.
+// it needs, and checks that tests leave no goroutine of the module running.
 package testenv
 
 import (

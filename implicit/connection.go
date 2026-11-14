@@ -133,12 +133,14 @@ func (e *Endpoint) Open(cfg Config) (*Connection, error) {
 		e.mu.Unlock()
 		return nil, ethernetip.ErrClosed
 	}
+	e.open[c] = struct{}{}
 	if cfg.ConsumedID != 0 {
 		// Several connections may consume one multicast production (an
 		// owner and listen-only connections of one scanner); a
 		// point-to-point connection ID is the connection's alone.
 		for _, o := range e.conns[cfg.ConsumedID] {
 			if !cfg.Group.IsValid() || !o.cfg.Group.IsValid() {
+				delete(e.open, c)
 				e.mu.Unlock()
 				return nil, fmt.Errorf("%w: connection ID 0x%08X in use", ethernetip.ErrInvalidOption, cfg.ConsumedID)
 			}
@@ -158,10 +160,12 @@ func (e *Endpoint) Open(cfg Config) (*Connection, error) {
 }
 
 func (c *Connection) unregister() {
+	c.e.mu.Lock()
+	defer c.e.mu.Unlock()
+	delete(c.e.open, c)
 	if c.cfg.ConsumedID == 0 {
 		return
 	}
-	c.e.mu.Lock()
 	list := c.e.conns[c.cfg.ConsumedID]
 	for i, o := range list {
 		if o == c {
@@ -174,7 +178,6 @@ func (c *Connection) unregister() {
 	} else {
 		c.e.conns[c.cfg.ConsumedID] = list
 	}
-	c.e.mu.Unlock()
 }
 
 // Close stops the connection: production ends and consumed datagrams are

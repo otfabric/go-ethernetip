@@ -129,19 +129,17 @@ stress: ## Run the stress and parallel tests 10 times with the race detector
 
 # Duration each fuzz target runs. Override with FUZZTIME=... (e.g. FUZZTIME=5m).
 FUZZTIME ?= 30s
-FUZZ_TARGETS := \
-	cip:FuzzDecodePath cip:FuzzDecodeRequest cip:FuzzDecodeResponse cip:FuzzSplitMultiple \
-	cip:FuzzDecodeForwardOpen cip:FuzzDecodeUnconnectedSend cip:FuzzDecodeIdentity \
-	encap:FuzzDecodeHeader encap:FuzzReadPacket encap:FuzzDecodeCPF encap:FuzzDecodeIdentityItem \
-	implicit:FuzzDecodeImplicit eds:FuzzParse logix:FuzzServeSymbol logix:FuzzTemplateDecode logix:FuzzReadReplies \
-	client:FuzzClientReply server:FuzzServerStream
 
+# The fuzz targets are found, not listed: every Fuzz function of the
+# library packages, as go test -list reports it.
 fuzz: ## Run every fuzz target for FUZZTIME each (default 30s)
 	@echo "Fuzzing (FUZZTIME=$(FUZZTIME))"
-	@for t in $(FUZZ_TARGETS); do \
-		pkg=$${t%%:*}; name=$${t#*:}; \
-		echo "$$pkg $$name"; \
-		go test -run='^$$' -fuzz="^$$name$$" -fuzztime=$(FUZZTIME) ./$$pkg || exit 1; \
+	@for pkg in $(TEST_PKGS); do \
+		out=$$(go test -list '^Fuzz' $$pkg) || { echo "$$out"; exit 1; }; \
+		for name in $$(echo "$$out" | grep '^Fuzz'); do \
+			echo "$$pkg $$name"; \
+			go test -run='^$$' -fuzz="^$$name$$" -fuzztime=$(FUZZTIME) $$pkg || exit 1; \
+		done; \
 	done
 
 # Images of otfabric/ethernetip-interop: the release pinned in

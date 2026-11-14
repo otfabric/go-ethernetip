@@ -205,6 +205,16 @@ func TestDialFailures(t *testing.T) {
 	if !errors.Is(err, ethernetip.ErrConnectFailed) || !errors.Is(err, errDial) {
 		t.Fatalf("dial error = %v", err)
 	}
+	// A dialer that returns no connection and no error fails the connect.
+	for _, tlsCfg := range []*tls.Config{nil, {ServerName: "127.0.0.1", MinVersion: tls.VersionTLS12}} {
+		opts := []Option{WithDialer(errDialer{})}
+		if tlsCfg != nil {
+			opts = append(opts, WithTLS(tlsCfg))
+		}
+		if _, err := Dial(ctxT(t), "127.0.0.1:1", opts...); !errors.Is(err, ethernetip.ErrConnectFailed) {
+			t.Fatalf("nil connection (TLS %v) = %v, want ErrConnectFailed", tlsCfg != nil, err)
+		}
+	}
 
 	type tc struct {
 		name  string

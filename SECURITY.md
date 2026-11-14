@@ -63,15 +63,28 @@ The server bounds what a peer can make it hold:
 - packets above `WithMaxPacket` (4096 octets by default) close the
   session; sessions are limited by `WithMaxSessions` (64), connections by
   `WithMaxConnections` (128), and per originator address by
-  `WithMaxConnectionsPerOriginator` (off by default); Class 3 replies are
-  bounded by the connection's T->O size; idle TCP connections close after the
-  encapsulation inactivity timeout (120 s);
+  `WithMaxConnectionsPerOriginator` (off by default); every TCP connection
+  that ends, after a failed TLS handshake too, gives its place back; idle
+  TCP connections close after the encapsulation inactivity timeout
+  (120 s);
+- a reply is bounded by what its packet can carry: 65515 octets of reply
+  data for an unconnected request, the connection's T->O size for a
+  Class 3 one; a Multiple Service Packet, Get_Attribute_List or
+  Get_Attributes_All stops and answers 0x11 (reply data too large) as soon
+  as its reply would exceed that, before building the rest;
 - every count in a message (items, services, segments, attributes, tag
   list entries) is checked against the octets that carry it before memory
-  is allocated, and bounded; the fuzz targets check this, and found two
+  is allocated, and bounded; allocation-budget tests state what the
+  largest inputs cost (TESTING.md), and the fuzz targets found two
   defects fixed before the first release (a crash on a malformed Multiple
   Service Packet, unbounded recursion in a self-referencing Logix
   template);
+- the scanner refuses a Forward_Open reply with an actual packet interval
+  of 0, an O->T connection ID of 0, or an O->T Sockaddr Info item naming
+  a unicast address other than the target's, and closes that connection
+  at the target;
+- `eds.Parse` reads at most 16 MiB, 16384 sections, 262144 entries, 4096
+  fields per entry and 1048576 fields in all;
 - replies are written with a deadline, so a peer that stops reading loses
   its session instead of blocking the server;
 - I/O datagrams from other addresses, of the wrong size, with old

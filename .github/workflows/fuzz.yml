@@ -1,7 +1,7 @@
 name: Fuzz (long)
 run-name: "Fuzz (long) by @${{ github.actor }}"
 
-# Every fuzz target for 10 minutes, nightly.
+# Every fuzz target for 10 minutes, and the 32-bit tests, nightly.
 
 on:
   schedule:
@@ -29,3 +29,18 @@ jobs:
           name: fuzz-failures
           path: "**/testdata/fuzz/"
           if-no-files-found: warn
+
+  # The codecs, the Logix and the EDS packages with a 32-bit int, run
+  # natively on linux/amd64.
+  test-386:
+    name: Test (GOARCH=386)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+      - run: go test -count=1 ./cip ./encap ./implicit ./logix ./eds
+        env:
+          GOARCH: "386"

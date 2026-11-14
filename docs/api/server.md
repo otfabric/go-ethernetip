@@ -141,7 +141,9 @@ type Attribute struct {
 	// Set stores an encoded value and returns the status of the reply:
 	// cip.StatusSuccess, cip.StatusNotEnoughData, cip.StatusTooMuchData,
 	// cip.StatusInvalidAttributeValue, ... nil makes the attribute
-	// read-only (attribute not settable).
+	// read-only (attribute not settable). data is only valid until Set
+	// returns: it aliases the session's read buffer, which the next
+	// packet overwrites. Copy what you keep.
 	Set func(data []byte) cip.GeneralStatus
 	// InGetAll includes the attribute in Get_Attributes_All replies, in
 	// the order of the attribute IDs.
@@ -196,7 +198,9 @@ type Object interface {
 	Class() cip.Class
 	// ServeCIP handles a request addressed to the class or one of its
 	// instances and returns the response; its Service is set by the
-	// router.
+	// router. r.Data is only valid until ServeCIP returns: it aliases the
+	// session's read buffer, which the next packet overwrites. Copy what
+	// you keep.
 	ServeCIP(ctx context.Context, r *Request) cip.Response
 }
 ```
@@ -241,7 +245,7 @@ WithIdentity sets the identity the Identity object and ListIdentity report. The 
 func WithInactivityTimeout(d time.Duration) Option
 ```
 
-WithInactivityTimeout closes a TCP connection that sends nothing for d (the encapsulation inactivity timeout, TCP/IP Interface attribute 13). Zero disables it. Default 120 seconds.
+WithInactivityTimeout closes a TCP connection that sends nothing for d (the encapsulation inactivity timeout, TCP/IP Interface attribute 13). Zero disables it. Default 120 seconds. Attribute 13 changes it at run time; each connection takes the new value from its next packet on.
 
 #### func WithInterface
 
@@ -543,7 +547,7 @@ UseListeners makes the server serve sockets the application opened: a TCP (or TL
 type ServiceFunc func(ctx context.Context, r *Request) cip.Response
 ```
 
-ServiceFunc implements a service of a [StandardObject](#type-standardobject).
+ServiceFunc implements a service of a [StandardObject](#type-standardobject). As for [Object.ServeCIP](#func-object-servecip), r.Data is only valid until the function returns; copy what you keep.
 
 ### type StandardObject
 
@@ -627,4 +631,4 @@ type SymbolHandler interface {
 }
 ```
 
-SymbolHandler handles requests whose path starts with a symbol segment (Logix tag services). See the logix package for an emulation.
+SymbolHandler handles requests whose path starts with a symbol segment (Logix tag services). See the logix package for an emulation. As for [Object.ServeCIP](#func-object-servecip), r.Data is only valid until ServeSymbol returns; copy what you keep.

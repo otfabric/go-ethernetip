@@ -398,6 +398,34 @@ func TestTLS(t *testing.T) {
 	})
 }
 
+// TestTLSHandshakeFailureReleasesSlot: a connection whose TLS handshake
+// fails leaves the server's connection table, so that more failed
+// handshakes than the connection limit leave room for a TLS client.
+func TestTLSHandshakeFailureReleasesSlot(t *testing.T) {
+	cert := selfSigned(t)
+	s := startServer(t, WithTLS(&tls.Config{Certificates: []tls.Certificate{cert}, MinVersion: tls.VersionTLS12}),
+		WithMaxSessions(1), WithInactivityTimeout(0))
+	limit := s.maxTCPConns()
+	for range limit + 5 {
+		plain := dialPeer(t, s)
+		plain.write(bytes.Repeat([]byte{0x65}, 64))
+		plain.expectClosed()
+		_ = plain.c.Close()
+	}
+	waitFor(t, "an empty connection table after the failed handshakes", func() bool { return s.tcpConns() == 0 })
+	pool := x509.NewCertPool()
+	leaf, _ := x509.ParseCertificate(cert.Certificate[0])
+	pool.AddCert(leaf)
+	c, err := tls.Dial("tcp4", s.Addr().String(), &tls.Config{RootCAs: pool, ServerName: "127.0.0.1"})
+	if err != nil {
+		t.Fatalf("TLS client after %d failed handshakes: %v", limit+5, err)
+	}
+	p := &peer{t: t, c: c}
+	p.register()
+	_ = c.Close()
+	waitFor(t, "an empty connection table after the TLS client", func() bool { return s.tcpConns() == 0 })
+}
+
 func TestReplyWriteFailure(t *testing.T) {
 	s, _ := New()
 	c := &failConn{}
