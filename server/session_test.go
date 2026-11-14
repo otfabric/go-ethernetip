@@ -396,6 +396,33 @@ func TestInactivityAttribute(t *testing.T) {
 	}
 }
 
+// TestInactivityTimeoutDisabledAtRunTime: once attribute 13 sets the
+// inactivity timeout to 0, a session is served past the timeout it had,
+// busy or idle.
+func TestInactivityTimeoutDisabledAtRunTime(t *testing.T) {
+	const before = 200 * time.Millisecond
+	s := startServer(t, WithInactivityTimeout(before))
+	p := dialPeer(t, s)
+	p.register()
+	if r := p.set(cip.ClassTCPIPInterface, 1, 13, cip.AppendUint16(nil, 0)); !r.OK() {
+		t.Fatalf("attribute 13 set to 0: %s", r.Status)
+	}
+	// Busy for three times the former timeout.
+	for start := time.Now(); time.Since(start) < 3*before; {
+		if r := p.get(cip.ClassIdentity, 1, 1); !r.OK() {
+			t.Fatalf("request while busy: %s", r.Status)
+		}
+	}
+	// Idle for three times the former timeout.
+	p.expectSilence(3 * before)
+	if r := p.get(cip.ClassTCPIPInterface, 1, 13); !r.OK() || binary.LittleEndian.Uint16(r.Data) != 0 {
+		t.Fatalf("attribute 13 after the idle period = %x %s", r.Data, r.Status)
+	}
+	if n := s.Sessions(); n != 1 {
+		t.Fatalf("%d sessions, want 1", n)
+	}
+}
+
 // A SendRRData reply carries the request's timeout, as a recorded
 // ControlLogix module answers.
 func TestSendRRDataTimeoutEchoed(t *testing.T) {

@@ -1,6 +1,6 @@
 # Feature status
 
-What go-ethernetip supports and how far each part is verified, as of v0.3.3.
+What go-ethernetip supports and how far each part is verified.
 The detail of every feature, and the generated results per peer, are in
 [INTEROPERABILITY.md](../INTEROPERABILITY.md); what is left out, and why, in
 [LIMITATIONS.md](LIMITATIONS.md).
@@ -42,7 +42,7 @@ Status words, as in INTEROPERABILITY.md:
 |---|---|
 | Unit, end-to-end, chaos, stress and leak suites with the race detector | [TESTING.md](../TESTING.md) |
 | Coverage of at least 90 % in total and per package | `make coverage-check coverage-pkg-check` |
-| 15 fuzz targets on the decoders and the server, in CI and in `fuzz.yml` | `make fuzz` |
+| Fuzz targets on the decoders, the client and the server, in CI and in `fuzz.yml` | `make fuzz` (every `Fuzz` function) |
 | Independent peers: ethernetip-interop v0.8.1, images pinned by digest | `interop/harness_test.go`, `interop.yml`, nightly |
 | Recorded traffic of a 1756-L63 ControlLogix (15.4), a 1756-ENBT/A (4.3), a Micro850 (12.11), a MicroLogix 1400 and unidentified targets: decode, encode, client and server replay | [testdata/captures](../testdata/captures/README.md), `*/capture_test.go` |
 

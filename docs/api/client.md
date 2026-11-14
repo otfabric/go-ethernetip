@@ -101,7 +101,7 @@ Addr returns the address of the target.
 func (c *Client) Close() error
 ```
 
-Close unregisters the session and closes the connection. Pending requests fail with ErrClosed. Close is idempotent.
+Close unregisters the session and closes the connection. Pending requests fail with ErrClosed. Close first waits for a write in progress, which ends within the client's timeout (WithTimeout). Close is idempotent.
 
 #### func (Client) Connect
 
@@ -301,7 +301,7 @@ Conn is a connected (Class 3) explicit messaging connection. Requests are sent w
 func (cn *Conn) Close(ctx context.Context) error
 ```
 
-Close closes the connection with Forward\_Close. The connection is unusable afterwards even when Forward\_Close fails (the target then times it out). Close is idempotent.
+Close closes the connection with Forward\_Close. A request in flight fails with ErrClosed. The connection is unusable afterwards even when Forward\_Close fails (the target then times it out). Close is idempotent.
 
 #### func (Conn) Do
 

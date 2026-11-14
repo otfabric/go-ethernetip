@@ -181,7 +181,8 @@ func WithMaxPacket(n int) Option {
 
 // WithInactivityTimeout closes a TCP connection that sends nothing for d
 // (the encapsulation inactivity timeout, TCP/IP Interface attribute 13).
-// Zero disables it. Default 120 seconds.
+// Zero disables it. Default 120 seconds. Attribute 13 changes it at run
+// time; each connection takes the new value from its next packet on.
 func WithInactivityTimeout(d time.Duration) Option {
 	return func(o *options) error {
 		if d < 0 || d > 3600*time.Second {

@@ -19,8 +19,8 @@ parameters, assemblies and I/O connections. Package `eds`:
 number of lines; `$` comments; quoted strings (adjacent ones joined, `\"`
 and `\\` escaped); empty fields (`,,`); datasets `{...}`; tokens for numbers
 (decimal, `0x` hex), dates `mm-dd-yyyy`, times `hh:mm:ss`, keywords and
-references (`Param3`, `Assem100`). Limits: 16 MiB, 4096 fields per entry,
-262144 entries.
+references (`Param3`, `Assem100`). Limits: 16 MiB, 16384 sections, 262144
+entries, 4096 fields per entry, 1048576 fields in the file.
 
 The typed views reject a number that does not fit its field, naming the
 line and keyword (`eds: line 2: [Device] VendCode: not a 16-bit number:

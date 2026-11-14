@@ -181,3 +181,113 @@ func FuzzDecodeIdentity(f *testing.F) {
 		}
 	})
 }
+
+// addEncoded adds the encodings of the replies as seeds.
+func addEncoded[T interface{ Encode() ([]byte, error) }](f *testing.F, replies ...T) {
+	f.Helper()
+	for _, r := range replies {
+		b, err := r.Encode()
+		if err != nil {
+			f.Fatal(err)
+		}
+		f.Add(b)
+	}
+}
+
+// FuzzDecodeForwardOpenReply: a reply that decodes is 26 octets and the
+// application reply its size names; it encodes back to those octets (the
+// reserved octet as 0), and the application reply is a copy.
+func FuzzDecodeForwardOpenReply(f *testing.F) {
+	tri := cip.Triad{Serial: 0x1234, VendorID: 0x5678, OriginatorSerial: 0x9ABCDEF0}
+	addEncoded(f,
+		cip.ForwardOpenReply{OTConnID: 1, TOConnID: 2, Triad: tri, OTAPI: 10000, TOAPI: 20000},
+		cip.ForwardOpenReply{OTConnID: 1, TOConnID: 2, Triad: tri, AppReply: []byte{1, 2, 3, 4}})
+	f.Add(make([]byte, 25))
+	f.Fuzz(func(t *testing.T, b []byte) {
+		r, err := cip.DecodeForwardOpenReply(b)
+		if err != nil {
+			return
+		}
+		n := 26 + len(r.AppReply)
+		if len(b) < 26 || len(r.AppReply) != 2*int(b[24]) || len(b) < n {
+			t.Fatalf("%d octets decoded into a reply of %d application octets", len(b), len(r.AppReply))
+		}
+		enc, err := r.Encode()
+		if err != nil {
+			t.Fatal(err)
+		}
+		want := append([]byte(nil), b[:n]...)
+		want[25] = 0
+		if !bytes.Equal(enc, want) {
+			t.Fatalf("round trip: % X != % X", enc, want)
+		}
+		if len(r.AppReply) > 0 {
+			b[26] ^= 0xFF
+			if r.AppReply[0] == b[26] {
+				t.Fatal("application reply aliases the input")
+			}
+		}
+	})
+}
+
+// FuzzDecodeForwardCloseReply: as FuzzDecodeForwardOpenReply, for the 10
+// octets of a Forward_Close reply.
+func FuzzDecodeForwardCloseReply(f *testing.F) {
+	tri := cip.Triad{Serial: 0x1234, VendorID: 0x5678, OriginatorSerial: 0x9ABCDEF0}
+	addEncoded(f, cip.ForwardCloseReply{Triad: tri}, cip.ForwardCloseReply{Triad: tri, AppReply: []byte{1, 2}})
+	f.Add(make([]byte, 9))
+	f.Fuzz(func(t *testing.T, b []byte) {
+		r, err := cip.DecodeForwardCloseReply(b)
+		if err != nil {
+			return
+		}
+		n := 10 + len(r.AppReply)
+		if len(b) < 10 || len(r.AppReply) != 2*int(b[8]) || len(b) < n {
+			t.Fatalf("%d octets decoded into a reply of %d application octets", len(b), len(r.AppReply))
+		}
+		enc, err := r.Encode()
+		if err != nil {
+			t.Fatal(err)
+		}
+		want := append([]byte(nil), b[:n]...)
+		want[9] = 0
+		if !bytes.Equal(enc, want) {
+			t.Fatalf("round trip: % X != % X", enc, want)
+		}
+		if len(r.AppReply) > 0 {
+			b[10] ^= 0xFF
+			if r.AppReply[0] == b[10] {
+				t.Fatal("application reply aliases the input")
+			}
+		}
+	})
+}
+
+// FuzzDecodeConnectionFailure: a failure decodes from 8 octets or more;
+// the triad and the remaining path size (0 when absent) encode back to the
+// same values.
+func FuzzDecodeConnectionFailure(f *testing.F) {
+	f.Add(cip.ConnectionFailure{Triad: cip.Triad{Serial: 1, VendorID: 2, OriginatorSerial: 3}, RemainingPathSize: 4}.Encode())
+	f.Add(make([]byte, 8))
+	f.Add(make([]byte, 7))
+	f.Fuzz(func(t *testing.T, b []byte) {
+		r, err := cip.DecodeConnectionFailure(b)
+		if (err == nil) != (len(b) >= 8) {
+			t.Fatalf("%d octets: %v", len(b), err)
+		}
+		if err != nil {
+			return
+		}
+		want := append(append([]byte(nil), b[:8]...), 0, 0)
+		if len(b) > 8 {
+			want[8] = b[8]
+		}
+		enc := r.Encode()
+		if !bytes.Equal(enc, want) {
+			t.Fatalf("round trip: % X != % X", enc, want)
+		}
+		if r2, err := cip.DecodeConnectionFailure(enc); err != nil || r2 != r {
+			t.Fatalf("re-decoded %+v, %v; want %+v", r2, err, r)
+		}
+	})
+}

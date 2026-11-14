@@ -199,6 +199,9 @@ func (c *Client) dial(ctx context.Context) (*session, error) {
 	if err != nil {
 		return nil, fmt.Errorf("%w: %w", ethernetip.ErrConnectFailed, err)
 	}
+	if conn == nil {
+		return nil, fmt.Errorf("%w: dialer returned no connection", ethernetip.ErrConnectFailed)
+	}
 	if c.opts.tls != nil {
 		cfg := c.opts.tls
 		if cfg.ServerName == "" && !cfg.InsecureSkipVerify {
@@ -284,7 +287,9 @@ func (c *Client) onReceived(remote net.Addr, pkt encap.Packet) {
 }
 
 // Close unregisters the session and closes the connection. Pending
-// requests fail with ErrClosed. Close is idempotent.
+// requests fail with ErrClosed. Close first waits for a write in
+// progress, which ends within the client's timeout (WithTimeout). Close is
+// idempotent.
 func (c *Client) Close() error {
 	c.mu.Lock()
 	if c.closed {
@@ -416,6 +421,11 @@ func (s *session) dispatch(pkt encap.Packet) {
 // sees err and tries again must not get this session back, or a retry fails
 // with the old error instead of reconnecting.
 func (s *session) close(err error) {
+	if s.closing.Load() {
+		// Client.Close is ending the session: what fails with it, a
+		// write it waited for included, fails with ErrClosed.
+		err = ethernetip.ErrClosed
+	}
 	s.c.detach(s, err)
 	s.mu.Lock()
 	if s.err != nil {

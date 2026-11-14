@@ -31,9 +31,11 @@ var ErrSyntax = errors.New("eds: syntax error")
 
 // Limits that bound what Parse accepts from an untrusted file.
 const (
-	MaxFileSize = 16 << 20 // octets
-	maxFields   = 4096     // fields of one entry
-	maxEntries  = 1 << 18  // entries of the file
+	MaxFileSize   = 16 << 20 // octets
+	maxFields     = 4096     // fields of one entry
+	maxEntries    = 1 << 18  // entries of the file
+	maxSections   = 1 << 14  // sections of the file
+	maxFileFields = 1 << 20  // fields of the file
 )
 
 // FieldKind is how a field was written.
@@ -154,9 +156,10 @@ func Parse(r io.Reader) (*File, error) {
 }
 
 type parser struct {
-	src  string
-	pos  int
-	line int
+	src    string
+	pos    int
+	line   int
+	fields int // fields of the file so far
 }
 
 func (p *parser) errf(format string, a ...any) error {
@@ -211,6 +214,9 @@ func (p *parser) file() (*File, error) {
 			if name == "" {
 				return nil, p.errf("empty section name")
 			}
+			if len(f.Sections) >= maxSections {
+				return nil, p.errf("more than %d sections", maxSections)
+			}
 			f.Sections = append(f.Sections, Section{Name: name, Line: start})
 			cur = &f.Sections[len(f.Sections)-1]
 			continue
@@ -256,6 +262,10 @@ func (p *parser) entry() (Entry, error) {
 		if len(e.Fields) >= maxFields {
 			return e, p.errf("entry %s has more than %d fields", e.Keyword, maxFields)
 		}
+		if p.fields >= maxFileFields {
+			return e, p.errf("more than %d fields in the file", maxFileFields)
+		}
+		p.fields++
 		e.Fields = append(e.Fields, fd)
 		p.skip()
 		switch p.peek() {

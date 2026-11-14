@@ -290,9 +290,21 @@ func (cn *Conn) do(ctx context.Context, req cip.Request) (cip.Response, error) {
 		return cip.Response{}, fmt.Errorf("%w: %w", ethernetip.ErrInvalidOption, err)
 	}
 	if err := cn.s.write(encap.Packet{Header: encap.Header{Command: encap.CommandSendUnitData, Session: cn.s.handle}, Data: data}); err != nil {
-		cn.s.close(fmt.Errorf("%w: write: %w", ethernetip.ErrConnectionLost, err))
-		r := <-ch
-		return cip.Response{}, r.err
+		werr := fmt.Errorf("%w: write: %w", ethernetip.ErrConnectionLost, err)
+		cn.s.close(werr)
+		// The session's end fails the request, or Close did; the context
+		// bounds the wait in any case.
+		select {
+		case r := <-ch:
+			return cip.Response{}, r.err
+		case <-ctx.Done():
+			cn.mu.Lock()
+			if cn.pending == ch {
+				cn.pending = nil
+			}
+			cn.mu.Unlock()
+			return cip.Response{}, werr
+		}
 	}
 	var r reply
 	select {
@@ -377,16 +389,23 @@ func (cn *Conn) lost(err error) {
 	}
 }
 
-// Close closes the connection with Forward_Close. The connection is
-// unusable afterwards even when Forward_Close fails (the target then times
-// it out). Close is idempotent.
+// Close closes the connection with Forward_Close. A request in flight
+// fails with ErrClosed. The connection is unusable afterwards even when
+// Forward_Close fails (the target then times it out). Close is idempotent.
 func (cn *Conn) Close(ctx context.Context) error {
 	cn.mu.Lock()
 	ended := cn.err != nil
+	var ch chan reply
 	if !ended {
 		cn.err = ethernetip.ErrClosed
+		// The request in flight fails now: its reply would no longer
+		// find the connection.
+		ch, cn.pending = cn.pending, nil
 	}
 	cn.mu.Unlock()
+	if ch != nil {
+		ch <- reply{err: ethernetip.ErrClosed}
+	}
 	if ended {
 		// Closed before, or ended with the session: nothing to send, and
 		// closing again is not an error.

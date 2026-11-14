@@ -24,6 +24,7 @@ import (
 	"context"
 	"fmt"
 	"math"
+	"math/rand/v2"
 	"net"
 	"net/netip"
 	"sync"
@@ -48,6 +49,11 @@ type Scanner struct {
 	mu     sync.Mutex
 	ios    map[*IO]bool
 	closed bool
+
+	// after and rnd are the timer and the random source of the reopen
+	// delays (time.After and rand.Int64N; the tests replace them).
+	after func(time.Duration) <-chan time.Time
+	rnd   func(n int64) int64
 }
 
 // Option configures a [Scanner].
@@ -102,7 +108,8 @@ func New(c *client.Client, opts ...Option) (*Scanner, error) {
 			return nil, err
 		}
 	}
-	s := &Scanner{c: c, ep: o.ep, log: logx.New(o.logger, "scanner", "remote", c.Addr()), ios: map[*IO]bool{}}
+	s := &Scanner{c: c, ep: o.ep, log: logx.New(o.logger, "scanner", "remote", c.Addr()), ios: map[*IO]bool{},
+		after: time.After, rnd: rand.Int64N}
 	if s.ep == nil {
 		eo := []implicit.EndpointOption{implicit.WithLogger(o.logger)}
 		if o.mcast != nil {
@@ -144,12 +151,15 @@ func (s *Scanner) Close(ctx context.Context) error {
 }
 
 // Reconnect configures the reopening of a connection that timed out or
-// whose Forward_Open failed transiently.
+// whose Forward_Open failed transiently. Before each attempt the
+// connection waits a delay drawn at random from [d/2, d] (equal jitter),
+// so that scanners that lose a target at the same moment do not retry in
+// step; d starts at MinDelay and doubles after each failed attempt, up to
+// MaxDelay.
 type Reconnect struct {
-	// MinDelay is the delay before the first attempt; it doubles after
-	// each failure. Zero means 100 ms.
+	// MinDelay is d before the first attempt. Zero means 100 ms.
 	MinDelay time.Duration
-	// MaxDelay caps the delay. Zero means 10 seconds.
+	// MaxDelay caps d. Zero means 10 seconds.
 	MaxDelay time.Duration
 }
 
@@ -205,7 +215,17 @@ type IOConfig struct {
 	// state, on the endpoint's goroutine: it must not block. data is only
 	// valid during the call.
 	OnInput func(data []byte, run bool)
-	// OnState is called when the connection's state changes.
+	// OnState is called when the connection's state changes, on the
+	// goroutine that changes it: the caller of Open (StateConnecting,
+	// StateConnected), the connection's own goroutines for a timeout and
+	// for reopening it, and the caller of Close (StateDisconnected). It
+	// must not block. It may call the methods of the IO and of its
+	// Scanner, Close included: a Close called from OnState does not wait
+	// for the goroutine it is called on, and reports StateDisconnected
+	// before it returns, in a nested OnState call. Calls on different
+	// goroutines are not ordered with each other: a Close on another
+	// goroutine does not wait for an OnState call in progress. Once the
+	// connection is closed, its own goroutines report nothing more.
 	OnState func(ethernetip.State, error)
 }
 
@@ -331,7 +351,15 @@ func (s *Scanner) Open(ctx context.Context, cfg IOConfig) (*IO, error) {
 		io.setState(ethernetip.StateDisconnected, err)
 		return nil, err
 	}
+	io.setState(ethernetip.StateConnected, nil)
 	s.mu.Lock()
+	if s.closed {
+		// Close ran while the connection was being opened: it did not
+		// see this one.
+		s.mu.Unlock()
+		_ = io.Close(ctx)
+		return nil, ethernetip.ErrClosed
+	}
 	s.ios[io] = true
 	s.mu.Unlock()
 	return io, nil
@@ -348,7 +376,26 @@ func (io *IO) setState(st ethernetip.State, err error) {
 	}
 }
 
-// open sends the Forward_Open and starts the implicit connection.
+// setStateOpen is setState for the connection's own goroutines: once the
+// connection is closed it changes and reports nothing, and returns false.
+func (io *IO) setStateOpen(st ethernetip.State, err error) bool {
+	io.mu.Lock()
+	if io.closed {
+		io.mu.Unlock()
+		return false
+	}
+	changed := io.state != st
+	io.state, io.err = st, err
+	f := io.cfg.OnState
+	io.mu.Unlock()
+	if changed && f != nil {
+		f(st, err)
+	}
+	return true
+}
+
+// open sends the Forward_Open and starts the implicit connection; the
+// caller reports StateConnected.
 func (io *IO) open(ctx context.Context) error {
 	cfg := io.cfg
 	class := cfg.class()
@@ -400,7 +447,7 @@ func (io *IO) open(ctx context.Context) error {
 	}
 	target := targetIP(c.RemoteAddr())
 	dst := netip.AddrPortFrom(target, encap.IOPort)
-	var group netip.Addr
+	var group, other netip.Addr
 	for _, it := range rItems {
 		sa, derr := encap.DecodeSockaddr(it.Data)
 		if derr != nil {
@@ -411,8 +458,14 @@ func (io *IO) open(ctx context.Context) error {
 			if sa.Port != 0 {
 				dst = netip.AddrPortFrom(dst.Addr(), sa.Port)
 			}
-			if a := netip.AddrFrom4(sa.Addr); !a.IsUnspecified() {
+			// The output goes to the target the session is with: an
+			// unspecified address means it, a unicast address must be it.
+			switch a := netip.AddrFrom4(sa.Addr); {
+			case a.IsUnspecified():
+			case a.IsMulticast() || a == target:
 				dst = netip.AddrPortFrom(a, dst.Port())
+			default:
+				other = a
 			}
 		case encap.ItemSockaddrTO:
 			if a := netip.AddrFrom4(sa.Addr); a.IsMulticast() {
@@ -422,9 +475,20 @@ func (io *IO) open(ctx context.Context) error {
 			// Other items carry nothing for the I/O connection.
 		}
 	}
-	if cfg.Multicast && !group.IsValid() {
+	var perr error
+	switch {
+	case reply.OTAPI == 0 || reply.TOAPI == 0:
+		perr = fmt.Errorf("%w: Forward_Open reply with an actual packet interval of 0 (O->T %d µs, T->O %d µs)", ethernetip.ErrProtocol, reply.OTAPI, reply.TOAPI)
+	case reply.OTConnID == 0:
+		perr = fmt.Errorf("%w: Forward_Open reply with O->T connection ID 0", ethernetip.ErrProtocol)
+	case other.IsValid():
+		perr = fmt.Errorf("%w: Forward_Open reply names O->T address %s, the target is %s", ethernetip.ErrProtocol, other, target)
+	case cfg.Multicast && !group.IsValid():
+		perr = fmt.Errorf("%w: multicast connection without a T->O multicast address", ethernetip.ErrProtocol)
+	}
+	if perr != nil {
 		_ = c.ForwardClose(ctx, cip.ForwardClose{Triad: fo.Triad, Path: path})
-		return fmt.Errorf("%w: multicast connection without a T->O multicast address", ethernetip.ErrProtocol)
+		return perr
 	}
 	timeout := cip.ConnectionTimeout(time.Duration(reply.TOAPI)*time.Microsecond, cfg.TimeoutMultiplier)
 	conn, err := ep.Open(implicit.Config{
@@ -457,7 +521,6 @@ func (io *IO) open(ctx context.Context) error {
 		Path: path, Group: group,
 	}
 	io.mu.Unlock()
-	io.setState(ethernetip.StateConnected, nil)
 	io.s.log.Info("I/O connection opened", "ot", reply.OTConnID, "to", reply.TOConnID, "rpi", otRPI)
 	return nil
 }
@@ -491,41 +554,36 @@ func (io *IO) input(data []byte, run bool) {
 func (io *IO) timedOut() {
 	err := fmt.Errorf("%w: no input for the connection timeout", ethernetip.ErrTimeout)
 	io.s.log.Warn("I/O connection timed out")
-	io.mu.Lock()
-	if io.closed {
-		io.mu.Unlock()
+	if !io.setStateOpen(ethernetip.StateTimedOut, err) {
 		return
 	}
-	reconnect := io.cfg.Reconnect != nil
-	if reconnect {
-		// Added under the lock that Close takes before it waits.
-		io.wg.Add(1)
-	}
-	io.mu.Unlock()
-	io.setState(ethernetip.StateTimedOut, err)
-	if !reconnect {
+	if io.cfg.Reconnect == nil {
 		io.finish(err)
 		return
 	}
+	// Counted after OnState, so that a handler that calls Close does not
+	// wait for this goroutine, and under the lock that Close takes before
+	// it waits.
+	io.mu.Lock()
+	defer io.mu.Unlock()
+	if io.closed {
+		return
+	}
+	io.wg.Add(1)
 	go io.reopen()
 }
 
 // reopen retries Forward_Open with backoff until it succeeds or the
-// connection is closed.
+// connection is closed. It runs counted in io.wg, which Close waits for,
+// except while it reports a state (see report).
 func (io *IO) reopen() {
-	defer io.wg.Done()
-	d, maxD := io.cfg.Reconnect.MinDelay, io.cfg.Reconnect.MaxDelay
-	if d <= 0 {
-		d = 100 * time.Millisecond
-	}
-	if maxD <= 0 {
-		maxD = 10 * time.Second
-	}
+	b := newBackoff(*io.cfg.Reconnect, io.s.rnd)
 	for {
 		select {
 		case <-io.stopping:
+			io.wg.Done()
 			return
-		case <-time.After(d):
+		case <-io.s.after(b.next()):
 		}
 		// The target may still hold the timed-out connection: close it
 		// first, ignoring the outcome.
@@ -534,23 +592,80 @@ func (io *IO) reopen() {
 		old := io.info
 		io.mu.Unlock()
 		_ = io.s.c.ForwardClose(ctx, cip.ForwardClose{Triad: cip.Triad{Serial: old.Serial, VendorID: old.VendorID, OriginatorSerial: old.OriginatorSerial}, Path: old.Path})
-		io.setState(ethernetip.StateConnecting, nil)
+		if !io.report(ethernetip.StateConnecting, nil) {
+			cancel()
+			return
+		}
 		err := io.open(ctx)
 		cancel()
 		if err == nil {
+			if io.report(ethernetip.StateConnected, nil) {
+				io.wg.Done()
+			}
 			return
 		}
 		io.s.log.Warn("I/O reconnect failed", "error", err)
-		io.setState(ethernetip.StateTimedOut, err)
-		d = min(2*d, maxD)
+		if !io.report(ethernetip.StateTimedOut, err) {
+			return
+		}
 	}
 }
 
-func (io *IO) finish(err error) {
+// report reports a state of the reopen loop outside the count of io.wg:
+// an OnState handler may call Close, which waits for io.wg. It returns
+// true, counted again, while the connection is open, and false, not
+// counted, once it is closed.
+func (io *IO) report(st ethernetip.State, err error) bool {
+	io.wg.Done()
+	if !io.setStateOpen(st, err) {
+		return false
+	}
+	io.mu.Lock()
+	defer io.mu.Unlock()
+	if io.closed {
+		return false
+	}
+	io.wg.Add(1)
+	return true
+}
+
+// backoff yields the waits of the reopen loop: d starts at MinDelay and
+// doubles after each wait up to MaxDelay; each wait is drawn from [d/2, d]
+// (equal jitter) with rnd, which returns a number in [0, n).
+type backoff struct {
+	d, max time.Duration
+	rnd    func(n int64) int64
+}
+
+func newBackoff(r Reconnect, rnd func(int64) int64) *backoff {
+	b := &backoff{d: r.MinDelay, max: r.MaxDelay, rnd: rnd}
+	if b.d <= 0 {
+		b.d = 100 * time.Millisecond
+	}
+	if b.max <= 0 {
+		b.max = 10 * time.Second
+	}
+	b.d = min(b.d, b.max)
+	return b
+}
+
+func (b *backoff) next() time.Duration {
+	d := b.d
+	if b.d > b.max/2 {
+		b.d = b.max
+	} else {
+		b.d *= 2
+	}
+	half := d / 2
+	return half + time.Duration(b.rnd(int64(d-half)+1))
+}
+
+// finish ends the connection, and reports whether this call ended it.
+func (io *IO) finish(err error) bool {
 	io.mu.Lock()
 	if io.closed {
 		io.mu.Unlock()
-		return
+		return false
 	}
 	io.closed = true
 	io.err = err
@@ -560,6 +675,7 @@ func (io *IO) finish(err error) {
 	io.s.mu.Lock()
 	delete(io.s.ios, io)
 	io.s.mu.Unlock()
+	return true
 }
 
 // SetOutput sets the output (O->T) data, sent from the next interval on.
@@ -627,16 +743,14 @@ func (io *IO) Stats() implicit.Stats {
 }
 
 // Close stops the exchange and closes the connection with Forward_Close
-// (bounded by ctx). Close is idempotent.
+// (bounded by ctx). Close is idempotent: of concurrent calls, one closes
+// the connection and the others return nil.
 func (io *IO) Close(ctx context.Context) error {
-	io.mu.Lock()
-	if io.closed {
-		io.mu.Unlock()
+	if !io.finish(ethernetip.ErrClosed) {
 		return nil
 	}
-	io.mu.Unlock()
-	io.finish(ethernetip.ErrClosed)
-	// A reopen in progress ends first; what it opened is closed below.
+	// A reopen attempt in progress ends first; what it opened is closed
+	// below.
 	io.wg.Wait()
 	io.mu.Lock()
 	c, info, state := io.conn, io.info, io.state
@@ -645,7 +759,9 @@ func (io *IO) Close(ctx context.Context) error {
 		c.Close()
 	}
 	io.setState(ethernetip.StateDisconnected, nil)
-	if state != ethernetip.StateConnected {
+	// The target holds the connection when it was reported connected, or
+	// when a reopen attempt opened it just before Close.
+	if c == nil || (state != ethernetip.StateConnected && c.TimedOut()) {
 		return nil
 	}
 	return io.s.c.ForwardClose(ctx, cip.ForwardClose{

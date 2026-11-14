@@ -1,5 +1,91 @@
 # go-ethernetip Releases
 
+## v0.6.1
+
+**Date:** 2026-11-14
+**Previous release:** v0.6.0
+
+## Summary
+
+A patch release. The server bounds its replies by what their packets can
+carry, the EDS parser bounds sections and fields, and the scanner checks
+Forward_Open replies; `Close` works from callbacks and with requests in
+flight, and stops everything it owns. TESTING.md gains the lifecycle
+contract matrix, with leak checks, allocation-budget tests and fuzz
+targets. No API change.
+
+## Changes
+
+### Fixes
+
+- **server**: a TCP connection whose TLS handshake fails gives its place in
+  the connection limit back, as every other ended connection does.
+- **server**: a reply is bounded by what its packet can carry: 65515
+  octets of data for an unconnected request, the T->O size on a Class 3
+  connection. A Multiple Service Packet, Get_Attribute_List or
+  Get_Attributes_All stops as soon as its reply would exceed that and
+  answers 0x11 (reply data too large), without building the rest.
+- **server**: an inactivity timeout set to 0 at run time (TCP/IP Interface
+  attribute 13) clears the read deadline of the open sessions; "zero
+  disables it" now holds for them too.
+- **scanner**: a Forward_Open reply with an actual packet interval of 0,
+  an O->T connection ID of 0, or an O->T Sockaddr Info item naming a
+  unicast address other than the target's is refused with `ErrProtocol`,
+  and the connection is closed at the target. An unspecified address, or
+  the target's own, is taken as before, with the item's port.
+- **scanner**: an `OnState` handler may call `IO.Close` or
+  `Scanner.Close`, with `Reconnect` set too, and the call returns. The
+  documentation of `OnState` states the goroutine it runs on and what it
+  may call.
+- **scanner**: the reopen delays of `Reconnect` have equal jitter: each
+  wait is drawn from [d/2, d], d doubling from `MinDelay` up to
+  `MaxDelay`.
+- **scanner**: a `Scanner.Close` while `Open` waits for the Forward_Open
+  reply leaves nothing running: `Open` closes what it opened and returns
+  `ErrClosed`. Of concurrent `IO.Close` calls, one closes the connection.
+- **client**: `Conn.Close` fails the request in flight on the connection
+  with `ErrClosed` at once (it ended with `ErrTimeout` after the client's
+  timeout), and a request whose write fails returns within its context.
+  A request in flight when `Client.Close` runs fails with `ErrClosed`, as
+  `Close` documents, also when its write fails during the close.
+- **client**: a `Dialer` that returns neither a connection nor an error
+  fails `Connect` with `ErrConnectFailed`.
+- **implicit**: `Endpoint.Close` closes every connection on the endpoint,
+  those that only produce included.
+- **eds**: `Parse` refuses a file of more than 16384 sections or 1048576
+  fields in all, in addition to the limits on size, entries and fields per
+  entry; the files in `eds/testdata` use well under a hundredth of each.
+
+### Tests
+
+- TESTING.md "Lifecycle contracts": rows L1 to L16 for the client, its
+  connections, the server, the scanner, its I/O connections, the I/O
+  endpoint and its connections, with tests for concurrent `Close`,
+  `Close` during a read and during a write, callbacks that call methods
+  and `Close`, and `Open` racing `Close`.
+- Goroutine leak checks after the tests of `client`, `server`, `implicit`
+  and `scanner` (`internal/testenv`).
+- Allocation-budget tests for the decoders of `cip`, `encap` and
+  `implicit`, for `eds.Parse` at its limits and for the server's replies.
+- Fuzz targets for `cip.DecodeForwardOpenReply`, `DecodeForwardCloseReply`
+  and `DecodeConnectionFailure`; `make fuzz` runs every fuzz target it
+  finds.
+- `BenchmarkConsume` feeds datagrams that are each newer than the last,
+  so that it measures the receive path up to the callback; TESTING.md
+  gives its new figure and the machine it was measured on.
+- Nightly, `fuzz.yml` runs the tests of `cip`, `encap`, `implicit`,
+  `logix` and `eds` with `GOARCH=386`.
+
+### Documentation
+
+- The lifetime of the data passed to `Attribute.Set`, `ServiceFunc`,
+  `Object.ServeCIP` and `SymbolHandler`: valid until the call returns.
+- TESTING.md, SECURITY.md, docs/LIMITATIONS.md, docs/IMPLICIT.md,
+  docs/EDS.md, ARCHITECTURE.md (1000 embedded services),
+  docs/FEATURE-STATUS.md, docs/api.
+
+---
+
 ## v0.6.0
 
 **Date:** 2026-11-08

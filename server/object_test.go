@@ -633,3 +633,42 @@ func TestAssemblyAPI(t *testing.T) {
 		t.Errorf("max instance = %x", r.Data)
 	}
 }
+
+// TestSetDataLifetime: the data Attribute.Set receives is valid during the
+// call only; a Set that keeps a copy keeps its value across the next
+// request on the session. The slice itself is the session's buffer, which
+// the next request may overwrite: the test logs whether it did.
+func TestSetDataLifetime(t *testing.T) {
+	s := startServer(t)
+	var kept, copied []byte
+	o := NewObject(0x0300, 1)
+	o.AddInstance(1).SetAttribute(1, Attribute{
+		Get: func() []byte { return append([]byte(nil), copied...) },
+		Set: func(data []byte) cip.GeneralStatus {
+			if kept == nil {
+				kept = data
+			}
+			copied = append(copied[:0], data...)
+			return cip.StatusSuccess
+		},
+	})
+	s.RegisterObject(o)
+	p := dialPeer(t, s)
+	p.register()
+	first := bytes.Repeat([]byte{0x55}, 8)
+	if r := p.set(0x0300, 1, 1, first); !r.OK() {
+		t.Fatalf("first Set: %s", r.Status)
+	}
+	snapshot := append([]byte(nil), copied...)
+	// The next request on the session: another value of the same size.
+	if r := p.do(cip.Request{Service: cip.ServiceGetAttributeSingle, Path: cip.AttributePath(0x0300, 1, 1), Data: bytes.Repeat([]byte{0xAA}, 8)}); !r.OK() {
+		t.Fatalf("Get: %s", r.Status)
+	}
+	if !bytes.Equal(copied, first) || !bytes.Equal(snapshot, first) {
+		t.Fatalf("copy kept by Set = %x, want %x", copied, first)
+	}
+	if r := p.get(0x0300, 1, 1); !bytes.Equal(r.Data, first) {
+		t.Fatalf("Get after the next request = %x, want %x", r.Data, first)
+	}
+	t.Logf("slice kept by Set without a copy, after the next request: %x (overwritten: %v)", kept, !bytes.Equal(kept, first))
+}
