@@ -133,7 +133,7 @@ deadlines closed the shared session (fixed).
 ## 13. Fuzzing
 
 15 targets; 60 s each locally (e.g. FuzzSplitMultiple 24.5 M execs,
-FuzzParse 2.8 M); CI 15 s per push, 10 min nightly. Fixed: panic on a
+FuzzParse 2.8 M); CI 15 s per pull request, 10 min nightly. Fixed: panic on a
 malformed Multiple Service Packet (server crash), 32-bit class truncation,
 EDS round-trip and generator defects (9), Logix template recursion and
 exponential decode. No open crashers.

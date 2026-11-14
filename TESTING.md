@@ -10,7 +10,7 @@ other over loopback TCP and UDP; no mocks stand in for the network.
 | Chaos | `e2e/chaos_test.go`, `e2e/monkey_test.go`, `implicit/chaos_test.go` | TCP proxy that splits, delays, corrupts and kills connections; UDP faults (drop, duplicate, reorder, blackout) injected at the I/O endpoint; forged and replayed I/O datagrams; a chaos monkey: workers mixing explicit, Class 3, Logix and Class 1 operations and client churn at random through the faulty proxy, checking every answer and the state afterwards (`ETHERNETIP_MONKEY_DURATION`, default 3 s) | `make chaos` |
 | Stress and parallel | `e2e/stress_test.go` and the packages | many clients, shared sessions with requests in flight, session and connection limits under contention, concurrent Forward_Open/Close, reconnection storms, shutdown under load, random cancellation | `make stress` |
 | Leaks | `e2e/main_test.go` | after the whole e2e suite: no goroutine and no file descriptor left | `make test` |
-| Fuzz | `*_fuzz_test.go` | every decoder (encapsulation, CPF, CIP requests and responses, EPATH, Multiple Service Packet, Forward_Open, Unconnected_Send, identity, I/O datagrams, EDS) and the server's Logix dispatch: no panic, bounded allocation, round trips | `make fuzz` (CI: 10 s each per push, 10 min each nightly) |
+| Fuzz | `*_fuzz_test.go` | every decoder (encapsulation, CPF, CIP requests and responses, EPATH, Multiple Service Packet, Forward_Open, Unconnected_Send, identity, I/O datagrams, EDS) and the server's Logix dispatch: no panic, bounded allocation, round trips | `make fuzz` (CI: 10 s each per pull request, 10 min each nightly) |
 | Benchmarks | `cip`, `encap`, `implicit`, `e2e` | codec throughput and allocations; request latency, throughput, Class 3, fragmented Logix reads | `make bench` |
 | Recorded traffic | `*/capture_test.go`, `internal/capture`, [testdata/captures](testdata/captures/README.md) | 20 committed captures (31 MB, about 200,000 messages) of a 1756-L63 ControlLogix, a 1756-ENBT/A, a Micro850, a MicroLogix 1400 and unidentified targets: every message decodes and encodes back byte for byte; the client and the Logix client against the recorded replies (a request no recorded originator sent fails); the server and the Logix emulation against the recorded requests (the devices' answers byte for byte, known differences pinned); Class 1 datagrams; truncations, malformed variants and 300 seeded mutated streams | `make test` |
 | Interop | `interop/` (build tag `interop`) | the library against OpENer, EIPScanner, pycomm3 and cpppo, both directions | `make interop` (Docker) |
@@ -76,3 +76,15 @@ Numbers depend on the machine; compare runs on the same one. No
 comparison with the reference implementations is published: they run in
 containers through the interop harness, whose start-up dominates any
 measurement.
+
+## When CI runs
+
+| Event | Workflow | What runs |
+|---|---|---|
+| Pull request | `pr.yml` | `docs.yml` (docsync, otfabric-policy) always; `ci.yml`, `interop.yml` unless every changed file is documentation; then `OT Fabric Required Checks` |
+| Push to a branch | none | nothing; dispatch `ci.yml`, `interop.yml` to test a branch without a pull request |
+| Push to `main` | `docs.yml` | the light checks; the merged commit was tested as the pull request's merge commit |
+| Schedule | `fuzz.yml`, `interop.yml` | the scheduled runs, on `main` |
+| Release | `release.yml` | the release workflow tests the release commit again |
+
+Documentation means an added or modified `*.md` file outside `.github/`, `testdata/` and `vendor/`, other than `AGENTS.md` and `CLAUDE.md`. A deleted or renamed document, or any other file, runs everything. `OT Fabric Required Checks` fails unless every job that applies succeeded; its summary lists them.

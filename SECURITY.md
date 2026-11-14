@@ -80,4 +80,4 @@ The server bounds what a peer can make it hold:
 ### Dependencies
 
 `go-ethernetip` has **no dependencies** outside the Go standard library.
-`make vuln` runs govulncheck; CI runs it on every push.
+`make vuln` runs govulncheck; CI runs it on every pull request.
