@@ -77,7 +77,8 @@ func (s *Server) serveConn(c net.Conn) {
 		_ = tc.SetDeadline(time.Now().Add(10 * time.Second))
 		if err := tc.HandshakeContext(s.ctx); err != nil {
 			s.log.Warn("TLS handshake failed", "remote", ss.remote.String(), "error", err)
-			_ = c.Close()
+			// The connection's slot is released with it.
+			ss.close()
 			if m := s.opts.metrics; m != nil {
 				m.OnDisconnect(ss.remote, err)
 			}
@@ -460,13 +461,38 @@ func (s *Server) serveUDP(c *net.UDPConn) {
 			s.pendingDiscovery.Add(-1)
 			continue
 		}
-		time.AfterFunc(delay, func() { s.sendDelayed(c, out, from) })
+		s.scheduleDelayed(delay, c, out, from)
 	}
 }
 
+// scheduleDelayed sends a discovery reply after delay. The timer counts in
+// the server's wait group and is registered for Close to stop: no reply is
+// sent after Close returns.
+func (s *Server) scheduleDelayed(delay time.Duration, c *net.UDPConn, out []byte, to netip.AddrPort) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.closed {
+		s.pendingDiscovery.Add(-1)
+		return
+	}
+	if s.delayed == nil {
+		s.delayed = map[uint64]*time.Timer{}
+	}
+	s.delayedSeq++
+	id := s.delayedSeq
+	s.wg.Add(1)
+	// The timer's function takes mu first: it runs after the timer is
+	// registered.
+	s.delayed[id] = time.AfterFunc(delay, func() { s.sendDelayed(id, c, out, to) })
+}
+
 // sendDelayed sends a delayed discovery reply and releases its slot.
-func (s *Server) sendDelayed(c *net.UDPConn, out []byte, to netip.AddrPort) {
+func (s *Server) sendDelayed(id uint64, c *net.UDPConn, out []byte, to netip.AddrPort) {
+	defer s.wg.Done()
 	defer s.pendingDiscovery.Add(-1)
+	s.mu.Lock()
+	delete(s.delayed, id)
+	s.mu.Unlock()
 	_, _ = c.WriteToUDPAddrPort(out, to)
 }
 

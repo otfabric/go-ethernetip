@@ -120,14 +120,31 @@ func (s *Server) multipleService(ctx context.Context, r *Request) cip.Response {
 	}
 	resps := make([]cip.Response, len(parts))
 	failed := false
+	// The reply is the count, an offset per response and the responses:
+	// once it outgrows what the reply can carry it is refused, before the
+	// remaining services run. The embedded services learn what is left
+	// (replyRoom): those that assemble their reply from parts stop there.
+	bound := newReplyBound(ctx, r)
+	room := &replyRoom{}
+	ectx := context.WithValue(ctx, replyRoomKey{}, room)
+	total := 2 + 2*len(parts)
 	for i, p := range parts {
 		if len(p) > 0 && cip.Service(p[0]) == cip.ServiceMultipleServicePacket {
 			// Nesting is not allowed.
 			resps[i] = cip.Response{Service: cip.ServiceMultipleServicePacket, Status: cip.StatusServiceNotSupported}
 		} else {
-			resps[i] = s.handleMessage(ctx, p, r.Remote, r.Connected)
+			// The embedded response's data, after its 4-octet header.
+			room.n, room.exceeded = bound.n-total-4, false
+			resps[i] = s.handleMessage(ectx, p, r.Remote, r.Connected)
 		}
 		failed = failed || !resps[i].OK()
+		total += 4 + 2*len(resps[i].Extended) + len(resps[i].Data)
+		if room.exceeded || bound.tooLarge(total) {
+			if room.exceeded && bound.room != nil {
+				bound.room.exceeded = true
+			}
+			return cip.Response{Status: cip.StatusReplyDataTooLarge}
+		}
 	}
 	data, err := cip.EncodeMultipleServiceResponse(resps)
 	if err != nil {

@@ -327,7 +327,9 @@ type Tag struct {
 // ListTags reads the tag list of the Symbol object with Get Instance
 // Attribute List (0x55): controller-scoped tags when program is "", the
 // tags of a program ("Program:Main") otherwise. System tags and the names
-// of programs are included as the controller reports them.
+// of programs are included as the controller reports them. Like a
+// fragmented read, the list stops with ethernetip.ErrProtocol beyond 16
+// MiB of replies or 65536 replies.
 func (c *Client) ListTags(ctx context.Context, program string) ([]Tag, error) {
 	var prefix cip.Path
 	if program != "" {
@@ -338,7 +340,11 @@ func (c *Client) ListTags(ctx context.Context, program string) ([]Tag, error) {
 	}
 	var out []Tag
 	next := uint32(0)
-	for {
+	size := 0
+	for replies := 1; ; replies++ {
+		if replies > maxReadFragments {
+			return out, fmt.Errorf("%w: tag list of more than %d replies", ethernetip.ErrProtocol, maxReadFragments)
+		}
 		start := next
 		path := append(append(cip.Path{}, prefix...), cip.ClassSegment(cip.ClassSymbol), cip.InstanceSegment(next))
 		data := []byte{3, 0, 1, 0, 2, 0, 8, 0} // name, type, dimensions
@@ -346,6 +352,9 @@ func (c *Client) ListTags(ctx context.Context, program string) ([]Tag, error) {
 		partial := err != nil && resp.Status == cip.StatusPartialTransfer
 		if err != nil && !partial {
 			return out, err
+		}
+		if size += len(resp.Data); size > maxReadData {
+			return out, fmt.Errorf("%w: tag list beyond 16 MiB", ethernetip.ErrProtocol)
 		}
 		r := cip.NewReader(resp.Data)
 		n := 0
@@ -383,7 +392,8 @@ func (c *Client) ListTags(ctx context.Context, program string) ([]Tag, error) {
 }
 
 // Template reads a structure template (Template object instance id): its
-// attributes, then its definition with Read_Template. Templates are cached.
+// attributes, then its definition with Read_Template (at most 65536
+// replies, like a fragmented read). Templates are cached.
 func (c *Client) Template(ctx context.Context, id uint16) (*Template, error) {
 	if id == StringTemplate.ID {
 		t := StringTemplate
@@ -409,7 +419,10 @@ func (c *Client) Template(ctx context.Context, id uint16) (*Template, error) {
 		return nil, fmt.Errorf("%w: template definition of %d words", ethernetip.ErrProtocol, attrs.words)
 	}
 	var def []byte
-	for len(def) < total {
+	for replies := 1; len(def) < total; replies++ {
+		if replies > maxReadFragments {
+			return nil, fmt.Errorf("%w: template definition of more than %d replies", ethernetip.ErrProtocol, maxReadFragments)
+		}
 		// len(def) is below total, at most maxDefinition.
 		off := uint32(int64(len(def)) & 0xFFFFFFFF)
 		size := uint16(max(min(total-len(def), 0xFFFF), 0))

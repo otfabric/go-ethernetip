@@ -45,6 +45,17 @@ multicast on most systems. Groups are joined on the interface of
 else on the bound address's interface, else on the system's choice (the
 default route's).
 
+## Actual packet intervals
+
+The scanner produces and watches at the actual packet intervals of the
+target's Forward_Open reply, which may differ from the requested RPI. It
+refuses a reply (`ErrProtocol`, and closes the connection again with
+Forward_Close) whose T->O interval is 0 or whose O->T interval is below
+max(O->T RPI / 4, min(RPI, 100 µs)). O->T data of a point-to-point
+connection goes to the target's address, at the port of the reply's
+Sockaddr Info O->T item when it has one; another address in that item is
+ignored.
+
 ## Timeouts and recovery
 
 The consumer of each direction times out after RPI × 4 << multiplier

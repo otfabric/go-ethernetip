@@ -75,6 +75,26 @@ func (t *tagEntry) elements() int {
 	return n
 }
 
+// size returns the octets of the tag, in 64 bits: three dimensions of up
+// to 2^20 and a template size of up to 2^32 overflow an int on 32-bit
+// platforms. A size above 2^24 may be returned as any value above it.
+func (t *tagEntry) size() int64 {
+	n := int64(1)
+	for i := 0; i < t.typ.Dims(); i++ {
+		n *= int64(t.dims[i]) // at most 2^60
+	}
+	if t.typ.Atomic() == cip.TypeBOOL && t.typ.Dims() > 0 && t.tmpl == nil {
+		return (n + 31) / 32 * 4
+	}
+	if n > 1<<24 {
+		return n // every element is at least one octet
+	}
+	if t.tmpl != nil {
+		return n * int64(t.tmpl.Size)
+	}
+	return n * int64(t.typ.Atomic().Size())
+}
+
 // TagServerOption configures a [TagServer].
 type TagServerOption func(*TagServer)
 
@@ -242,7 +262,7 @@ func (ts *TagServer) add(name string, typ SymbolType, tmpl *Template, dims []int
 		}
 		e.dims[i] = uint32(d)
 	}
-	if e.elements()*e.elemSize() > 1<<24 {
+	if e.size() > 1<<24 {
 		return fmt.Errorf("%w: tag %q larger than 16 MiB", ethernetip.ErrInvalidOption, name)
 	}
 	ts.mu.Lock()
@@ -400,12 +420,17 @@ func (ts *TagServer) resolve(e *tagEntry, path cip.Path) (target, *cip.Response)
 				// A BOOL array is addressed by its DWORDs: index i is bits
 				// 32i to 32i+31, as Logix does (and pycomm3 and libplctag
 				// expect).
-				words := (int(dimLen[0]) + 31) / 32
-				if dims != 1 || int(idx[0]) >= words {
+				// The index is compared as the 32-bit value it is on the
+				// wire: an int conversion first would make indices above
+				// 0x7FFFFFFF negative on 32-bit platforms. Below words
+				// (at most 2^15), it converts without loss.
+				words := (dimLen[0] + 31) / 32
+				if dims != 1 || idx[0] >= words {
 					return t, &errBeyond
 				}
-				t.off += int(idx[0]) * 4
-				t.avail = words - int(idx[0])
+				w := int(idx[0])
+				t.off += w * 4
+				t.avail = int(words) - w
 				dims = 0
 				continue
 			}
@@ -642,6 +667,10 @@ func (ts *TagServer) readModifyWrite(t target, data []byte) cip.Response {
 	if t.bit >= 0 || t.typ == 0 || t.elemSize < n || !t.typ.IsInteger() {
 		return errType
 	}
+	if t.avail < 1 {
+		// An array member of no elements: nothing to modify.
+		return errBeyond
+	}
 	b := t.e.data[t.off : t.off+n]
 	for i := range b {
 		b[i] = (b[i] | or[i]) & and[i]
@@ -817,6 +846,11 @@ func (o *templateObject) ServeCIP(_ context.Context, r *server.Request) cip.Resp
 			default:
 				out = cip.AppendUint16(out, uint16(cip.StatusAttributeNotSupported))
 				st = cip.StatusAttributeListError
+			}
+			if len(out) > o.ts.limit(r) {
+				// A list that repeats attributes: up to 4 times the
+				// request.
+				return cip.Response{Status: cip.StatusReplyDataTooLarge}
 			}
 		}
 		return cip.Response{Status: st, Data: out}

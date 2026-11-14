@@ -145,6 +145,7 @@ func (e *Endpoint) Open(cfg Config) (*Connection, error) {
 		}
 		e.conns[cfg.ConsumedID] = append(e.conns[cfg.ConsumedID], c)
 	}
+	e.all[c] = struct{}{}
 	e.mu.Unlock()
 	if cfg.Group.IsValid() {
 		if err := e.join(cfg.Group, cfg.Interface); err != nil {
@@ -158,10 +159,12 @@ func (e *Endpoint) Open(cfg Config) (*Connection, error) {
 }
 
 func (c *Connection) unregister() {
+	c.e.mu.Lock()
+	defer c.e.mu.Unlock()
+	delete(c.e.all, c)
 	if c.cfg.ConsumedID == 0 {
 		return
 	}
-	c.e.mu.Lock()
 	list := c.e.conns[c.cfg.ConsumedID]
 	for i, o := range list {
 		if o == c {
@@ -174,7 +177,6 @@ func (c *Connection) unregister() {
 	} else {
 		c.e.conns[c.cfg.ConsumedID] = list
 	}
-	c.e.mu.Unlock()
 }
 
 // Close stops the connection: production ends and consumed datagrams are

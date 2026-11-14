@@ -195,7 +195,9 @@ func parseDefinition(b []byte, members int) (string, []Member, error) {
 			Offset: binary.LittleEndian.Uint32(p[4:]),
 		}
 	}
-	names := bytes.Split(b[8*members:], []byte{0})
+	// Only the template's name and one name per member are used: what
+	// follows them stays in one piece.
+	names := bytes.SplitN(b[8*members:], []byte{0}, members+2)
 	if len(names) < members+1 {
 		return "", nil, fmt.Errorf("logix: template with %d names for %d members", len(names)-1, members)
 	}
@@ -281,9 +283,15 @@ func (t *Template) decode(data []byte, lookup func(id uint16) *Template, depth i
 				f.Value = Value{Handle: 0, Count: count, Data: tail(data, m.Offset, 0)}
 				break
 			}
-			raw := tail(data, m.Offset, int(sub.Size)*count)
+			// In 64 bits: sub.Size is any 32-bit value of a controller,
+			// count up to 65535.
+			n := int64(sub.Size) * int64(count)
+			if n > math.MaxInt32 {
+				return nil, fmt.Errorf("%w: member %s of %d octets", ErrType, m.Name, n)
+			}
+			raw := tail(data, m.Offset, int(n))
 			f.Value = Value{Handle: sub.Handle, Count: count, Data: raw}
-			if count == 1 && len(raw) >= int(sub.Size) {
+			if count == 1 && int64(len(raw)) >= int64(sub.Size) {
 				s, err := sub.decode(raw, lookup, depth+1, budget)
 				if err != nil {
 					return nil, err

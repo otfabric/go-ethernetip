@@ -1,5 +1,94 @@
 # go-ethernetip Releases
 
+## v0.7.0
+
+**Date:** 2026-11-14
+**Previous release:** v0.6.0
+
+## Summary
+
+Tighter bounds and lifecycles in the server, the scanner, the Logix client
+and emulation, and the EDS package. The server frees the place of a
+connection whose TLS handshake fails, stops building a reply as soon as it
+exceeds what the packet or connection can carry, and no longer leaves a
+multicast producer running when a Forward_Close arrives during the
+Forward_Open. The scanner checks the actual packet intervals of a
+Forward_Open reply. The Logix client bounds the tag list and template
+reads like the fragmented read. EDS files with several spellings of one
+number give one entry, and Validate runs in linear time. The public API is
+unchanged.
+
+## Changes
+
+### Fixes
+
+- **server**: a connection whose TLS handshake fails frees its place under
+  the TCP connection limit (2 × `WithMaxSessions` + 16); before, it held it
+  until `Close`.
+- **server**: Multiple Service Packet, Get_Attribute_List and
+  Get_Attributes_All stop with 0x11 (reply data too large) as soon as the
+  reply exceeds what the encapsulation packet or the Class 3 connection can
+  carry, instead of building the whole reply first. Replies that fit are
+  unchanged.
+- **server**: a Forward_Close that arrives while a multicast Forward_Open
+  is handled no longer leaves a multicast producer running (the
+  Forward_Open is answered 0x31C); the change-of-state producer set is
+  updated together with the connection's close.
+- **server**: a connection opened while the server closes is refused
+  (0x31C), and the Class 3 inactivity timer always stops with its
+  connection.
+- **server**: delayed ListIdentity replies (`WithDiscoveryDelay`) still
+  waiting at `Close` are dropped; none is sent after `Close` returns.
+- **implicit**: `Endpoint.Close` also closes connections that only
+  produce, as documented.
+- **scanner**: `Open` refuses a Forward_Open reply with a T->O actual
+  packet interval of 0 or an O->T actual packet interval below a quarter of
+  the requested RPI (and below 100 µs), with `ErrProtocol`, and closes that
+  connection again.
+- **scanner**: O->T data of a point-to-point connection goes to the
+  target's address, at the port named in the Sockaddr Info O->T item;
+  another address in that item is ignored.
+- **logix**: `Client.ListTags` stops with `ErrProtocol` after 65536 partial
+  replies or 16 MiB of reply data, like a fragmented read;
+  `Client.Template` stops after 65536 Read_Template replies.
+- **logix**: `TagServer` compares BOOL array indices as 32-bit values, so
+  indices of 0x80000000 and above are answered with "access beyond end" on
+  32-bit platforms too.
+- **logix**: `TagServer` answers Read-Modify-Write on an array member of no
+  elements with "access beyond end" instead of reading beyond the tag, and
+  a Template Get_Attribute_List whose reply exceeds the reply size with
+  0x11.
+- **logix**: `TagServer.AddTag` and `AddStructTag` compute tag sizes without
+  integer overflow and refuse tags above 16 MiB on every platform.
+- **logix**: template decoding refuses structure members above 2 GiB;
+  template definitions are parsed without splitting the data after the
+  member names.
+- **eds**: keywords that name the same number (`Param1` and `Param01`, or a
+  repeated `Param1`) give one parameter, enum, assembly or connection: the
+  first. `GenerateGo` output no longer grows with such copies, and
+  `Validate` reports them as errors.
+- **eds**: `Validate` looks up entries through a per-section index, so its
+  run time is linear in the number of assemblies, connections and
+  references.
+
+### Tests
+
+- New regression tests in server (TLS handshake failures, reply budgets,
+  Forward_Close during a multicast Forward_Open, opening while closing,
+  delayed discovery at Close), implicit (`Endpoint.Close` of producers),
+  scanner (reply intervals, Sockaddr O->T address), logix (tag list and
+  template reply limits, BOOL array indices, tag sizes) and eds (numbered
+  entries, many assemblies).
+
+### Documentation
+
+- SECURITY.md, docs/LIMITATIONS.md and docs/IMPLICIT.md describe the new
+  bounds and the scanner's handling of actual packet intervals;
+  ARCHITECTURE.md gives the Multiple Service Packet limit as 1000 embedded
+  services, as the code has it.
+
+---
+
 ## v0.6.0
 
 **Date:** 2026-11-08

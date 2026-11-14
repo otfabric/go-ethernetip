@@ -63,9 +63,13 @@ The server bounds what a peer can make it hold:
 - packets above `WithMaxPacket` (4096 octets by default) close the
   session; sessions are limited by `WithMaxSessions` (64), connections by
   `WithMaxConnections` (128), and per originator address by
-  `WithMaxConnectionsPerOriginator` (off by default); Class 3 replies are
-  bounded by the connection's T->O size; idle TCP connections close after the
-  encapsulation inactivity timeout (120 s);
+  `WithMaxConnectionsPerOriginator` (off by default); a connection whose
+  TLS handshake fails frees its place at once; Class 3 replies are bounded
+  by the connection's T->O size and unconnected replies by the
+  encapsulation packet, and Multiple Service Packet, Get_Attribute_List and
+  Get_Attributes_All stop with 0x11 as soon as the reply being built
+  exceeds that bound; idle TCP connections close after the encapsulation
+  inactivity timeout (120 s);
 - every count in a message (items, services, segments, attributes, tag
   list entries) is checked against the octets that carry it before memory
   is allocated, and bounded; the fuzz targets check this, and found two

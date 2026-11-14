@@ -95,7 +95,7 @@ Every decoder works on a byte slice through `cip.Reader`, whose first
 short read sets a sticky error, or checks lengths before slicing. Counts in
 messages (items, services, segments, attributes, tags) are compared with
 the octets that carry them before anything is allocated, and are bounded
-(`encap.MaxItems`, the 255-word path limit, 256 path segments, 200 embedded
+(`encap.MaxItems`, the 255-word path limit, 256 path segments, 1000 embedded
 services, `WithMaxPacket` for whole packets). Fuzz targets cover every
 decoder and the server's dispatch of Logix requests; the corpus seeds are
 in `testdata/fuzz`.

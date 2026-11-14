@@ -5,7 +5,9 @@ package logix
 import (
 	"context"
 	"errors"
+	"fmt"
 	"math"
+	"runtime"
 	"strconv"
 	"strings"
 	"testing"
@@ -309,4 +311,173 @@ func TestTemplateEmptyFragment(t *testing.T) {
 			t.Errorf("%s: %v after %d requests", name, err, len(d.reqs))
 		}
 	}
+}
+
+// tagListDoer answers the tag list with partial transfers of one entry
+// whose instance advances, each with a name of nameLen octets, and makes
+// reply number last (from 1) the final one.
+type tagListDoer struct{ n, last, nameLen int }
+
+func (d *tagListDoer) Do(_ context.Context, req cip.Request) (cip.Response, error) {
+	d.n++
+	name := strings.Repeat("A", d.nameLen)
+	resp := partial(cat(le32(uint32(d.n)), le16(uint16(len(name))), []byte(name), le16(0x00C4), le32(0), le32(0), le32(0))...)
+	if d.n == d.last {
+		resp.Status = cip.StatusSuccess
+	}
+	return resp, client.ResponseError(req, resp)
+}
+
+// The tag list is bounded like a fragmented read: at most
+// maxReadFragments replies and maxReadData octets of them.
+func TestListTagsReplyLimit(t *testing.T) {
+	d := &tagListDoer{last: maxReadFragments, nameLen: 1}
+	if tags, err := NewClient(d).ListTags(ctx, ""); err != nil || len(tags) != maxReadFragments {
+		t.Fatalf("%d replies: %d tags, %v", maxReadFragments, len(tags), err)
+	}
+	d = &tagListDoer{last: maxReadFragments + 1, nameLen: 1}
+	if _, err := NewClient(d).ListTags(ctx, ""); !errors.Is(err, ethernetip.ErrProtocol) || d.n != maxReadFragments {
+		t.Fatalf("%d replies: %v after %d", maxReadFragments+1, err, d.n)
+	}
+	// Replies of almost 64 KiB each: 16 MiB is reached after 257.
+	d = &tagListDoer{last: -1, nameLen: 0xFFFF}
+	_, err := NewClient(d).ListTags(ctx, "")
+	if !errors.Is(err, ethernetip.ErrProtocol) || d.n > maxReadData/0xFFFF+1 {
+		t.Fatalf("large replies: %v after %d", err, d.n)
+	}
+}
+
+// Read_Template is bounded like a fragmented read: a target that answers
+// one octet at a time stops the client after maxReadFragments replies.
+func TestTemplateReplyLimit(t *testing.T) {
+	words := uint32((maxDefinition + 20) / 4)
+	h := &hostileDoer{limit: 4 * maxReadFragments, answer: func(_ int, req cip.Request) cip.Response {
+		if req.Service == cip.ServiceGetAttributeList {
+			return ok(cat(le16(4),
+				le16(4), le16(0), le32(words),
+				le16(5), le16(0), le32(8),
+				le16(2), le16(0), le16(1),
+				le16(1), le16(0), le16(0x1234))...)
+		}
+		return partial(0)
+	}}
+	_, err := NewClient(h).Template(ctx, 0x20)
+	if !errors.Is(err, ethernetip.ErrProtocol) || h.n != 1+maxReadFragments {
+		t.Fatalf("one-octet definition: %v after %d requests", err, h.n)
+	}
+}
+
+// What follows the member names of a definition stays in one piece.
+func TestParseDefinitionTrailingNames(t *testing.T) {
+	def := cat(le16(0), le16(0x00C4), le32(0), []byte("T;n\x00A\x00"), make([]byte, 1<<16), []byte("B\x00"))
+	var before, after runtime.MemStats
+	runtime.GC()
+	runtime.ReadMemStats(&before)
+	for range 10 {
+		name, ms, err := parseDefinition(def, 1)
+		if err != nil || name != "T" || len(ms) != 1 || ms[0].Name != "A" {
+			t.Fatalf("parse %q %+v %v", name, ms, err)
+		}
+	}
+	runtime.ReadMemStats(&after)
+	// Splitting at every NUL would allocate 1.5 MiB per parse.
+	if alloc := after.TotalAlloc - before.TotalAlloc; alloc > 64<<10 {
+		t.Fatalf("10 parses of one member allocated %d KiB", alloc>>10)
+	}
+}
+
+// A structure member whose size is beyond 2 GiB is refused on every
+// platform, rather than wrapping an int on 32-bit ones.
+func TestTemplateDecodeMemberSize(t *testing.T) {
+	sub := &Template{ID: 2, Name: "Sub", Handle: 2, Size: 0x10000}
+	tmpl := Template{ID: 1, Name: "T", Size: 4, Members: []Member{{Name: "S", Type: NewStructType(2, 1), Info: 0x8000}}}
+	if _, err := tmpl.Decode(make([]byte, 4), func(uint16) *Template { return sub }); !errors.Is(err, ErrType) {
+		t.Fatalf("member of 2 GiB: %v", err)
+	}
+	sub.Size = math.MaxUint32
+	tmpl.Members[0].Info = 1
+	if _, err := tmpl.Decode(make([]byte, 4), func(uint16) *Template { return sub }); !errors.Is(err, ErrType) {
+		t.Fatalf("member of 4 GiB: %v", err)
+	}
+}
+
+// A BOOL array index is a 32-bit value: indices with the top bit set are
+// beyond the array, for a tag and for a template member, with every tag
+// service.
+func TestTagServerBOOLArrayIndexTopBit(t *testing.T) {
+	h := newHarness(t)
+	for _, name := range []string{"Bits", "Outs[1].Flags"} {
+		base := h.path(name)
+		for _, idx := range []uint32{2, 0x7FFFFFFF, 0x80000000, 0xC0000000, 0xFFFFFFFF} {
+			wire, err := append(append(cip.Path{}, base...), cip.LogicalSegment{Type: cip.LogicalMember, Format: cip.Format32, Value: idx}).Encode()
+			must(t, err)
+			path, err := cip.DecodePath(wire)
+			must(t, err)
+			for _, req := range []cip.Request{
+				{Service: cip.ServiceReadTag, Path: path, Data: le16(1)},
+				{Service: cip.ServiceWriteTag, Path: path, Data: cat(le16(0x00D3), le16(1), le32(math.MaxUint32))},
+				{Service: cip.ServiceReadModifyWriteTag, Path: path, Data: cat(le16(4), le32(1), le32(math.MaxUint32))},
+			} {
+				wantBeyond(t, fmt.Sprintf("%s[0x%08X] service 0x%02X", name, idx, uint8(req.Service)), h.do(req, false))
+			}
+		}
+	}
+	// The last DWORD of each is still addressed.
+	wantStatus(t, "Bits[1]", h.read("Bits[1]", 1), cip.StatusSuccess)
+	wantStatus(t, "Outs[1].Flags[1]", h.read("Outs[1].Flags[1]", 1), cip.StatusSuccess)
+}
+
+// Read-Modify-Write of an array member of no elements has nothing to
+// modify; at the end of the tag it would reach beyond the data.
+func TestTagServerReadModifyWriteEmptyArray(t *testing.T) {
+	ts := NewTagServer()
+	tmpl := Template{ID: 0x30, Name: "E", Handle: 0x3030, Size: 4, Members: []Member{
+		{Name: "X", Type: NewAtomicType(cip.TypeDINT, 0, 0)},
+		{Name: "None", Type: NewAtomicType(cip.TypeDINT, 1, 0), Offset: 4},
+	}}
+	must(t, ts.AddTemplate(tmpl))
+	must(t, ts.AddStructTag("E", 0x30))
+	path, err := ParseTag("E.None")
+	must(t, err)
+	r := ts.ServeSymbol(ctx, &server.Request{Request: cip.Request{Service: cip.ServiceReadModifyWriteTag, Path: path.Path, Data: cat(le16(4), le32(1), le32(math.MaxUint32))}})
+	wantBeyond(t, "RMW of DINT[0]", r)
+	path, err = ParseTag("E.X")
+	must(t, err)
+	r = ts.ServeSymbol(ctx, &server.Request{Request: cip.Request{Service: cip.ServiceReadModifyWriteTag, Path: path.Path, Data: cat(le16(4), le32(1), le32(math.MaxUint32))}})
+	wantStatus(t, "RMW of DINT", r, cip.StatusSuccess)
+}
+
+// A Template Get_Attribute_List reply is bounded by the reply size: a
+// request that repeats an attribute gets up to 4 times its size back.
+func TestTemplateAttributeListReplyBound(t *testing.T) {
+	h := newHarness(t)
+	ids := le16(200)
+	for range 200 {
+		ids = append(ids, le16(5)...)
+	}
+	req := cip.Request{Service: cip.ServiceGetAttributeList, Path: cip.ObjectPath(cip.ClassTemplate, 0x20), Data: ids}
+	wantStatus(t, "200 attributes", h.do(req, false), cip.StatusReplyDataTooLarge)
+	req.Data = cat(le16(4), le16(4), le16(5), le16(2), le16(1))
+	wantStatus(t, "4 attributes", h.do(req, false), cip.StatusSuccess)
+}
+
+// A tag's size is computed without int overflow: dimensions whose product
+// wraps an int, or a template above 16 MiB, are refused.
+func TestTagServerTagSizeOverflow(t *testing.T) {
+	ts := NewTagServer()
+	must(t, ts.AddTemplate(Template{ID: 0x40, Name: "Huge", Handle: 0x4040, Size: math.MaxUint32}))
+	must(t, ts.AddTemplate(Template{ID: 0x41, Name: "Small", Handle: 0x4141, Size: 4}))
+	for name, err := range map[string]error{
+		"huge":       ts.AddStructTag("H", 0x40),
+		"huge array": ts.AddStructTag("HA", 0x40, 1<<20, 1<<20, 1<<20),
+		"3D struct":  ts.AddStructTag("SA", 0x41, 1<<20, 1<<20, 1<<20),
+		"3D DINT":    ts.AddTag("DA", cip.TypeDINT, 1<<20, 1<<20, 1<<20),
+		"3D BOOL":    ts.AddTag("BA", cip.TypeBOOL, 1<<20, 1<<20, 1<<20),
+	} {
+		if !errors.Is(err, ethernetip.ErrInvalidOption) {
+			t.Errorf("%s: %v", name, err)
+		}
+	}
+	must(t, ts.AddTag("MaxBOOL", cip.TypeBOOL, 1<<20, 1<<7))
+	must(t, ts.AddStructTag("MaxStruct", 0x41, 1<<20, 4))
 }

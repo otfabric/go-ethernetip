@@ -17,7 +17,7 @@ Package scanner is the originator (scanner) of EtherNet/IP implicit I/O connecti
 	io.SetOutput(out)
 	in, run, at := io.Input()
 
-The scanner's I/O endpoint listens on UDP port 2222 by default, the port targets send to; WithLocalAddr picks another, which Forward\_Open then announces in a Sockaddr Info item (not every target honours it).
+The scanner's I/O endpoint listens on UDP port 2222 by default, the port targets send to; WithLocalAddr picks another, which Forward\_Open then announces in a Sockaddr Info item (not every target honours it). O->T data goes to the target's address, at the port the target's Sockaddr Info O->T item names (2222 without one).
 
 ## Types
 
@@ -124,6 +124,14 @@ type IOConfig struct {
 	InputSize  int
 	// RPI is the requested packet interval of both directions; OTRPI and
 	// TORPI, when set, replace it per direction.
+	//
+	// The target answers with the actual packet intervals (APIs), which
+	// the connection then uses and [IO.Info] reports; they may differ from
+	// the RPIs. Open refuses the reply with ErrProtocol, and closes the
+	// connection again, when the T->O API is 0 (no consumption timeout)
+	// or the O->T API is below a quarter of the O->T RPI or below 100 µs
+	// (the O->T RPI itself when that is shorter), so that the scanner
+	// never produces more than four times as often as asked.
 	RPI   time.Duration
 	OTRPI time.Duration
 	TORPI time.Duration
