@@ -120,10 +120,16 @@ func TestOnTimeoutDoesNotReturnNormally(t *testing.T) {
 }
 
 // stoppingMetrics is IOMetrics whose every method does not return
-// normally.
-type stoppingMetrics struct{ recMetrics }
+// normally; OnIOSent first reports each call on sends.
+type stoppingMetrics struct {
+	recMetrics
+	sends chan struct{}
+}
 
-func (*stoppingMetrics) OnIOSent(uint32, int)         { stopAbnormally() }
+func (m *stoppingMetrics) OnIOSent(uint32, int) {
+	m.sends <- struct{}{}
+	stopAbnormally()
+}
 func (*stoppingMetrics) OnIOReceived(uint32, int)     { stopAbnormally() }
 func (*stoppingMetrics) OnIODropped(net.Addr, string) { stopAbnormally() }
 
@@ -131,7 +137,8 @@ func (*stoppingMetrics) OnIODropped(net.Addr, string) { stopAbnormally() }
 // receiving and dropping go on.
 func TestIOMetricsDoNotReturnNormally(t *testing.T) {
 	log := &recLogger{}
-	e := listen(t, WithLogger(log), WithMetrics(&stoppingMetrics{}))
+	mt := &stoppingMetrics{sends: make(chan struct{}, 8)}
+	e := listen(t, WithLogger(log), WithMetrics(mt))
 	p := newPeer(t, e.LocalAddr())
 	got := make(chan byte, 1)
 	c := open(t, e, Config{Class: 1, ProducedID: 0x53, Destination: p.addr(), ProduceRPI: time.Hour, ProduceSize: 1,
@@ -143,6 +150,15 @@ func TestIOMetricsDoNotReturnNormally(t *testing.T) {
 	c.Trigger()
 	if m := p.recv(); m.EncapSeq != 2 {
 		t.Errorf("second datagram with sequence %d", m.EncapSeq)
+	}
+	// A datagram is counted in Stats after it is sent and before
+	// OnIOSent: the peer may receive it first. Wait for both calls.
+	for i := range 2 {
+		select {
+		case <-mt.sends:
+		case <-time.After(5 * time.Second):
+			t.Fatalf("OnIOSent called %d times, want 2", i)
+		}
 	}
 	// A datagram for no connection is dropped before the next is handled.
 	p.send(0x99, 1, []byte{1, 0, 7})

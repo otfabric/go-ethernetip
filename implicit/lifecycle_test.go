@@ -276,9 +276,19 @@ func TestCloseWaitsForCallback(t *testing.T) {
 		{"Endpoint.Close from OnData waits for Produce", func(t *testing.T, e *Endpoint, p *peer, b *testenv.Blocking) {
 			open(t, e, Config{Class: 1, ProducedID: produced, Destination: p.addr(), ProduceRPI: time.Hour, ProduceSize: 1,
 				Produce: func() ([]byte, bool) { b.Call(); return []byte{9}, true }})
+			// The datagram that calls OnData is sent after Open returned, an
+			// order the race detector does not see: OnData waits for opened.
+			opened := make(chan struct{})
 			var once sync.Once
 			open(t, e, Config{Class: 1, ConsumedID: consumed, ConsumeFormat: FormatModeless, ConsumeSize: 1, Timeout: time.Hour,
-				OnData: func([]byte, bool) { once.Do(func() { _ = e.Close(); b.Closed() }) }})
+				OnData: func([]byte, bool) {
+					once.Do(func() {
+						<-opened
+						_ = e.Close()
+						b.Closed()
+					})
+				}})
+			close(opened)
 			b.Check(t, func() { p.send(consumed, 1, []byte{1, 0, 7}) },
 				"implicit.(*Connection).", "implicit.(*Endpoint).Close", "implicit.(*Endpoint).receive")
 		}},

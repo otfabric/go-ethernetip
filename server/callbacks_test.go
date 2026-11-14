@@ -17,6 +17,7 @@ import (
 	"github.com/otfabric/go-ethernetip/cip"
 	"github.com/otfabric/go-ethernetip/encap"
 	"github.com/otfabric/go-ethernetip/implicit"
+	"github.com/otfabric/go-ethernetip/internal/testenv"
 )
 
 // The application's code that does not return normally: the server logs
@@ -330,7 +331,11 @@ func TestMetricsDoNotReturnNormally(t *testing.T) {
 	}
 	// The originator ends the session.
 	_ = p.c.Close()
-	waitFor(t, "the end of the session", func() bool { return s.Sessions() == 0 && m.called("Metrics.OnDisconnect") == 1 })
+	waitFor(t, "the end of the session", func() bool { return s.Sessions() == 0 })
+	// OnDisconnect is the session goroutine's last call, logged before the
+	// goroutine ends: every hook of the session has been called and logged
+	// once it has ended.
+	testenv.NoGoroutine(t, "server.(*Server).serveConn")
 	for _, name := range []string{
 		"Metrics.OnConnect", "Metrics.OnPacketReceived", "Metrics.OnPacketSent", "Metrics.OnDecodeError",
 		"Metrics.OnDisconnect", "ServerMetrics.OnHandled", "ServerMetrics.OnConnectionOpened",
