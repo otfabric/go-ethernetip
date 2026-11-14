@@ -118,38 +118,32 @@ func (s *Server) multipleService(ctx context.Context, r *Request) cip.Response {
 	if len(parts) > maxEmbedded {
 		return cip.Response{Status: cip.StatusResourceUnavailable}
 	}
-	// The reply is the count, an offset per service and the embedded
-	// responses (a 4-octet header each, their additional status and data).
-	// It is built only while it stays within the request's budget: the
-	// services after the one that exceeds it are not handled.
-	budget, bounded := replyBudget(ctx)
-	ex := exchangeOf(ctx)
-	used := 2 + 2*len(parts)
-	if bounded && used > budget {
-		return overBudget(ctx)
-	}
 	resps := make([]cip.Response, len(parts))
 	failed := false
+	// The reply is the count, an offset per response and the responses:
+	// once it outgrows what the reply can carry it is refused, before the
+	// remaining services run. The embedded services learn what is left
+	// (replyRoom): those that assemble their reply from parts stop there.
+	bound := newReplyBound(ctx, r)
+	room := &replyRoom{}
+	ectx := context.WithValue(ctx, replyRoomKey{}, room)
+	total := 2 + 2*len(parts)
 	for i, p := range parts {
-		if bounded {
-			if used+4 > budget {
-				return overBudget(ctx)
-			}
-			ex.budget = budget - used - 4
-		}
 		if len(p) > 0 && cip.Service(p[0]) == cip.ServiceMultipleServicePacket {
 			// Nesting is not allowed.
 			resps[i] = cip.Response{Service: cip.ServiceMultipleServicePacket, Status: cip.StatusServiceNotSupported}
 		} else {
-			resps[i] = s.handleMessage(ctx, p, r.Remote, r.Connected)
+			// The embedded response's data, after its 4-octet header.
+			room.n, room.exceeded = bound.n-total-4, false
+			resps[i] = s.handleMessage(ectx, p, r.Remote, r.Connected)
 		}
 		failed = failed || !resps[i].OK()
-		if bounded {
-			ex.budget = budget
-			used += 4 + 2*len(resps[i].Extended) + len(resps[i].Data)
-			if ex.overBudget || used > budget {
-				return overBudget(ctx)
+		total += 4 + 2*len(resps[i].Extended) + len(resps[i].Data)
+		if room.exceeded || bound.tooLarge(total) {
+			if room.exceeded && bound.room != nil {
+				bound.room.exceeded = true
 			}
+			return cip.Response{Status: cip.StatusReplyDataTooLarge}
 		}
 	}
 	data, err := cip.EncodeMultipleServiceResponse(resps)

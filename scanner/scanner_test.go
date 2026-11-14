@@ -484,9 +484,9 @@ func TestMulticast(t *testing.T) {
 // fakeTarget answers RegisterSession and passes every Forward_Open to fo,
 // which returns the reply items (nil items and nil reply refuse).
 type fakeTarget struct {
-	ln  net.Listener
-	wg  sync.WaitGroup
-	fcs atomic.Int32 // Forward_Close requests received
+	ln     net.Listener
+	wg     sync.WaitGroup
+	closes atomic.Int32 // Forward_Close requests received
 }
 
 func newFakeTarget(t *testing.T, fo func(req cip.ForwardOpen) (cip.ForwardOpenReply, []encap.Item)) *fakeTarget {
@@ -558,7 +558,7 @@ func (f *fakeTarget) serve(t *testing.T, conn net.Conn, fo func(cip.ForwardOpen)
 				b, _ := reply.Encode()
 				resp, items = cip.Response{Service: req.Service, Data: b}, it
 			case cip.ServiceForwardClose:
-				f.fcs.Add(1)
+				f.closes.Add(1)
 				fc, _ := cip.DecodeForwardClose(req.Data)
 				b, _ := cip.ForwardCloseReply{Triad: fc.Triad}.Encode()
 				resp = cip.Response{Service: req.Service, Data: b}

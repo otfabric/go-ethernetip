@@ -11,6 +11,7 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"errors"
+	"io"
 	"log"
 	"math/big"
 	"net"
@@ -352,6 +353,36 @@ func selfSigned(t testing.TB) tls.Certificate {
 	return tls.Certificate{Certificate: [][]byte{der}, PrivateKey: key}
 }
 
+// TestTLSHandshakeFailureReleasesSlot: a connection whose TLS handshake
+// fails frees its place under the TCP connection limit; after more failed
+// handshakes than the limit a client still connects.
+func TestTLSHandshakeFailureReleasesSlot(t *testing.T) {
+	cert := selfSigned(t)
+	s := startServer(t, WithMaxSessions(1),
+		WithTLS(&tls.Config{Certificates: []tls.Certificate{cert}, MinVersion: tls.VersionTLS12}))
+	for range s.maxTCPConns() + 1 {
+		c, err := net.Dial("tcp4", s.Addr().String())
+		if err != nil {
+			t.Fatal(err)
+		}
+		_, _ = c.Write(bytes.Repeat([]byte{0x65}, 64))
+		_ = c.SetReadDeadline(time.Now().Add(5 * time.Second))
+		_, _ = io.Copy(io.Discard, c)
+		_ = c.Close()
+	}
+	waitFor(t, "slots released", func() bool { return s.tcpConns() == 0 })
+	pool := x509.NewCertPool()
+	leaf, _ := x509.ParseCertificate(cert.Certificate[0])
+	pool.AddCert(leaf)
+	c, err := tls.Dial("tcp4", s.Addr().String(), &tls.Config{RootCAs: pool, ServerName: "127.0.0.1"})
+	if err != nil {
+		t.Fatalf("client after failed handshakes: %v", err)
+	}
+	t.Cleanup(func() { _ = c.Close() })
+	p := &peer{t: t, c: c}
+	p.register()
+}
+
 func TestTLS(t *testing.T) {
 	m := newRecMetrics()
 	cert := selfSigned(t)
@@ -396,34 +427,6 @@ func TestTLS(t *testing.T) {
 			return n == 1
 		})
 	})
-}
-
-// TestTLSHandshakeFailureReleasesSlot: a connection whose TLS handshake
-// fails leaves the server's connection table, so that more failed
-// handshakes than the connection limit leave room for a TLS client.
-func TestTLSHandshakeFailureReleasesSlot(t *testing.T) {
-	cert := selfSigned(t)
-	s := startServer(t, WithTLS(&tls.Config{Certificates: []tls.Certificate{cert}, MinVersion: tls.VersionTLS12}),
-		WithMaxSessions(1), WithInactivityTimeout(0))
-	limit := s.maxTCPConns()
-	for range limit + 5 {
-		plain := dialPeer(t, s)
-		plain.write(bytes.Repeat([]byte{0x65}, 64))
-		plain.expectClosed()
-		_ = plain.c.Close()
-	}
-	waitFor(t, "an empty connection table after the failed handshakes", func() bool { return s.tcpConns() == 0 })
-	pool := x509.NewCertPool()
-	leaf, _ := x509.ParseCertificate(cert.Certificate[0])
-	pool.AddCert(leaf)
-	c, err := tls.Dial("tcp4", s.Addr().String(), &tls.Config{RootCAs: pool, ServerName: "127.0.0.1"})
-	if err != nil {
-		t.Fatalf("TLS client after %d failed handshakes: %v", limit+5, err)
-	}
-	p := &peer{t: t, c: c}
-	p.register()
-	_ = c.Close()
-	waitFor(t, "an empty connection table after the TLS client", func() bool { return s.tcpConns() == 0 })
 }
 
 func TestReplyWriteFailure(t *testing.T) {

@@ -10,6 +10,7 @@ import (
 	"math/rand"
 	"net"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -401,5 +402,272 @@ func TestOversizeConnectedReply(t *testing.T) {
 	}
 	if _, _, r := connectedResponse(t, p.unitData(reply.OTConnID, 2, req(2))); r.Status != cip.StatusReplyDataTooLarge || r.Service != cip.ServiceGetAttributeSingle {
 		t.Errorf("one octet more: %s service %v", r.Status, r.Service)
+	}
+}
+
+// readCounter is an attribute of n octets that counts its reads.
+func readCounter(n int, reads *atomic.Int32) Attribute {
+	b := bytes.Repeat([]byte{0xA5}, n)
+	return Attribute{Get: func() []byte { reads.Add(1); return append([]byte(nil), b...) }, InGetAll: true}
+}
+
+// attrList is the data of a Get_Attribute_List of ids.
+func attrList(ids ...uint16) []byte {
+	b := binary.LittleEndian.AppendUint16(nil, uint16(len(ids)))
+	for _, id := range ids {
+		b = binary.LittleEndian.AppendUint16(b, id)
+	}
+	return b
+}
+
+func repeatID(id uint16, n int) []uint16 {
+	out := make([]uint16, n)
+	for i := range out {
+		out[i] = id
+	}
+	return out
+}
+
+// TestReplyBudgetGetList: Get_Attribute_List stops with reply data too
+// large as soon as its reply outgrows what the reply can carry (an
+// encapsulation packet, or the Class 3 connection), and a reply that fits
+// exactly is answered.
+func TestReplyBudgetGetList(t *testing.T) {
+	o := NewObject(0x0300, 1)
+	in := o.AddInstance(1)
+	var reads atomic.Int32
+	in.SetAttribute(1, readCounter(1000, &reads))
+	exact := maxUnconnectedReplyData - 2 - 4 // count, ID and status
+	in.SetAttribute(2, Attribute{Get: func() []byte { return make([]byte, exact) }})
+	in.SetAttribute(3, Attribute{Get: func() []byte { return make([]byte, exact+1) }})
+	in.SetAttribute(4, Attribute{Get: func() []byte { return make([]byte, 10) }})
+	list := func(connected bool, maxReply int, ids ...uint16) cip.Response {
+		return o.ServeCIP(context.Background(), &Request{Request: cip.Request{Service: cip.ServiceGetAttributeList, Data: attrList(ids...)},
+			Instance: 1, Connected: connected, MaxReply: maxReply})
+	}
+	if r := list(false, 0, 2); !r.OK() || len(r.Data) != maxUnconnectedReplyData {
+		t.Errorf("reply of exactly the packet's room: %s, %d octets", r.Status, len(r.Data))
+	}
+	if r := list(false, 0, 3); r.Status != cip.StatusReplyDataTooLarge {
+		t.Errorf("reply one octet beyond the packet: %s", r.Status)
+	}
+	// One ID repeated: the reads stop at the budget.
+	r := list(false, 0, repeatID(1, maxListAttributes)...)
+	if r.Status != cip.StatusReplyDataTooLarge || len(r.Data) != 0 {
+		t.Errorf("repeated ID: %s, %d octets", r.Status, len(r.Data))
+	}
+	if n := int(reads.Load()); n > maxUnconnectedReplyData/1004+1 {
+		t.Errorf("%d reads for a reply of at most %d octets", n, maxUnconnectedReplyData)
+	}
+	// On a Class 3 connection the connection's size is the budget.
+	if r := list(true, 16, 4); !r.OK() || len(r.Data) != 16 {
+		t.Errorf("connected reply that fits: %s, %d octets", r.Status, len(r.Data))
+	}
+	if r := list(true, 15, 4); r.Status != cip.StatusReplyDataTooLarge {
+		t.Errorf("connected reply one octet beyond: %s", r.Status)
+	}
+	// A connection larger than a SendUnitData can carry is bounded by
+	// the packet.
+	if r := list(true, 1<<20, 2); r.Status != cip.StatusReplyDataTooLarge {
+		t.Errorf("connected reply beyond a packet: %s", r.Status)
+	}
+}
+
+// TestReplyBudgetGetAll: Get_Attributes_All stops as soon as its reply
+// outgrows the budget, without reading the remaining attributes.
+func TestReplyBudgetGetAll(t *testing.T) {
+	o := NewObject(0x0300, 1)
+	in := o.AddInstance(1)
+	var first, last atomic.Int32
+	in.SetAttribute(1, readCounter(40000, &first))
+	in.SetAttribute(2, readCounter(40000, &first))
+	in.SetAttribute(3, readCounter(1, &last))
+	all := func(connected bool, maxReply int) cip.Response {
+		return o.ServeCIP(context.Background(), &Request{Request: cip.Request{Service: cip.ServiceGetAttributesAll},
+			Instance: 1, Connected: connected, MaxReply: maxReply})
+	}
+	if r := all(false, 0); r.Status != cip.StatusReplyDataTooLarge || len(r.Data) != 0 {
+		t.Errorf("Get_Attributes_All beyond a packet: %s, %d octets", r.Status, len(r.Data))
+	}
+	if first.Load() != 2 || last.Load() != 0 {
+		t.Errorf("reads %d and %d, want 2 and 0", first.Load(), last.Load())
+	}
+	if r := all(true, 39999); r.Status != cip.StatusReplyDataTooLarge || first.Load() != 3 {
+		t.Errorf("connected: %s after %d reads", r.Status, first.Load())
+	}
+	in2 := o.AddInstance(2)
+	in2.SetAttribute(1, readCounter(3, &last))
+	if r := all(false, 0); r.Status != cip.StatusReplyDataTooLarge {
+		t.Errorf("instance 1 again: %s", r.Status)
+	}
+	r := o.ServeCIP(context.Background(), &Request{Request: cip.Request{Service: cip.ServiceGetAttributesAll}, Instance: 2, Connected: true, MaxReply: 3})
+	if !r.OK() || !bytes.Equal(r.Data, []byte{0xA5, 0xA5, 0xA5}) {
+		t.Errorf("reply that fits: %s %x", r.Status, r.Data)
+	}
+}
+
+// TestReplyBudgetMultipleService: a Multiple Service Packet whose reply
+// outgrows the budget is answered with reply data too large as soon as it
+// does, its embedded services stop there, and replies that fit are those
+// of the embedded services, packed.
+func TestReplyBudgetMultipleService(t *testing.T) {
+	s, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
+	o := NewObject(0x0300, 1)
+	in := o.AddInstance(1)
+	var small, big, list atomic.Int32
+	in.SetAttribute(1, readCounter(1000, &list))
+	in.SetAttribute(2, readCounter(40000, &big))
+	in.SetAttribute(3, readCounter(10, &small))
+	s.RegisterObject(o)
+	gas := func(attr uint16) cip.Request {
+		return cip.Request{Service: cip.ServiceGetAttributeSingle, Path: cip.AttributePath(0x0300, 1, attr)}
+	}
+	gal := func(ids ...uint16) cip.Request {
+		return cip.Request{Service: cip.ServiceGetAttributeList, Path: cip.ObjectPath(0x0300, 1), Data: attrList(ids...)}
+	}
+	mspReq := func(reqs ...cip.Request) cip.Request {
+		d, err := cip.EncodeMultipleService(reqs)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return cip.Request{Service: cip.ServiceMultipleServicePacket, Path: cip.MessageRouterPath(), Data: d}
+	}
+	handle := func(ctx context.Context, connected bool, req cip.Request) cip.Response {
+		return s.handleMessage(ctx, mustEncode(t, req), nil, connected)
+	}
+	bg := context.Background()
+
+	// Seven lists of one ID repeated: the first one stops at the budget,
+	// and the packet with it.
+	reqs := make([]cip.Request, 7)
+	for i := range reqs {
+		reqs[i] = gal(repeatID(1, maxListAttributes)...)
+	}
+	if r := handle(bg, false, mspReq(reqs...)); r.Status != cip.StatusReplyDataTooLarge || len(r.Data) != 0 {
+		t.Errorf("lists beyond the packet: %s, %d octets", r.Status, len(r.Data))
+	}
+	if n := int(list.Load()); n > maxUnconnectedReplyData/1004+1 {
+		t.Errorf("%d reads for a reply of at most %d octets", n, maxUnconnectedReplyData)
+	}
+	// Single reads that together outgrow the packet: the third is not
+	// read.
+	if r := handle(bg, false, mspReq(gas(2), gas(2), gas(2))); r.Status != cip.StatusReplyDataTooLarge {
+		t.Errorf("reads beyond the packet: %s", r.Status)
+	}
+	if big.Load() != 2 {
+		t.Errorf("%d large reads, want 2", big.Load())
+	}
+	// A reply that fits is the embedded replies, packed.
+	fit := []cip.Request{gas(3), gal(3, 3, 9)}
+	r := handle(bg, false, mspReq(fit...))
+	want := make([]cip.Response, len(fit))
+	for i, q := range fit {
+		want[i] = handle(bg, false, q)
+		want[i].Service = q.Service
+	}
+	wantData, err := cip.EncodeMultipleServiceResponse(want)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if r.Status != cip.StatusEmbeddedServiceError || !bytes.Equal(r.Data, wantData) {
+		t.Errorf("reply that fits: %s %x, want %x", r.Status, r.Data, wantData)
+	}
+	// On a Class 3 connection: 2 + 2n + n * (4 + 10) octets.
+	conn := context.WithValue(bg, exchangeKey{}, &exchange{maxReply: 50})
+	if r := handle(conn, true, mspReq(gas(3), gas(3), gas(3))); !r.OK() || len(r.Data) != 50 {
+		t.Errorf("connected reply of exactly the connection: %s, %d octets", r.Status, len(r.Data))
+	}
+	if r := handle(conn, true, mspReq(gas(3), gas(3), gas(3), gas(3))); r.Status != cip.StatusReplyDataTooLarge {
+		t.Errorf("connected reply beyond the connection: %s", r.Status)
+	}
+	// A packet inside an Unconnected_Send inside a packet: the inner one
+	// running out of room fills the outer one.
+	routed := func(req cip.Request) cip.Request {
+		d, err := cip.UnconnectedSend{PriorityTick: 10, TimeoutTicks: 10, Request: req,
+			Route: cip.Path{cip.PortSegment{Port: 1, Link: []byte{0}}}}.Encode()
+		if err != nil {
+			t.Fatal(err)
+		}
+		return cip.Request{Service: cip.ServiceUnconnectedSend, Path: cip.ConnectionManagerPath(), Data: d}
+	}
+	small.Store(0)
+	for _, inner := range []cip.Request{mspReq(gal(repeatID(1, maxListAttributes)...)), mspReq(gas(2), gas(2))} {
+		if r := handle(bg, false, mspReq(routed(inner), gas(3))); r.Status != cip.StatusReplyDataTooLarge {
+			t.Errorf("routed packet beyond the outer one: %s", r.Status)
+		}
+	}
+	if small.Load() != 0 {
+		t.Errorf("%d services ran after the reply outgrew the packet", small.Load())
+	}
+}
+
+// TestReplyBudgetOverTCP: the Multiple Service Packet of Get_Attribute_List
+// requests of an assembly, over a session, is answered with reply data too
+// large, as before the reply was bounded while it is built.
+func TestReplyBudgetOverTCP(t *testing.T) {
+	s := startIOServer(t)
+	if _, err := s.AddAssembly(110, AssemblyInput, 4000); err != nil {
+		t.Fatal(err)
+	}
+	p := dialPeer(t, s)
+	p.register()
+	reqs := make([]cip.Request, 7)
+	for i := range reqs {
+		reqs[i] = cip.Request{Service: cip.ServiceGetAttributeList, Path: cip.ObjectPath(cip.ClassAssembly, 110), Data: attrList(repeatID(3, maxListAttributes)...)}
+	}
+	d, err := cip.EncodeMultipleService(reqs)
+	if err != nil {
+		t.Fatal(err)
+	}
+	r := p.do(cip.Request{Service: cip.ServiceMultipleServicePacket, Path: cip.MessageRouterPath(), Data: d})
+	if r.Status != cip.StatusReplyDataTooLarge || r.Service != cip.ServiceMultipleServicePacket {
+		t.Errorf("reply %s %s", r.Service, r.Status)
+	}
+	// A list that fits is answered.
+	r = p.do(cip.Request{Service: cip.ServiceGetAttributeList, Path: cip.ObjectPath(cip.ClassAssembly, 110), Data: attrList(3, 3)})
+	if !r.OK() || len(r.Data) != 2+2*(4+4000) {
+		t.Errorf("list that fits: %s, %d octets", r.Status, len(r.Data))
+	}
+}
+
+// TestDelayedDiscoveryClose: delayed ListIdentity replies still waiting
+// when the server closes are stopped (Close waits for one being sent), and
+// none is scheduled after Close.
+func TestDelayedDiscoveryClose(t *testing.T) {
+	s := startServer(t)
+	c, err := net.ListenUDP("udp4", &net.UDPAddr{IP: net.IPv4(127, 0, 0, 1)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = c.Close() }()
+	to := c.LocalAddr().(*net.UDPAddr).AddrPort()
+	out := []byte("reply")
+	// One sent at once, one waiting.
+	s.pendingDiscovery.Add(2)
+	s.scheduleDelayed(0, c, out, to)
+	s.scheduleDelayed(time.Hour, c, out, to)
+	waitFor(t, "the undelayed reply", func() bool { return s.pendingDiscovery.Load() == 1 })
+	s.mu.Lock()
+	waiting := len(s.delayed)
+	s.mu.Unlock()
+	if waiting != 1 {
+		t.Fatalf("%d timers registered, want 1", waiting)
+	}
+	if err := s.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if n := s.pendingDiscovery.Load(); n != 0 {
+		t.Errorf("%d replies pending after Close", n)
+	}
+	s.pendingDiscovery.Add(1)
+	s.scheduleDelayed(time.Millisecond, c, out, to)
+	s.mu.Lock()
+	waiting = len(s.delayed)
+	s.mu.Unlock()
+	if waiting != 0 || s.pendingDiscovery.Load() != 0 {
+		t.Errorf("reply scheduled after Close: %d timers, %d pending", waiting, s.pendingDiscovery.Load())
 	}
 }

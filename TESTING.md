@@ -11,7 +11,7 @@ other over loopback TCP and UDP; no mocks stand in for the network.
 | Stress and parallel | `e2e/stress_test.go` and the packages | many clients, shared sessions with requests in flight, session and connection limits under contention, concurrent Forward_Open/Close, reconnection storms, shutdown under load, random cancellation | `make stress` |
 | Leaks | `e2e/main_test.go`; `main_test.go` of `client`, `server`, `implicit`, `scanner` | after the whole e2e suite: no goroutine and no file descriptor left; after the tests of each of the four packages: no goroutine left that runs code of the module and did not exist before the tests (stacks compared, `internal/testenv`) | `make test` |
 | Fuzz | `*_fuzz_test.go`, `eds/fuzz_test.go`, `logix/fuzz_test.go` | the decoders of EPATH (padded and packed), CIP requests and responses, Multiple Service Packet, Forward_Open, the Forward_Open and Forward_Close replies, connection failures, Unconnected_Send, identity, the encapsulation header, packets and stream, CPF, the identity item, I/O datagrams and payloads, EDS files, Logix templates and read replies; the client's handling of reply streams; the server's handling of request streams and of Logix requests: every input is decoded or refused with an error, and decodes back to itself where the format has a round trip | `make fuzz` runs every `Fuzz` function it finds (`go test -list`); CI: 10 s each per pull request, 10 min each nightly |
-| Allocation budgets | `cip/budget_test.go`, `encap/budget_test.go`, `implicit/budget_test.go`, `eds/limits_test.go`, `server/budget_test.go`, `logix/hostile_test.go` | what one call allocates at the documented limits, with the largest counts and sizes the fields can state: decoders within 16 octets per input octet plus 64 KiB; CPF and I/O datagrams within 4 KiB; `ReadPacket` within twice its limit; `eds.Parse` within 256 MiB for any file up to 16 MiB; a server reply within four times the encapsulation maximum; a Logix template decode within 64 MiB | `make test` |
+| Allocation budgets | `cip/budget_test.go`, `encap/budget_test.go`, `implicit/budget_test.go`, `eds/limits_test.go`, `server/budget_test.go`, `logix/hostile_test.go` | what one call allocates at the documented limits, with the largest counts and sizes the fields can state, averaged per call as `testing.AllocsPerRun` does (`testenv.PerCall`: GOMAXPROCS 1, a call not counted, no other goroutine of the module running), against a budget derived from what the code must hold: decoders within 16 octets per input octet plus 64 KiB; CPF and I/O datagrams within twice the slice of `encap.MaxItems` items plus 1 KiB for an error; `ReadPacket` within twice the header and its limit, and 1 KiB with a buffer large enough; `eds.Parse` within six times the file size limit plus four times the sections, entries and fields it may hold (243 MiB on a 64-bit platform); the handling of a request whose reply exceeds its budget within four times that budget plus the attribute value that exceeds it; a Logix template decode within 64 MiB (`logix/hostile_test.go` measures one call) | `make test` |
 | Benchmarks | `cip`, `encap`, `implicit`, `e2e` | codec throughput and allocations; request latency, throughput, Class 3, fragmented Logix reads | `make bench` |
 | Recorded traffic | `*/capture_test.go`, `internal/capture`, [testdata/captures](testdata/captures/README.md) | 20 committed captures (31 MB, about 200,000 messages) of a 1756-L63 ControlLogix, a 1756-ENBT/A, a Micro850, a MicroLogix 1400 and unidentified targets: every message decodes and encodes back byte for byte; the client and the Logix client against the recorded replies (a request no recorded originator sent fails); the server and the Logix emulation against the recorded requests (the devices' answers byte for byte, known differences pinned); Class 1 datagrams; truncations, malformed variants and 300 seeded mutated streams | `make test` |
 | Interop | `interop/` (build tag `interop`) | the library against OpENer, EIPScanner, pycomm3 and cpppo, both directions | `make interop` (Docker) |
@@ -74,7 +74,7 @@ the OT Fabric testing standard): `client.Client` (C), `client.Conn` (Cn),
 | L11 Slow callback | documented: callbacks must not block (API.md) | no test; a slow `OnData` or `OnInput` holds every connection of its endpoint |
 | L12 Queue at capacity | C `TestMaxPendingCorrelation`; S `TestDelayedDiscoveryBound`, `TestTCPConnectionLimit`, `TestForwardOpenLimits`, `TestMaxConnectionsPerOriginator`; e2e `TestStressSessionLimit` | — |
 | L13 Concurrent sessions | S `TestHostileForeignSessionHandle`, `TestForwardCloseOtherOriginator`, `TestConcurrentOwners`; e2e `TestStressSharedSession`, `TestStressManyClients` | — |
-| L14 Failure during construction | C `TestDialFailures`, `TestHostileRegisterReplies`; S `TestListenErrors`, `TestIOEndpointFailure`, `TestTLSHandshakeFailureReleasesSlot`; E, IC `TestOpenErrors`, `TestMulticastJoinFailure`, `TestEndpointCloseStopsProducers`; Sc `TestOpenWithoutTarget`, `TestForwardOpenReplyChecks`; the leak checks of each package | — |
+| L14 Failure during construction | C `TestDialFailures`, `TestHostileRegisterReplies`; S `TestListenErrors`, `TestIOEndpointFailure`, `TestTLSHandshakeFailureReleasesSlot`; E, IC `TestOpenErrors`, `TestMulticastJoinFailure`, `TestEndpointClose`; Sc `TestOpenWithoutTarget`, `TestReplyAPIs`, `TestForwardOpenReplyConnectionID`; the leak checks of each package | — |
 | L15 Shutdown(ctx) | n/a: there is no `Shutdown`; `Scanner.Close(ctx)`, `IO.Close(ctx)` and `Conn.Close(ctx)` bound their Forward_Close by the context | — |
 | L16 Close racing a reconnect | IO `TestCloseDuringReconnect`; Sc `TestOpenRacingClose`; C reconnects only inside a request (L5) | — |
 
@@ -93,7 +93,7 @@ On an Apple M-series laptop (darwin/arm64, Go 1.27, loopback), from
 | Encapsulation packet encode (500 octets) | 45 ns, 0 allocs |
 | `ReadPacket` (500 octets) | 66 ns, 0 allocs |
 | I/O datagram decode | 30 ns, 1 alloc |
-| I/O receive path (decode, checks, callback) | 115–189 ns, 2 allocs (72 B)\* |
+| I/O receive path (decode, checks, callback) | 109–153 ns, 2 allocs (72 B)\* |
 | Explicit request round trip (unconnected) | 30 µs |
 | Explicit request round trip (Class 3) | 31 µs |
 | Shared session, 8 in flight | 11 µs per request |
@@ -102,7 +102,7 @@ On an Apple M-series laptop (darwin/arm64, Go 1.27, loopback), from
 | Logix read of 1000 INT (Class 3, 2000 octets) | 34 µs |
 
 \* Measured on an Apple M1 (darwin/arm64), Go 1.27.4, on 2026-11-14, for
-v0.6.1: `go test -run '^$' -bench 'BenchmarkConsume$' -benchtime 2s
+v0.7.1: `go test -run '^$' -bench 'BenchmarkConsume$' -benchtime 2s
 -count 5 ./implicit`, the range of the five runs. Every datagram of the
 benchmark is newer than the last and reaches the callback
 (`TestConsumeDatagram`).

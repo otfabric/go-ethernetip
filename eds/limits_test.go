@@ -6,6 +6,7 @@ import (
 	"errors"
 	"strings"
 	"testing"
+	"unsafe"
 
 	"github.com/otfabric/go-ethernetip/internal/testenv"
 )
@@ -66,12 +67,14 @@ func TestLimitsAboveRealFiles(t *testing.T) {
 	}
 }
 
-// parseBudget is what one Parse may allocate in total, for any file at or
-// just past the limits, with room for the race detector: the file itself
-// is read and copied (three to six times MaxFileSize with the growth of
-// the read buffer), then at most maxEntries entries and maxFileFields
-// fields are kept.
-const parseBudget = 256 << 20
+// parseBudget is what one Parse may allocate, for any file at or just
+// past the limits: the file is read and copied (three to six times
+// MaxFileSize with the growth of the read buffer, six with the race
+// detector), and at most maxSections sections, maxEntries entries and
+// maxFileFields fields are held, four times over for the growth of their
+// slices. On a 64-bit platform it is 243 MiB.
+const parseBudget = uint64(6*MaxFileSize +
+	4*(maxSections*unsafe.Sizeof(Section{})+maxEntries*unsafe.Sizeof(Entry{})+maxFileFields*unsafe.Sizeof(Field{})))
 
 // TestParseAllocationBudget: files at the limits, accepted or refused,
 // allocate within parseBudget.
@@ -98,10 +101,10 @@ func TestParseAllocationBudget(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			var err error
-			alloc := testenv.Allocated(func() { _, err = ParseString(tc.src) })
-			t.Logf("%d octets, %d MiB allocated (%v)", len(tc.src), alloc>>20, err)
-			if alloc > parseBudget {
-				t.Fatalf("%d MiB allocated for a file of %d octets, budget %d MiB", alloc>>20, len(tc.src), parseBudget>>20)
+			a := testenv.PerCall(t, 1, func() { _, err = ParseString(tc.src) })
+			t.Logf("%d octets, %d MiB allocated per call, budget %d MiB (%v)", len(tc.src), a.Octets>>20, parseBudget>>20, err)
+			if a.Octets > parseBudget {
+				t.Fatalf("%d MiB allocated for a file of %d octets, budget %d MiB", a.Octets>>20, len(tc.src), parseBudget>>20)
 			}
 			if (err == nil) != tc.ok {
 				t.Fatalf("Parse = %v", err)

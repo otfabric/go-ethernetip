@@ -1,45 +1,38 @@
 # go-ethernetip Releases
 
-## v0.6.1
+## v0.7.1
 
 **Date:** 2026-11-14
-**Previous release:** v0.6.0
+**Previous release:** v0.7.0
 
 ## Summary
 
-A patch release. The server bounds its replies by what their packets can
-carry, the EDS parser bounds sections and fields, and the scanner checks
-Forward_Open replies; `Close` works from callbacks and with requests in
-flight, and stops everything it owns. TESTING.md gains the lifecycle
-contract matrix, with leak checks, allocation-budget tests and fuzz
-targets. No API change.
+A patch release on v0.7.0. The scanner also refuses a Forward_Open reply
+whose O->T connection ID is 0; `Close` works from `OnState` callbacks,
+with requests in flight and while `Open` waits for its reply; reopen
+delays have equal jitter. The server's inactivity timeout set to 0 at run
+time holds for open sessions, and the EDS parser bounds sections and
+fields. TESTING.md gains the lifecycle contract matrix, with leak checks,
+allocation-budget tests and fuzz targets. No exported identifier changes.
 
 ## Changes
 
 ### Fixes
 
-- **server**: a TCP connection whose TLS handshake fails gives its place in
-  the connection limit back, as every other ended connection does.
-- **server**: a reply is bounded by what its packet can carry: 65515
-  octets of data for an unconnected request, the T->O size on a Class 3
-  connection. A Multiple Service Packet, Get_Attribute_List or
-  Get_Attributes_All stops as soon as its reply would exceed that and
-  answers 0x11 (reply data too large), without building the rest.
 - **server**: an inactivity timeout set to 0 at run time (TCP/IP Interface
   attribute 13) clears the read deadline of the open sessions; "zero
   disables it" now holds for them too.
-- **scanner**: a Forward_Open reply with an actual packet interval of 0,
-  an O->T connection ID of 0, or an O->T Sockaddr Info item naming a
-  unicast address other than the target's is refused with `ErrProtocol`,
-  and the connection is closed at the target. An unspecified address, or
-  the target's own, is taken as before, with the item's port.
+- **scanner**: a Forward_Open reply whose O->T connection ID is 0 is
+  refused with `ErrProtocol`, and the connection is closed at the target
+  with Forward_Close, as for the actual packet intervals v0.7.0 checks.
 - **scanner**: an `OnState` handler may call `IO.Close` or
   `Scanner.Close`, with `Reconnect` set too, and the call returns. The
   documentation of `OnState` states the goroutine it runs on and what it
-  may call.
+  may call; once an IO is closed, its own goroutines report no further
+  state.
 - **scanner**: the reopen delays of `Reconnect` have equal jitter: each
-  wait is drawn from [d/2, d], d doubling from `MinDelay` up to
-  `MaxDelay`.
+  wait is drawn from [d/2, d], d doubling from `MinDelay` up to `MaxDelay`
+  without wrapping, the first d at most `MaxDelay`.
 - **scanner**: a `Scanner.Close` while `Open` waits for the Forward_Open
   reply leaves nothing running: `Open` closes what it opened and returns
   `ErrClosed`. Of concurrent `IO.Close` calls, one closes the connection.
@@ -50,8 +43,6 @@ targets. No API change.
   `Close` documents, also when its write fails during the close.
 - **client**: a `Dialer` that returns neither a connection nor an error
   fails `Connect` with `ErrConnectFailed`.
-- **implicit**: `Endpoint.Close` closes every connection on the endpoint,
-  those that only produce included.
 - **eds**: `Parse` refuses a file of more than 16384 sections or 1048576
   fields in all, in addition to the limits on size, entries and fields per
   entry; the files in `eds/testdata` use well under a hundredth of each.
@@ -66,7 +57,11 @@ targets. No API change.
 - Goroutine leak checks after the tests of `client`, `server`, `implicit`
   and `scanner` (`internal/testenv`).
 - Allocation-budget tests for the decoders of `cip`, `encap` and
-  `implicit`, for `eds.Parse` at its limits and for the server's replies.
+  `implicit`, for `eds.Parse` at its limits and for the server's handling
+  of requests whose reply exceeds its budget. What a call allocates is
+  averaged over many calls, as `testing.AllocsPerRun` counts, with no
+  other goroutine of the module running, against a budget derived from
+  what the code must hold.
 - Fuzz targets for `cip.DecodeForwardOpenReply`, `DecodeForwardCloseReply`
   and `DecodeConnectionFailure`; `make fuzz` runs every fuzz target it
   finds.
@@ -80,9 +75,101 @@ targets. No API change.
 
 - The lifetime of the data passed to `Attribute.Set`, `ServiceFunc`,
   `Object.ServeCIP` and `SymbolHandler`: valid until the call returns.
+- `WithInactivityTimeout` says that attribute 13 changes it at run time;
+  `Client.Close` says that it waits for a write in progress, at most the
+  client's timeout.
 - TESTING.md, SECURITY.md, docs/LIMITATIONS.md, docs/IMPLICIT.md,
-  docs/EDS.md, ARCHITECTURE.md (1000 embedded services),
-  docs/FEATURE-STATUS.md, docs/api.
+  docs/EDS.md, ARCHITECTURE.md (the fuzz targets are those TESTING.md
+  lists), docs/FEATURE-STATUS.md, docs/api.
+
+---
+
+## v0.7.0
+
+**Date:** 2026-11-14
+**Previous release:** v0.6.0
+
+## Summary
+
+Tighter bounds and lifecycles in the server, the scanner, the Logix client
+and emulation, and the EDS package. The server frees the place of a
+connection whose TLS handshake fails, stops building a reply as soon as it
+exceeds what the packet or connection can carry, and no longer leaves a
+multicast producer running when a Forward_Close arrives during the
+Forward_Open. The scanner checks the actual packet intervals of a
+Forward_Open reply. The Logix client bounds the tag list and template
+reads like the fragmented read. EDS files with several spellings of one
+number give one entry, and Validate runs in linear time. The public API is
+unchanged.
+
+## Changes
+
+### Fixes
+
+- **server**: a connection whose TLS handshake fails frees its place under
+  the TCP connection limit (2 × `WithMaxSessions` + 16); before, it held it
+  until `Close`.
+- **server**: Multiple Service Packet, Get_Attribute_List and
+  Get_Attributes_All stop with 0x11 (reply data too large) as soon as the
+  reply exceeds what the encapsulation packet or the Class 3 connection can
+  carry, instead of building the whole reply first. Replies that fit are
+  unchanged.
+- **server**: a Forward_Close that arrives while a multicast Forward_Open
+  is handled no longer leaves a multicast producer running (the
+  Forward_Open is answered 0x31C); the change-of-state producer set is
+  updated together with the connection's close.
+- **server**: a connection opened while the server closes is refused
+  (0x31C), and the Class 3 inactivity timer always stops with its
+  connection.
+- **server**: delayed ListIdentity replies (`WithDiscoveryDelay`) still
+  waiting at `Close` are dropped; none is sent after `Close` returns.
+- **implicit**: `Endpoint.Close` also closes connections that only
+  produce, as documented.
+- **scanner**: `Open` refuses a Forward_Open reply with a T->O actual
+  packet interval of 0 or an O->T actual packet interval below a quarter of
+  the requested RPI (and below 100 µs), with `ErrProtocol`, and closes that
+  connection again.
+- **scanner**: O->T data of a point-to-point connection goes to the
+  target's address, at the port named in the Sockaddr Info O->T item;
+  another address in that item is ignored.
+- **logix**: `Client.ListTags` stops with `ErrProtocol` after 65536 partial
+  replies or 16 MiB of reply data, like a fragmented read;
+  `Client.Template` stops after 65536 Read_Template replies.
+- **logix**: `TagServer` compares BOOL array indices as 32-bit values, so
+  indices of 0x80000000 and above are answered with "access beyond end" on
+  32-bit platforms too.
+- **logix**: `TagServer` answers Read-Modify-Write on an array member of no
+  elements with "access beyond end" instead of reading beyond the tag, and
+  a Template Get_Attribute_List whose reply exceeds the reply size with
+  0x11.
+- **logix**: `TagServer.AddTag` and `AddStructTag` compute tag sizes without
+  integer overflow and refuse tags above 16 MiB on every platform.
+- **logix**: template decoding refuses structure members above 2 GiB;
+  template definitions are parsed without splitting the data after the
+  member names.
+- **eds**: keywords that name the same number (`Param1` and `Param01`, or a
+  repeated `Param1`) give one parameter, enum, assembly or connection: the
+  first. `GenerateGo` output no longer grows with such copies, and
+  `Validate` reports them as errors.
+- **eds**: `Validate` looks up entries through a per-section index, so its
+  run time is linear in the number of assemblies, connections and
+  references.
+
+### Tests
+
+- New regression tests in server (TLS handshake failures, reply budgets,
+  Forward_Close during a multicast Forward_Open, opening while closing,
+  delayed discovery at Close), implicit (`Endpoint.Close` of producers),
+  scanner (reply intervals, Sockaddr O->T address), logix (tag list and
+  template reply limits, BOOL array indices, tag sizes) and eds (numbered
+  entries, many assemblies).
+
+### Documentation
+
+- SECURITY.md, docs/LIMITATIONS.md and docs/IMPLICIT.md describe the new
+  bounds and the scanner's handling of actual packet intervals;
+  ARCHITECTURE.md gives the Multiple Service Packet limit as 1000 embedded
+  services, as the code has it.
 
 ---
 

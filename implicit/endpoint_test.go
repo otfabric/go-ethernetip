@@ -672,10 +672,27 @@ func TestEndpointClose(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	// A connection that only produces is closed with the endpoint too.
+	c3, err := e.Open(Config{Class: 1, ProducedID: 3, Destination: mustAddrPort("127.0.0.1:9"), ProduceRPI: time.Hour})
+	if err != nil {
+		t.Fatal(err)
+	}
+	// One closed before the endpoint is forgotten.
+	c4, err := e.Open(Config{Class: 1, ProducedID: 4, Destination: mustAddrPort("127.0.0.1:9"), ProduceRPI: time.Hour})
+	if err != nil {
+		t.Fatal(err)
+	}
+	c4.Close()
+	e.mu.Lock()
+	tracked := len(e.all)
+	e.mu.Unlock()
+	if tracked != 3 {
+		t.Errorf("%d connections tracked, want 3", tracked)
+	}
 	if err := e.Close(); err != nil {
 		t.Fatal(err)
 	}
-	for _, c := range []*Connection{c1, c2} {
+	for _, c := range []*Connection{c1, c2, c3} {
 		select {
 		case <-c.Done():
 		default:
@@ -689,29 +706,6 @@ func TestEndpointClose(t *testing.T) {
 		t.Errorf("second Close: %v", err)
 	}
 	c1.Close()
-}
-
-// TestEndpointCloseStopsProducers: Close stops every connection of the
-// endpoint, those that only produce included.
-func TestEndpointCloseStopsProducers(t *testing.T) {
-	e, err := Listen("127.0.0.1:0")
-	if err != nil {
-		t.Fatal(err)
-	}
-	sink := listen(t)
-	c, err := e.Open(Config{Class: 1, ProducedID: 0x77, Destination: sink.LocalAddr(), ProduceRPI: time.Millisecond, ProduceSize: 4})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := e.Close(); err != nil {
-		t.Fatal(err)
-	}
-	select {
-	case <-c.Done():
-	default:
-		t.Fatal("producing connection still open after Endpoint.Close")
-	}
-	testenv.NoGoroutine(t, "implicit.(*Connection).run")
 }
 
 func TestListenErrors(t *testing.T) {

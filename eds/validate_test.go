@@ -3,6 +3,7 @@
 package eds
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 )
@@ -85,6 +86,9 @@ func TestValidateRule(t *testing.T) {
 		{"no Device Classification", validFile + validDevice, "warning: line 0 [Device Classification]: no [Device Classification] section (EtherNetIP)"},
 		{"no EtherNetIP class", validFile + validDevice + "[Device Classification]\n\tClass1 = DeviceNet;\n", "warning: line 13 [Device Classification]: no class EtherNetIP"},
 		{"duplicate keyword", valid + "[Port]\n\tPort1 = 1;\n\tport1 = 2;\n", "error: line 17 [Port]: port1 repeats the entry of line 16"},
+		{"zero-padded keyword", valid + "[Params]\n" + param("1", "0xC6", "1", `"a"`, ",,") + param("01", "0xC6", "1", `"b"`, ",,"), "error: line 17 [Params]: Param01 repeats the entry of line 16"},
+		{"zero-padded assembly", valid + "[Assembly]\n\tAssem2 = \"a\", \"20 04 24 02\", 0;\n\tAssem02 = \"b\", \"20 04 24 03\", 0;\n", "error: line 17 [Assembly]: Assem02 repeats the entry of line 16"},
+		{"padded duplicate case", valid + "[Connection Manager]\n\tConnection1 = 1, 0, ,,, ,,, ,,,, \"c\", \"\", \"20 04 24 01\";\n\tconnection001 = 1, 0;\n", "error: line 17 [Connection Manager]: connection001 repeats the entry of line 16"},
 		{"bad Params", valid + "[Params]\n\tParam1 = 0, ,, 0, x, 1;\n", "error: line 15 [Params]: eds: line 16: Param1 data type: not a 8-bit number: x"},
 		{"unknown data type", valid + "[Params]\n" + param("1", "0xFF", "1", `"n"`, ",,"), "error: line 16 [Params]: Param1: data type 0xFF is not an elementary type"},
 		{"size mismatch", valid + "[Params]\n" + param("1", "0xC4", "2", `"n"`, ",,"), "error: line 16 [Params]: Param1: data size 2, DINT has 4"},
@@ -170,5 +174,51 @@ func TestSeverityAndIssueString(t *testing.T) {
 	is := Issue{Severity: Error, Line: 4, Section: "Device", Message: "VendCode missing"}
 	if got := is.String(); got != "error: line 4 [Device]: VendCode missing" {
 		t.Errorf("%s", got)
+	}
+}
+
+// TestValidateNumberedSpelling checks that entries spelt with leading zeros
+// are read by number and that issues name the line of that entry.
+func TestValidateNumberedSpelling(t *testing.T) {
+	src := valid + "[Assembly]\n\tAssem01 = \"a\", \"20 04 24 01\", 2, 0, ,, 8, ;\n" +
+		"[Connection Manager]\n\tConnection007 = 0x04010000, 0, , , , , , , , , , , \"c\", \"\", \"20 04 24 01\";\n"
+	var all []string
+	for _, is := range Validate(mustParse(t, src)) {
+		all = append(all, is.String())
+	}
+	got := strings.Join(all, "\n")
+	for _, want := range []string{
+		"error: line 16 [Assembly]: Assem1: members of 8 bits for 2 octets",
+		"warning: line 18 [Connection Manager]: Connection7: no transport class",
+	} {
+		if !strings.Contains(got, want) {
+			t.Errorf("no issue %q in\n%s", want, got)
+		}
+	}
+}
+
+// TestValidateManyAssemblies checks that the lookups of Validate go through
+// one index per section, however many entries and references a file has.
+func TestValidateManyAssemblies(t *testing.T) {
+	const n = 5000
+	var sb strings.Builder
+	sb.WriteString(valid + "[Params]\n" + param("1", "0xC6", "1", `"a"`, ",,") + "[Assembly]\n")
+	for i := 1; i <= n; i++ {
+		fmt.Fprintf(&sb, "\tAssem%d = \"a\", \"20 04 24 01\", 2, 0, ,, 8, Param1, 8, Assem%d;\n", i, i)
+	}
+	sb.WriteString("[Connection Manager]\n")
+	for i := 1; i <= n; i++ {
+		fmt.Fprintf(&sb, "\tConnection%d = 2, 0, Param1, , Assem%d, , , Assem%d, , , Connection1, , \"c\", \"\", \"20 04 24 01\";\n", i, i, i)
+	}
+	f := mustParse(t, sb.String())
+	before := indexBuilds.Load()
+	issues := Validate(f)
+	if built := indexBuilds.Load() - before; built != 3 {
+		t.Errorf("%d section indexes built, want 3 (one per referenced section)", built)
+	}
+	for _, is := range issues {
+		if is.Severity == Error {
+			t.Fatalf("%s", is)
+		}
 	}
 }

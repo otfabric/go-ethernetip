@@ -107,7 +107,7 @@ DecodeStruct decodes the first element of a structure value, reading the templat
 func (c *Client) ListTags(ctx context.Context, program string) ([]Tag, error)
 ```
 
-ListTags reads the tag list of the Symbol object with Get Instance Attribute List (0x55): controller-scoped tags when program is "", the tags of a program ("Program:Main") otherwise. System tags and the names of programs are included as the controller reports them.
+ListTags reads the tag list of the Symbol object with Get Instance Attribute List (0x55): controller-scoped tags when program is "", the tags of a program ("Program:Main") otherwise. System tags and the names of programs are included as the controller reports them. Like a fragmented read, the list stops with ethernetip.ErrProtocol beyond 16 MiB of replies or 65536 replies.
 
 #### func (Client) ProgramName
 
@@ -139,7 +139,7 @@ ReadMany reads one element of each tag in one Multiple Service Packet (per batch
 func (c *Client) Template(ctx context.Context, id uint16) (*Template, error)
 ```
 
-Template reads a structure template (Template object instance id): its attributes, then its definition with Read\_Template. Templates are cached.
+Template reads a structure template (Template object instance id): its attributes, then its definition with Read\_Template (at most 65536 replies, like a fragmented read). Templates are cached.
 
 #### func (Client) Write
 

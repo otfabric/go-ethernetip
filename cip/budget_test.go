@@ -92,14 +92,14 @@ func TestDecodeAllocationBudget(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			var err error
-			alloc := testenv.Allocated(func() { err = tc.decode(tc.in) })
+			a := testenv.PerCall(t, 20, func() { err = tc.decode(tc.in) })
 			budget := uint64(budgetFactor*len(tc.in) + budgetBase)
-			t.Logf("%d octets in, %d allocated (%v)", len(tc.in), alloc, err)
+			t.Logf("%d octets in: %v, budget %d (%v)", len(tc.in), a, budget, err)
+			if a.Octets > budget {
+				t.Fatalf("%v for %d octets of input, budget %d", a, len(tc.in), budget)
+			}
 			if (err == nil) != tc.ok {
 				t.Fatalf("decode = %v", err)
-			}
-			if alloc > budget {
-				t.Fatalf("%d octets allocated for %d octets of input, budget %d", alloc, len(tc.in), budget)
 			}
 		})
 	}

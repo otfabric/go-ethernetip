@@ -7,6 +7,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/otfabric/go-ethernetip/cip"
@@ -59,7 +60,8 @@ var (
 // types of parameters are elementary types whose size matches; minimum,
 // maximum and default are ordered; ParamN and AssemN references resolve;
 // EPATHs decode; assembly members fill their size; keywords are not
-// repeated within a section.
+// repeated within a section, and no two ParamN, EnumN, AssemN or
+// ConnectionN keywords name the same number (Param1 and Param01).
 func Validate(f *File) []Issue {
 	v := &validator{f: f}
 	v.order()
@@ -77,7 +79,40 @@ type validator struct {
 	f     *File
 	errs  []Issue
 	warns []Issue
+	// idx maps a section to its entries by lower-cased keyword (the first
+	// entry of each keyword, as Section.Entry finds it), built on first use.
+	idx map[*Section]map[string]Entry
 }
+
+// numberedPrefixes are the keyword prefixes that the typed views read as
+// numbered entries; two keywords of one prefix naming the same number
+// (Param1, Param01) are the same entry.
+var numberedPrefixes = []string{"Param", "Enum", "Assem", "Connection"}
+
+// entry is Section.Entry through an index of the section, so that lookups
+// inside loops stay linear in the size of the file.
+func (v *validator) entry(s *Section, kw string) (Entry, bool) {
+	m, ok := v.idx[s]
+	if !ok {
+		m = make(map[string]Entry, len(s.Entries))
+		for _, e := range s.Entries {
+			k := strings.ToLower(e.Keyword)
+			if _, dup := m[k]; !dup {
+				m[k] = e
+			}
+		}
+		if v.idx == nil {
+			v.idx = map[*Section]map[string]Entry{}
+		}
+		v.idx[s] = m
+		indexBuilds.Add(1)
+	}
+	e, ok := m[strings.ToLower(kw)]
+	return e, ok
+}
+
+// indexBuilds counts the section indexes built by validators, for tests.
+var indexBuilds atomic.Int64
 
 func (v *validator) add(sev Severity, line int, sec, format string, a ...any) {
 	is := Issue{Severity: sev, Line: line, Section: sec, Message: fmt.Sprintf(format, a...)}
@@ -190,6 +225,12 @@ func (v *validator) duplicates() {
 		seen := map[string]int{}
 		for _, e := range s.Entries {
 			k := strings.ToLower(e.Keyword)
+			for _, p := range numberedPrefixes {
+				if n, ok := keywordNumber(e.Keyword, p); ok {
+					k = strings.ToLower(p) + strconv.Itoa(n)
+					break
+				}
+			}
 			if l, ok := seen[k]; ok {
 				v.add(Error, e.Line, s.Name, "%s repeats the entry of line %d", e.Keyword, l)
 			}
@@ -209,8 +250,18 @@ func (v *validator) exists(ref string) bool {
 	if s == nil {
 		return false
 	}
-	_, ok := s.Entry(ref)
+	_, ok := v.entry(s, ref)
 	return ok
+}
+
+// numberedEntries maps N to the entry of keyword prefix N, as the typed
+// views read it.
+func numberedEntries(s *Section, prefix string) map[int]Entry {
+	out := map[int]Entry{}
+	for _, ne := range numbered(s, prefix) {
+		out[ne.n] = ne.e
+	}
+	return out
 }
 
 func (v *validator) params() {
@@ -301,8 +352,9 @@ func (v *validator) assemblies() {
 		v.add(Error, s.Line, s.Name, "%v", err)
 		return
 	}
+	entries := numberedEntries(s, "Assem")
 	for _, a := range as {
-		e, _ := s.Entry("Assem" + strconv.Itoa(a.Number))
+		e := entries[a.Number]
 		bits := 0
 		for _, m := range a.Members {
 			bits += m.Bits
@@ -329,8 +381,9 @@ func (v *validator) connections() {
 		v.add(Error, s.Line, s.Name, "%v", err)
 		return
 	}
+	entries := numberedEntries(s, "Connection")
 	for _, c := range cs {
-		e, _ := s.Entry("Connection" + strconv.Itoa(c.Number))
+		e := entries[c.Number]
 		for _, ref := range []string{c.OTRPI, c.OTSize, c.OTFormat, c.TORPI, c.TOSize, c.TOFormat, c.ConfigSize, c.ConfigFormat} {
 			if reRef.MatchString(ref) && !v.exists(ref) {
 				v.add(Error, e.Line, s.Name, "Connection%d: %s does not exist", c.Number, ref)

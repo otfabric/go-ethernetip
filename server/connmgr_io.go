@@ -3,6 +3,7 @@
 package server
 
 import (
+	"errors"
 	"net"
 	"net/netip"
 	"sync"
@@ -55,9 +56,10 @@ func (c *ioConn) shutdown(error) {
 		return
 	}
 	c.closed = true
+	consumer := c.consumer
 	c.mu.Unlock()
-	if c.consumer != nil {
-		c.consumer.Close()
+	if consumer != nil {
+		consumer.Close()
 	}
 	if c.out != nil {
 		c.out.mu.Lock()
@@ -68,7 +70,7 @@ func (c *ioConn) shutdown(error) {
 		c.out.mu.Unlock()
 	}
 	if c.in != nil {
-		c.in.removeProducer(c.consumer)
+		c.in.removeProducer(consumer)
 	}
 	if c.prod != nil {
 		c.cm.leaveProduction(c)
@@ -164,6 +166,10 @@ func (cm *connectionManager) openIO(ex *exchange, fo cip.ForwardOpen, parts open
 		cm.mu.Unlock()
 		return reply, nil, connFailure(cip.ConnStatusInUse)
 	}
+	if cm.closed {
+		cm.mu.Unlock()
+		return reply, nil, connFailure(cip.ConnStatusMiscellaneous)
+	}
 	if cm.full(orig) {
 		cm.mu.Unlock()
 		return reply, nil, connFailure(cip.ConnStatusOutOfConnections)
@@ -254,18 +260,25 @@ func (cm *connectionManager) openIO(ex *exchange, fo cip.ForwardOpen, parts open
 			consumer.Close()
 		}
 		cm.remove(c, err)
+		if errors.Is(err, errProductionEnded) {
+			// The connection was closed while it opened.
+			return reply, nil, connFailure(cip.ConnStatusMiscellaneous)
+		}
 		return reply, nil, connFailure(cip.ConnStatusNoBufferMemory)
 	}
+	// The consumer is installed, and registered as a change-of-state
+	// producer, in one critical section with the check: a shutdown either
+	// ran before (and the consumer is closed here) or finds and removes it.
 	c.mu.Lock()
 	c.consumer = consumer
 	closed := c.closed
+	if !closed && !multicast && fo.Transport.Trigger() == cip.TriggerChangeOfState {
+		in.addProducer(consumer)
+	}
 	c.mu.Unlock()
 	if closed {
 		consumer.Close()
 		return reply, nil, connFailure(cip.ConnStatusMiscellaneous)
-	}
-	if !multicast && fo.Transport.Trigger() == cip.TriggerChangeOfState {
-		in.addProducer(consumer)
 	}
 	cm.opened(remote, c.info)
 
@@ -292,7 +305,14 @@ func sizeOK(p cip.NetworkParams, want int) bool {
 	return int(p.Size) == want
 }
 
+// errProductionEnded reports that a multicast production ended (its last
+// connection closed) before it started.
+var errProductionEnded = errors.New("production ended")
+
 // startProduction starts the multicast production of prod unless it runs.
+// The producer is installed under cm.mu only while prod is still the
+// registered production of its point and has an owner: leaveProduction,
+// which ends it, then finds and stops it; otherwise it is closed here.
 func (cm *connectionManager) startProduction(prod *production, in *Assembly, f implicit.Format) error {
 	cm.mu.Lock()
 	running := prod.conn != nil
@@ -313,14 +333,19 @@ func (cm *connectionManager) startProduction(prod *production, in *Assembly, f i
 		return err
 	}
 	cm.mu.Lock()
-	if prod.conn != nil {
+	live := cm.productions[prod.point] == prod && len(prod.owners) > 0
+	if prod.conn != nil || !live {
 		cm.mu.Unlock()
 		pc.Close()
+		if !live {
+			return errProductionEnded
+		}
 		return nil
 	}
 	prod.conn = pc
-	cm.mu.Unlock()
+	// Under cm.mu: leaveProduction cannot run between the two.
 	in.addProducer(pc)
+	cm.mu.Unlock()
 	return nil
 }
 

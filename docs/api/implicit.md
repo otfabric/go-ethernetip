@@ -189,7 +189,7 @@ Trigger produces a datagram now, in addition to the cyclic ones: a change of sta
 type Endpoint struct {
 
 	// consumers by consumed connection ID
-	// every open connection, producing only ones included
+	// every open connection, producers too
 	// multicast memberships, counted
 	// the interface address each group was joined on
 	// the default multicast interface address

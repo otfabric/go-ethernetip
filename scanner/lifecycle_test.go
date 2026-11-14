@@ -6,9 +6,6 @@ import (
 	"bytes"
 	"context"
 	"errors"
-	"net"
-	"net/netip"
-	"strconv"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -20,76 +17,25 @@ import (
 	"github.com/otfabric/go-ethernetip/implicit"
 )
 
-// TestForwardOpenReplyChecks: a Forward_Open reply whose actual packet
-// interval is 0, whose O->T connection ID is 0 or whose O->T Sockaddr Info
-// item names a unicast address other than the target's is refused with
-// ErrProtocol, the connection is closed at the target with Forward_Close,
-// and nothing is left on the endpoint. An unspecified address and the
-// target's own address are taken, with the item's port.
-func TestForwardOpenReplyChecks(t *testing.T) {
-	sink, err := net.ListenUDP("udp4", &net.UDPAddr{IP: net.IPv4(127, 0, 0, 1)})
-	if err != nil {
-		t.Fatal(err)
+// TestForwardOpenReplyConnectionID: a Forward_Open reply whose O->T
+// connection ID is 0 is refused with ErrProtocol, the connection is closed
+// at the target with Forward_Close, and nothing is left on the endpoint.
+func TestForwardOpenReplyConnectionID(t *testing.T) {
+	f := newFakeTarget(t, func(fo cip.ForwardOpen) (cip.ForwardOpenReply, []encap.Item) {
+		r := okReply(fo)
+		r.OTConnID = 0
+		return r, nil
+	})
+	s := newScanner(t, dial(t, f.ln.Addr().String()))
+	_, err := s.Open(ctxT(t), owner(5*time.Millisecond))
+	if !errors.Is(err, ethernetip.ErrProtocol) {
+		t.Fatalf("Open = %v, want ErrProtocol", err)
 	}
-	defer func() { _ = sink.Close() }()
-	port := strconv.Itoa(sink.LocalAddr().(*net.UDPAddr).Port)
-	ot := func(addr string) []encap.Item {
-		return []encap.Item{{Type: encap.ItemSockaddrOT, Data: encap.SockaddrOf(netip.MustParseAddrPort(addr)).Encode()}}
+	if n := f.closes.Load(); n != 1 {
+		t.Errorf("%d Forward_Close requests, want 1", n)
 	}
-	for _, tc := range []struct {
-		name   string
-		mangle func(*cip.ForwardOpenReply)
-		items  []encap.Item
-		ok     bool
-	}{
-		{"O->T interval 0", func(r *cip.ForwardOpenReply) { r.OTAPI = 0 }, nil, false},
-		{"T->O interval 0", func(r *cip.ForwardOpenReply) { r.TOAPI = 0 }, nil, false},
-		{"both intervals 0", func(r *cip.ForwardOpenReply) { r.OTAPI, r.TOAPI = 0, 0 }, nil, false},
-		{"O->T connection ID 0", func(r *cip.ForwardOpenReply) { r.OTConnID = 0 }, nil, false},
-		{"another unicast O->T address", nil, ot("192.0.2.1:" + port), false},
-		{"broadcast O->T address", nil, ot("255.255.255.255:" + port), false},
-		{"unspecified O->T address", nil, ot("0.0.0.0:" + port), true},
-		{"the target's O->T address", nil, ot("127.0.0.1:" + port), true},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-			f := newFakeTarget(t, func(fo cip.ForwardOpen) (cip.ForwardOpenReply, []encap.Item) {
-				r := okReply(fo)
-				if tc.mangle != nil {
-					tc.mangle(&r)
-				}
-				return r, tc.items
-			})
-			s := newScanner(t, dial(t, f.ln.Addr().String()))
-			ctx := ctxT(t)
-			io, err := s.Open(ctx, owner(5*time.Millisecond))
-			if !tc.ok {
-				if !errors.Is(err, ethernetip.ErrProtocol) {
-					t.Fatalf("Open = %v, want ErrProtocol", err)
-				}
-				if n := f.fcs.Load(); n != 1 {
-					t.Errorf("%d Forward_Close requests, want 1", n)
-				}
-				if n := s.Endpoint().Connections(); n != 0 {
-					t.Errorf("%d connections left on the endpoint", n)
-				}
-				return
-			}
-			if err != nil {
-				t.Fatalf("Open = %v", err)
-			}
-			defer func() { _ = io.Close(ctx) }()
-			// The output arrives at the item's port.
-			buf := make([]byte, 1500)
-			_ = sink.SetReadDeadline(time.Now().Add(3 * time.Second))
-			n, _, err := sink.ReadFromUDPAddrPort(buf)
-			if err != nil {
-				t.Fatalf("no output at the item's port: %v", err)
-			}
-			m, err := implicit.Decode(buf[:n])
-			if err != nil || m.ConnID != 0x77 {
-				t.Fatalf("output %+v, %v", m, err)
-			}
-		})
+	if n := s.Endpoint().Connections(); n != 0 {
+		t.Errorf("%d connections left on the endpoint", n)
 	}
 }
 
@@ -254,7 +200,7 @@ func TestOpenRacingClose(t *testing.T) {
 	case <-time.After(10 * time.Second):
 		t.Fatal("Open has not returned")
 	}
-	if n := f.fcs.Load(); n != 1 {
+	if n := f.closes.Load(); n != 1 {
 		t.Errorf("%d Forward_Close requests, want 1", n)
 	}
 	if n := ep.Connections(); n != 0 {

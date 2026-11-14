@@ -424,3 +424,41 @@ func TestGenerateNoParams(t *testing.T) {
 		t.Error("no Key")
 	}
 }
+
+// TestGenerateNumberedOnce checks that keywords naming the same number
+// (Param1, Param01, Enum01) give one declaration: the typed views
+// and GenerateGo keep the first entry of each number.
+func TestGenerateNumberedOnce(t *testing.T) {
+	one := valid + "[Params]\n" + param("1", "0xC7", "2", `"Mode"`, "0, 2, 0") +
+		"\tEnum1 = 0, \"Off\", 1, \"On\", 2, \"Auto\";\n" +
+		"[Assembly]\n\tAssem1 = \"a\", \"20 04 24 01\", 2, 0, ,, 16, Param1;\n" +
+		"[Connection Manager]\n\tConnection1 = 1, 0, ,,, ,,, ,,,, \"c\", \"\", \"20 04 24 01\";\n"
+	var copies strings.Builder
+	for _, kw := range []string{"01", "001", "0000000001"} {
+		copies.WriteString(param(kw, "0xC7", "2", `"Mode`+kw+`"`, "0, 2, 0"))
+	}
+	src := strings.Replace(one, "\tEnum1 =", copies.String()+"\tEnum01 = 0, \"X\";\n\tEnum1 =", 1)
+	src = strings.Replace(src, "[Connection Manager]\n", "\tAssem001 = \"b\", \"20 04 24 02\", 4, 0;\n[Connection Manager]\n", 1)
+	src += "\tConnection01 = 1, 0, ,,, ,,, ,,,, \"d\", \"\", \"20 04 24 02\";\n"
+	f := mustParse(t, src)
+	ps, err := f.Params()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(ps) != 1 || ps[0].Name != "Mode" || len(ps[0].Enum) != 1 || ps[0].Enum[0].Name != "X" {
+		t.Errorf("params %+v, want the first Param1 with the first Enum1", ps)
+	}
+	as, err := f.Assemblies()
+	if err != nil || len(as) != 1 || as[0].Name != "a" {
+		t.Errorf("assemblies %+v %v", as, err)
+	}
+	cs, err := f.Connections()
+	if err != nil || len(cs) != 1 || cs[0].Name != "c" {
+		t.Errorf("connections %+v %v", cs, err)
+	}
+	// The output does not grow with the copies.
+	want := generate(t, strings.Replace(one, `0, "Off", 1, "On", 2, "Auto"`, `0, "X"`, 1))
+	if got := generate(t, src); !bytes.Equal(got, want) {
+		t.Errorf("output of %d octets, want the %d octets of one entry per number", len(got), len(want))
+	}
+}

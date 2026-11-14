@@ -46,14 +46,6 @@ type exchange struct {
 	// size less the sequence count and the reply header; 0 off a
 	// connection.
 	maxReply int
-	// budget is the reply data the response being built may take: what
-	// the encapsulation, or on a connection its T->O size, carries. A
-	// Multiple Service Packet lowers it to what is left for each embedded
-	// service. Replies that grow with the request (Multiple Service
-	// Packet, Get_Attribute_List, Get_Attributes_All) stop at it.
-	budget int
-	// overBudget is set when a reply stopped at the budget.
-	overBudget bool
 }
 
 type exchangeKey struct{}
@@ -62,30 +54,6 @@ func exchangeOf(ctx context.Context) *exchange {
 	e, _ := ctx.Value(exchangeKey{}).(*exchange)
 	return e
 }
-
-// replyBudget returns the reply data the request of ctx may return, and
-// false for a request that did not come from a session (no bound).
-func replyBudget(ctx context.Context) (int, bool) {
-	if e := exchangeOf(ctx); e != nil {
-		return e.budget, true
-	}
-	return 0, false
-}
-
-// overBudget records that the reply of the request of ctx stopped at its
-// budget, and returns the response that says so.
-func overBudget(ctx context.Context) cip.Response {
-	if e := exchangeOf(ctx); e != nil {
-		e.overBudget = true
-	}
-	return cip.Response{Status: cip.StatusReplyDataTooLarge}
-}
-
-// maxUnconnectedReply is the largest reply data a SendRRData carries: the
-// encapsulation data less the interface handle (4), timeout (2), item
-// count (2), the null address item (4), the data item header (4) and the
-// reply header (4).
-const maxUnconnectedReply = encap.MaxData - 4 - 2 - 2 - 4 - 4 - 4
 
 func (s *Server) serveConn(c net.Conn) {
 	defer s.wg.Done()
@@ -109,7 +77,7 @@ func (s *Server) serveConn(c net.Conn) {
 		_ = tc.SetDeadline(time.Now().Add(10 * time.Second))
 		if err := tc.HandshakeContext(s.ctx); err != nil {
 			s.log.Warn("TLS handshake failed", "remote", ss.remote.String(), "error", err)
-			// close releases the connection's slot as every other exit does.
+			// The connection's slot is released with it.
 			ss.close()
 			if m := s.opts.metrics; m != nil {
 				m.OnDisconnect(ss.remote, err)
@@ -315,7 +283,7 @@ func (ss *session) sendRRData(pkt encap.Packet) {
 		ss.reply(pkt.Header, encap.StatusIncorrectData, nil)
 		return
 	}
-	ex := &exchange{sess: ss, items: rr.Items, budget: maxUnconnectedReply}
+	ex := &exchange{sess: ss, items: rr.Items}
 	ctx := context.WithValue(ss.s.ctx, exchangeKey{}, ex)
 	resp := ss.s.handleMessage(ctx, msg.Data, ss.remote, false)
 	b, err := resp.Encode()
@@ -396,9 +364,7 @@ func (ss *session) sendUnitData(pkt encap.Packet) {
 	}
 	seq := binary.LittleEndian.Uint16(data.Data)
 	resp, ok := cn.request(seq, func() []byte {
-		maxReply := max(cn.toSize-6, 0)
-		ctx := context.WithValue(ss.s.ctx, exchangeKey{}, &exchange{sess: ss, items: rr.Items, maxReply: maxReply,
-			budget: min(maxReply, maxConnectedReply-4)})
+		ctx := context.WithValue(ss.s.ctx, exchangeKey{}, &exchange{sess: ss, items: rr.Items, maxReply: max(cn.toSize-6, 0)})
 		r := ss.s.handleMessage(ctx, data.Data[2:], ss.remote, true)
 		b, err := r.Encode()
 		// The T->O connection size bounds what the target sends on the
@@ -499,13 +465,38 @@ func (s *Server) serveUDP(c *net.UDPConn) {
 			s.pendingDiscovery.Add(-1)
 			continue
 		}
-		time.AfterFunc(delay, func() { s.sendDelayed(c, out, from) })
+		s.scheduleDelayed(delay, c, out, from)
 	}
 }
 
+// scheduleDelayed sends a discovery reply after delay. The timer counts in
+// the server's wait group and is registered for Close to stop: no reply is
+// sent after Close returns.
+func (s *Server) scheduleDelayed(delay time.Duration, c *net.UDPConn, out []byte, to netip.AddrPort) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.closed {
+		s.pendingDiscovery.Add(-1)
+		return
+	}
+	if s.delayed == nil {
+		s.delayed = map[uint64]*time.Timer{}
+	}
+	s.delayedSeq++
+	id := s.delayedSeq
+	s.wg.Add(1)
+	// The timer's function takes mu first: it runs after the timer is
+	// registered.
+	s.delayed[id] = time.AfterFunc(delay, func() { s.sendDelayed(id, c, out, to) })
+}
+
 // sendDelayed sends a delayed discovery reply and releases its slot.
-func (s *Server) sendDelayed(c *net.UDPConn, out []byte, to netip.AddrPort) {
+func (s *Server) sendDelayed(id uint64, c *net.UDPConn, out []byte, to netip.AddrPort) {
+	defer s.wg.Done()
 	defer s.pendingDiscovery.Add(-1)
+	s.mu.Lock()
+	delete(s.delayed, id)
+	s.mu.Unlock()
 	_, _ = c.WriteToUDPAddrPort(out, to)
 }
 

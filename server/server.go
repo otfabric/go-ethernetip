@@ -66,6 +66,10 @@ type Server struct {
 
 	// pendingDiscovery counts the delayed UDP replies waiting in timers.
 	pendingDiscovery atomic.Int32
+	// delayed are the timers of the delayed UDP replies, by a sequence
+	// number; under mu. Close stops them.
+	delayed    map[uint64]*time.Timer
+	delayedSeq uint64
 }
 
 // New returns a server with the standard objects: Identity, Message Router,
@@ -332,7 +336,17 @@ func (s *Server) Close() error {
 	for ss := range s.conns {
 		sessions = append(sessions, ss)
 	}
+	delayed := s.delayed
+	s.delayed = nil
 	s.mu.Unlock()
+	for _, t := range delayed {
+		// A timer that already fired is sending its reply; Close waits for
+		// it below.
+		if t.Stop() {
+			s.pendingDiscovery.Add(-1)
+			s.wg.Done()
+		}
+	}
 	if l != nil {
 		_ = l.Close()
 	}
