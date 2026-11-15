@@ -2,7 +2,7 @@
 
 ## v0.8.2
 
-**Date:** 2026-11-15
+**Date:** 2026-11-16
 **Previous release:** v0.8.1
 
 ## Summary
