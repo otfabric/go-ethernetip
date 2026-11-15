@@ -1,5 +1,34 @@
 # go-ethernetip Releases
 
+## v0.8.1
+
+**Date:** 2026-11-15
+**Previous release:** v0.8.0
+
+## Summary
+
+A patch release on v0.8.0. No exported identifier is added, removed or
+changed.
+
+## Changes
+
+### Fixes
+
+- **eds**: `GenerateGo` writes `GenerateOptions.Source` into the header
+  comment as the other text of an EDS file is written into comments:
+  control characters, invalid UTF-8 and the byte order mark become spaces.
+  A source name with a line break made the header end early, so the
+  output did not format (an error) or held the rest of the name as code.
+  The header is now always the first line.
+
+### Tests
+
+- `TestGenerateSourceKeepsHeaderOneLine`: source names with LF, CR LF,
+  an escape sequence, U+2028, a backtick, invalid UTF-8 and `*/` give a
+  one-line header and the same file after it as a plain name.
+
+---
+
 ## v0.8.0
 
 **Date:** 2026-11-14

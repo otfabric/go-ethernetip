@@ -330,7 +330,8 @@ Section returns the section named name (case-insensitive), or nil.
 type GenerateOptions struct {
 	// Package is the package name of the generated file; default "device".
 	Package string
-	// Source names the EDS file in the header comment.
+	// Source names the EDS file in the header comment. Control characters in it
+	// become spaces, so the header stays one line.
 	Source string
 	// License, when set, is written as an SPDX-License-Identifier line
 	// ("MIT"); the generated code is otherwise unlabelled, as its licence
