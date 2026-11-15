@@ -43,7 +43,7 @@ Status words, as in INTEROPERABILITY.md:
 | Unit, end-to-end, chaos, stress and leak suites with the race detector | [TESTING.md](../TESTING.md) |
 | Coverage of at least 90 % in total and per package | `make coverage-check coverage-pkg-check` |
 | Fuzz targets on the decoders, the client and the server, in CI and in `fuzz.yml` | `make fuzz` (every `Fuzz` function) |
-| Independent peers: ethernetip-interop v0.8.1, images pinned by digest | `interop/harness_test.go`, `interop.yml`, nightly |
+| Independent peers: ethernetip-interop v0.8.2, images pinned by digest | `interop/harness_test.go`, `interop.yml`, nightly |
 | Recorded traffic of a 1756-L63 ControlLogix (15.4), a 1756-ENBT/A (4.3), a Micro850 (12.11), a MicroLogix 1400 and unidentified targets: decode, encode, client and server replay | [testdata/captures](../testdata/captures/README.md), `*/capture_test.go` |
 
 ## Platforms

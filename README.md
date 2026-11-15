@@ -86,7 +86,7 @@ see where more interop or more features would help.
 | **Project** | | | | | | | | | | | | | |  |
 | Language | Go | C | C++ | Python | Python | C | Go | Python | Java | Rust | TypeScript | C# | Go | Go |
 | Licence | MIT | adapted BSD | MIT | MIT | GPL-3.0 | MPL-2.0 or LGPL-2.0+ | MIT | Apache-2.0 | EPL-1.0 | MIT | MIT | MIT | WTFPL | Apache-2.0 |
-| Version compared | this module | master 0e1ab7e | 1.3.0+33 | 1.2.16 | 5.2.5 | 2.7.2 | 0.44.0-beta | 1.1.6 | main ce0688a | main 16e2236 | 2.0.0 | master 58b91a0 | master 535f797 | 0.2.0 |
+| Version compared | this module | master fb90c99 | 1.3.0+33 | 1.2.16 | 5.2.5 | 2.7.2 | 0.44.0-beta | 1.1.7 | main ce0688a | main 16e2236 | 2.0.0 | master 58b91a0 | master 535f797 | 0.2.1 |
 | Originator (scanner, client) | ✅ | — | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 | Target (adapter, server) | ✅ | ✅ | — | — | Logix simulator | ab_server simulator | Logix tags, Class 1 I/O | — | — | — | — | — | — | Logix tags, structures, Class 1 I/O |
 | Dependencies | none (standard library) | none | none | none | greenery | none | crc16 | none | none (JRE) | tokio and others | none (Node.js) | none (.NET) | none | lanbcast |
@@ -141,7 +141,7 @@ see where more interop or more features would help.
 scanner) · T = as target (adapter, server) · — = not available · n/a = the
 stack has no target role · not tested = neither documented nor exercised by
 the interop suite. For the versions go-ethernetip is tested against, as of
-October 2026.
+November 2026.
 
 ¹ EEIP.NET's own ListIdentity broadcasts without SO_BROADCAST and fails on
 Linux; the adapter sends one unicast datagram built and parsed by EEIP.NET.
@@ -159,10 +159,12 @@ instead of the structure handle (refused 0x2107).
 `Bits[37]`.
 ⁸ go-ethernet-ip writes a tag only whole (all elements, by instance), so
 scalar tags only; it does not check the reply of a write.
-⁹ cB-Sigma's scanner sends no Forward_Close for an I/O connection; its
-target answers a Class 1 Forward_Close 0x01 / 0x0107 and resets its
-inactivity timer only on a new O->T CIP sequence count, so it drops
-go-ethernetip's scanner after a few packets (cB-Sigma/enip#3, #8).
+⁹ cB-Sigma's scanner (v0.2.1) sends no Forward_Close for an I/O
+connection; fixed upstream after v0.2.1 (cB-Sigma/enip#9). Its target's
+Class 1 Forward_Close reply and inactivity timer, which dropped
+go-ethernetip's scanner in v0.2.0 (cB-Sigma/enip#3, #8), are fixed in
+v0.2.1 according to ethernetip-interop v0.8.2's cross-stack self-test;
+this repository's interop suite has no Class 1 case against its target.
 
 The interop counts are the cases each stack passes against go-ethernetip,
 in both directions where it has a target, of those it declares; every
@@ -348,19 +350,19 @@ NAT).
 
 | Reference | Version | Licence | Roles tested |
 |-----------|---------|---------|--------------|
-| [OpENer](https://github.com/EIPStackGroup/OpENer) | master 0e1ab7e (v2.3+591) | adapted BSD | target (adapter) |
+| [OpENer](https://github.com/EIPStackGroup/OpENer) | master fb90c99 (v2.3+592) | adapted BSD | target (adapter) |
 | [EIPScanner](https://github.com/nimbuscontrols/EIPScanner) | 1.3.0+33 (12c89a5) | MIT | originator (scanner) |
 | [pycomm3](https://github.com/ottowayi/pycomm3) | 1.2.16 | MIT | originator (generic CIP and Logix) |
 | [cpppo](https://github.com/pjkundert/cpppo) | 5.2.5 | GPL-3.0 | target (Logix simulator) and originator |
 | [libplctag](https://github.com/libplctag/libplctag) | 2.7.2 | MPL-2.0 or LGPL-2.0+ | originator (Logix and generic CIP) and target (ab_server simulator) |
 | [gologix](https://github.com/danomagnum/gologix) | 0.44.0-beta | MIT | originator and target (Logix tags, Class 1 I/O) |
-| [pylogix](https://github.com/dmroeder/pylogix) | 1.1.6 | Apache-2.0 | originator (Logix) |
+| [pylogix](https://github.com/dmroeder/pylogix) | 1.1.7 | Apache-2.0 | originator (Logix) |
 | [etherip](https://github.com/ornl-epics/etherip) | main ce0688a | EPL-1.0 | originator (Logix, generic) |
 | [eip-rs (rseip)](https://github.com/Joylei/eip-rs) | main 16e2236 | MIT | originator (generic CIP and Logix) |
 | [node-ethernet-ip](https://github.com/cmseaton42/node-ethernet-ip) | 2.0.0 | MIT | originator (Logix, generic) |
 | [EEIP.NET](https://github.com/rossmann-engineering/EEIP.NET) | master 58b91a0 | MIT | originator (scanner: explicit, Class 1 I/O) |
 | [go-ethernet-ip (loki-os)](https://github.com/loki-os/go-ethernet-ip) | master 535f797 | WTFPL | originator (generic CIP and Logix) |
-| [enip (cB-Sigma)](https://github.com/cB-Sigma/enip) | 0.2.0 | Apache-2.0 | originator (generic CIP, Logix, Class 1 I/O) and target (Logix tags, structures, tag list, Class 1 I/O) |
+| [enip (cB-Sigma)](https://github.com/cB-Sigma/enip) | 0.2.1 | Apache-2.0 | originator (generic CIP, Logix, Class 1 I/O) and target (Logix tags, structures, tag list, Class 1 I/O) |
 
 `ETHERNETIP_INTEROP_ADAPTERS=cpppo` runs one reference only.
 

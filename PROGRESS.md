@@ -23,6 +23,7 @@ No work in progress: every branch is merged.
 
 | Release | Date | Where |
 |---|---|---|
+| ethernetip-interop v0.8.2 (cB-Sigma's enip v0.2.1, fixing cB-Sigma/enip#1–#8; OpENer 2.3-592, pylogix 1.1.7; new base images) | 2026-11-13 | https://github.com/otfabric/ethernetip-interop/releases/tag/v0.8.2 |
 | ethernetipctl v0.5.2 (on go-ethernetip v0.5.2: configuration instance 0 named in the Class 1 path) | 2026-11-07 | https://github.com/otfabric/ethernetipctl/releases/tag/v0.5.2 |
 | Own image `ethernetip-interop-otfabric:v0.5.2` (Own stack run, self-tests of ethernetip-interop v0.8.1 green) | 2026-11-07 | https://github.com/otfabric/ethernetip-interop/actions/runs/42337289885 |
 | go-ethernetip v0.5.2 (interop pinned to ethernetip-interop v0.8.1: thirteen references, + cB-Sigma's enip) | 2026-11-06 | https://github.com/otfabric/go-ethernetip/releases/tag/v0.5.2 |
@@ -51,7 +52,7 @@ GitHub CI green on the merged commits: go-ethernetip on Linux, macOS and
 Windows (amd64 and arm64; race detector everywhere but Windows arm64), Go
 1.26-1.27, 90% coverage gate (98.6%), lint, fuzz, chaos (with the chaos
 monkey) and stress; interop on amd64 and arm64 against the pinned
-ethernetip-interop v0.8.1 images (thirteen references): 221 pass, 0 fail, 160 N/A,
+ethernetip-interop v0.8.2 images (thirteen references): 221 pass, 0 fail, 160 N/A,
 2 skipped (the logix-structures fixture has no Counter or Samples)
 ([matrix](INTEROPERABILITY.md#interop-matrix)). ethernetip-interop native
 amd64/arm64 build, smoke and self-test (52 pass, 0 fail). ethernetipctl

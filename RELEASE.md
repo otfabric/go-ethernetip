@@ -1,5 +1,33 @@
 # go-ethernetip Releases
 
+## v0.8.2
+
+**Date:** 2026-11-15
+**Previous release:** v0.8.1
+
+## Summary
+
+A patch release on v0.8.1 that moves the interop suite to
+ethernetip-interop v0.8.2. No library change: no exported identifier is
+added, removed or changed.
+
+## Changes
+
+### Tests
+
+- The interop suite is tested against ethernetip-interop v0.8.2: cB-Sigma's
+  enip v0.2.1 (fixes cB-Sigma/enip#1–#8), EIPScanner's adapter with the
+  configuration instance segment always in the Class 1 path, OpENer master
+  v2.3-592 (`fb90c99`), pylogix 1.1.7 and new base images; all thirteen
+  images pinned by their new digests.
+- Run: 221 pass, 0 fail, 160 N/A, 2 skipped, as with v0.8.1; every
+  reference passes the same cases.
+- The cB-Sigma Class 1 I/O case (its originator against go-ethernetip's
+  target) stays N/A: enip v0.2.1 sends no Forward_Close for an I/O
+  connection; fixed upstream after v0.2.1 (cB-Sigma/enip#9).
+
+---
+
 ## v0.8.1
 
 **Date:** 2026-11-15

@@ -40,7 +40,7 @@ var knownLimits = map[string]map[string]string{
 		"Logix Write Tag": "reference limitation: go-ethernet-ip writes a tag only whole (all its elements, with the dimension bits in the type), not elements of an array",
 	},
 	"cbsigma": {
-		"Class 1 I/O, exclusive owner, point-to-point": "reference limitation: cB-Sigma's scanner sends no Forward_Close for an I/O connection (documented upstream as not yet done)",
+		"Class 1 I/O, exclusive owner, point-to-point": "reference limitation: cB-Sigma enip v0.2.1 sends no Forward_Close for an I/O connection; fixed upstream after v0.2.1",
 	},
 }
 
