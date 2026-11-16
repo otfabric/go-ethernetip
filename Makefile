@@ -31,7 +31,7 @@ COVER_PKG_MIN := 90
 INTEROP_TAGS := interop
 
 # docsync release of docs-check (DOC-008).
-DOCSYNC_VERSION := v0.3.1
+DOCSYNC_VERSION := v0.4.0
 
 all: build ## Default target: build the examples
 
