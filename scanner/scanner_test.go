@@ -581,6 +581,26 @@ func okReply(fo cip.ForwardOpen) cip.ForwardOpenReply {
 	return cip.ForwardOpenReply{OTConnID: 0x77, TOConnID: fo.TOConnID, Triad: fo.Triad, OTAPI: fo.OTRPI, TOAPI: fo.TORPI}
 }
 
+// The session ends between the Forward_Open reply and the opening of the
+// I/O connection (the chaos test met it as a connection killed at that
+// moment): Open reports ErrNotConnected, not ErrInvalidOption, and tries
+// the Forward_Close.
+func TestOpenSessionEndedAfterForwardOpen(t *testing.T) {
+	f := newFakeTarget(t, func(fo cip.ForwardOpen) (cip.ForwardOpenReply, []encap.Item) { return okReply(fo), nil })
+	c := dial(t, f.ln.Addr().String())
+	s := newScanner(t, c)
+	saved := remoteAddr
+	remoteAddr = func(*client.Client) net.Addr { return nil }
+	t.Cleanup(func() { remoteAddr = saved })
+	io, err := s.Open(ctxT(t), owner(5*time.Millisecond))
+	if !errors.Is(err, ethernetip.ErrNotConnected) || errors.Is(err, ethernetip.ErrInvalidOption) {
+		t.Fatalf("Open = %v, %v; want ErrNotConnected", io, err)
+	}
+	if f.closes.Load() != 1 {
+		t.Fatalf("%d Forward_Close requests, want 1", f.closes.Load())
+	}
+}
+
 func TestMulticastWithoutGroup(t *testing.T) {
 	f := newFakeTarget(t, func(fo cip.ForwardOpen) (cip.ForwardOpenReply, []encap.Item) {
 		// A malformed item and a unicast T->O address: no group.

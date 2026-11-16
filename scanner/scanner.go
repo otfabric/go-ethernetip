@@ -479,7 +479,15 @@ func (io *IO) open(ctx context.Context) error {
 		_ = c.ForwardClose(ctx, cip.ForwardClose{Triad: fo.Triad, Path: path})
 		return err
 	}
-	target := targetIP(c.RemoteAddr())
+	target := targetIP(remoteAddr(c))
+	if !target.IsValid() {
+		// The session ended after the reply: the I/O connection has no
+		// target to send to or accept from. That is a connection error, not
+		// an invalid option; the Forward_Close goes out if the client
+		// reconnects in time, else the target's connection times out.
+		_ = c.ForwardClose(ctx, cip.ForwardClose{Triad: fo.Triad, Path: path})
+		return fmt.Errorf("%w: the session ended after the Forward_Open reply", ethernetip.ErrNotConnected)
+	}
 	dst := netip.AddrPortFrom(target, encap.IOPort)
 	var group netip.Addr
 	for _, it := range rItems {
@@ -598,6 +606,10 @@ func checkAPIs(reply cip.ForwardOpenReply, otRPI, floor time.Duration) error {
 	}
 	return nil
 }
+
+// remoteAddr is the target's end of the client's session, or nil when the
+// client has none. A test replaces it to end the session at a given step.
+var remoteAddr = (*client.Client).RemoteAddr
 
 func targetIP(a net.Addr) netip.Addr {
 	if ta, ok := a.(*net.TCPAddr); ok {

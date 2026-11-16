@@ -1,5 +1,36 @@
 # go-ethernetip Releases
 
+## v0.8.3
+
+**Date:** 2026-11-16
+**Previous release:** v0.8.2
+
+## Summary
+
+A patch release on v0.8.2. No exported identifier is added, removed or
+changed.
+
+## Changes
+
+### Fixes
+
+- **scanner**: `Open` reports `ErrNotConnected` when the client's session
+  ends between the Forward_Open reply and the opening of the I/O
+  connection. It returned `ErrInvalidOption` ("production without an
+  interval or destination"), an error about the configuration, for what
+  is a lost connection: the target's address, taken from the session, was
+  gone. The Forward_Close is still tried, as on the other failures after
+  a Forward_Open. The chaos test of `e2e` met this as a connection killed
+  at that moment.
+
+### Tests
+
+- `TestOpenSessionEndedAfterForwardOpen`: a session that has ended after
+  the reply gives `ErrNotConnected`, not `ErrInvalidOption`, and one
+  Forward_Close request.
+
+---
+
 ## v0.8.2
 
 **Date:** 2026-11-16
