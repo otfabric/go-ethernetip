@@ -868,6 +868,37 @@ func TestMulticastGroupPerInterface(t *testing.T) {
 	}
 }
 
+// TestMembershipOf: a connection naming an interface joins on its address;
+// one naming none joins on the endpoint's bound address, else on the
+// system's choice. No group is joined, so it runs where multicast does not.
+func TestMembershipOf(t *testing.T) {
+	group := netip.MustParseAddr("239.192.13.39")
+	wild, err := Listen("0.0.0.0:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = wild.Close() })
+	if m := wild.membershipOf(group, nil); m.group != group || m.ifaddr != netip.IPv4Unspecified() {
+		t.Errorf("wildcard, no interface: %+v", m)
+	}
+	bound := listen(t)
+	if m := bound.membershipOf(group, nil); m.ifaddr != netip.MustParseAddr("127.0.0.1") {
+		t.Errorf("bound, no interface: %+v", m)
+	}
+	ifs, _ := net.Interfaces()
+	for i := range ifs {
+		if a := interfaceAddr(&ifs[i]); a.Is4() && !a.IsUnspecified() {
+			for _, e := range []*Endpoint{wild, bound} {
+				if m := e.membershipOf(group, &ifs[i]); m.ifaddr != a {
+					t.Errorf("%s: %+v, want %s", ifs[i].Name, m, a)
+				}
+			}
+			return
+		}
+	}
+	t.Skip("no interface with an IPv4 address")
+}
+
 func TestMulticastJoinFailure(t *testing.T) {
 	e := listen(t)
 	// A unicast address is not a group: joining fails and the connection
