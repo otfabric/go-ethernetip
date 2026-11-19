@@ -4,6 +4,7 @@ package logix
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"github.com/otfabric/go-ethernetip/cip"
@@ -183,6 +184,32 @@ func FuzzReadReplies(f *testing.F) {
 		}
 		if a, err := decodeTemplateAttributes(b); err == nil && len(b) < 2+4*(4+2)+2*2 {
 			t.Fatalf("attributes from %d octets: %+v", len(b), a)
+		}
+	})
+}
+
+// FuzzParseTag: any name parses or fails with ErrTagName, and an accepted
+// name gives a path of non-empty symbols that encodes or fails cleanly.
+func FuzzParseTag(f *testing.F) {
+	for _, s := range []string{"Tag", "Program:Main.Tag[1,2].B.5", "Local:1:I.Data[0]", "Remote:12:C", "Rack_2:I", "Program:1:I", "Local::I", "A[1]]", ""} {
+		f.Add(s)
+	}
+	f.Fuzz(func(t *testing.T, name string) {
+		tp, err := ParseTag(name)
+		if err != nil {
+			if !errors.Is(err, ErrTagName) {
+				t.Fatalf("%q: %v", name, err)
+			}
+			return
+		}
+		if len(tp.Path) == 0 || tp.Bit < -1 || tp.Bit > 63 {
+			t.Fatalf("%q: %+v", name, tp)
+		}
+		if s, ok := tp.Path[0].(cip.SymbolSegment); !ok || s.Name == "" {
+			t.Fatalf("%q: first segment %#v", name, tp.Path[0])
+		}
+		if _, err := tp.Path.Encode(); err != nil && !errors.Is(err, cip.ErrMalformed) {
+			t.Fatalf("%q: encode: %v", name, err)
 		}
 	})
 }
