@@ -55,11 +55,14 @@ normally, the server logs it and answers 0x10; the tag stays written.
 `CheckRead` and `CheckWrite` let the application refuse a tag's reads and
 writes, by name and by instance alike, with a general status of its
 choice. `CheckRead` is asked with the database locked for reading, so it
-must be quick. `CheckWrite` is asked with the whole value the write would
-leave, without the lock: it may take time (forward the value to a device,
-say), the tag reads its old value meanwhile, and only when it answers
-success are the octets the write changed stored. A refused write leaves
-the tag as it was and calls no `OnWrite`.
+must be quick and must not call the `TagServer`'s methods. `CheckWrite` is
+asked with the whole value the write would leave, without the lock: it may
+take time (forward the value to a device, say), and the tag reads its old
+value meanwhile. Only when it answers success is the write applied, to the
+tag as it is then: the elements it addresses are stored whole, and a
+Read-Modify-Write modifies the current value, so concurrent writes are not
+lost. A refused write leaves the tag as it was and calls no `OnWrite`. Each
+fragment of a fragmented write is asked about on its own.
 
 It is a test tool: no programs, tasks, modes or alarms; who may read or
 write a tag is the application's, through `CheckRead` and `CheckWrite`.

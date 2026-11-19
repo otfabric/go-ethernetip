@@ -153,7 +153,8 @@ func (ts *TagServer) OnWrite(f func(name string)) {
 // instead of the data, as a controller answers for a tag it cannot serve
 // now. It is called with the database locked for reading, as a handler of
 // the request (see server.Object): it must be quick and must not call the
-// TagServer's Set. nil (the default) serves every read.
+// TagServer's methods (Get and Set included: a read lock taken again can
+// deadlock behind a waiting write). nil (the default) serves every read.
 func (ts *TagServer) CheckRead(f func(name string) cip.GeneralStatus) {
 	ts.mu.Lock()
 	defer ts.mu.Unlock()
@@ -166,9 +167,13 @@ func (ts *TagServer) CheckRead(f func(name string) cip.GeneralStatus) {
 // other than success is the answer and the tag keeps its value. It is
 // called without the database's lock, as a handler of the request (see
 // server.Object), so it may take time (the request waits for it) and may
-// call Get and Set; the octets the write changes are then stored, over what
-// changed meanwhile. A write the database itself refuses (a type or a range
-// that does not hold) is never asked. nil (the default) takes every write.
+// call Get and Set; reads meanwhile see the tag's value from before the
+// write. A taken write is then applied to the tag as it is: the elements it
+// addresses are stored whole over what changed meanwhile, and a
+// Read-Modify-Write modifies the current value. A write the database itself
+// refuses (a type or a range that does not hold) is never asked. Each
+// fragment of a fragmented write is a request of its own, asked on its own.
+// nil (the default) takes every write.
 func (ts *TagServer) CheckWrite(f func(ctx context.Context, name string, v Value) cip.GeneralStatus) {
 	ts.mu.Lock()
 	defer ts.mu.Unlock()
@@ -564,25 +569,16 @@ func (ts *TagServer) serveTag(ctx context.Context, e *tagEntry, r *server.Reques
 	case cip.ServiceWriteTag, cip.ServiceWriteTagFragmented, cip.ServiceReadModifyWriteTag:
 		ts.mu.Lock()
 		t, fail := ts.resolve(e, path)
+		f, check := ts.onWrite, ts.checkWr
 		var resp cip.Response
-		var before []byte
-		check := ts.checkWr
-		if fail != nil {
+		switch {
+		case fail != nil:
 			resp = *fail
-		} else {
-			if check != nil {
-				before = slices.Clone(t.e.data)
-			}
-			if r.Service == cip.ServiceReadModifyWriteTag {
-				resp = ts.readModifyWrite(t, r.Data)
-			} else {
-				resp = ts.write(t, r)
-			}
-		}
-		f := ts.onWrite
-		if resp.OK() && check != nil {
-			resp = ts.checkedWrite(ctx, t, before, check)
-		} else {
+			ts.mu.Unlock()
+		case check != nil:
+			resp = ts.checkedWrite(ctx, t, r, check)
+		default:
+			resp = ts.apply(t, r)
 			ts.mu.Unlock()
 		}
 		if resp.OK() && f != nil {
@@ -594,26 +590,38 @@ func (ts *TagServer) serveTag(ctx context.Context, e *tagEntry, r *server.Reques
 	}
 }
 
-// checkedWrite asks check about the value a write left in t's tag before
-// the tag keeps it: the tag goes back to before while check runs, without
-// the lock, and the octets the write changed are stored again when check
-// takes it. ts.mu is held on entry and released on return.
-func (ts *TagServer) checkedWrite(ctx context.Context, t target, before []byte, check func(context.Context, string, Value) cip.GeneralStatus) cip.Response {
-	after := slices.Clone(t.e.data)
-	v := t.e.value(0, t.e.elements(), slices.Clone(after))
-	copy(t.e.data, before)
+// apply applies a write request to t's tag. ts.mu is held.
+func (ts *TagServer) apply(t target, r *server.Request) cip.Response {
+	if r.Service == cip.ServiceReadModifyWriteTag {
+		return ts.readModifyWrite(t, r.Data)
+	}
+	return ts.write(t, r)
+}
+
+// checkedWrite asks check about the value the write would leave in t's
+// tag before it takes effect: the write is applied to a copy of the tag,
+// check runs without the lock on that copy's value, and a taken write is
+// then applied to the tag as it is (a Read-Modify-Write to the current
+// value, a write to the elements it addresses, whole). ts.mu is held on
+// entry and released on return.
+func (ts *TagServer) checkedWrite(ctx context.Context, t target, r *server.Request, check func(context.Context, string, Value) cip.GeneralStatus) cip.Response {
+	live := t.e.data
+	t.e.data = slices.Clone(live)
+	resp := ts.apply(t, r)
+	scratch := t.e.data
+	t.e.data = live
+	if !resp.OK() {
+		ts.mu.Unlock()
+		return resp
+	}
+	v := t.e.value(0, t.e.elements(), scratch)
 	ts.mu.Unlock()
 	if st := check(ctx, t.full, v); st != cip.StatusSuccess {
 		return cip.Response{Status: st}
 	}
 	ts.mu.Lock()
 	defer ts.mu.Unlock()
-	for i := range after {
-		if after[i] != before[i] {
-			t.e.data[i] = after[i]
-		}
-	}
-	return cip.Response{}
+	return ts.apply(t, r)
 }
 
 func appendTypeCode(b []byte, t target) []byte {

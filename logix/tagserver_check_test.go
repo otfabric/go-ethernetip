@@ -195,3 +195,56 @@ func TestTagServerCheckWriteConcurrent(t *testing.T) {
 		t.Fatalf("Count %x", g.Data)
 	}
 }
+
+// TestTagServerCheckWriteReadModifyWriteConcurrent: two Read-Modify-Write
+// requests on the same octet, checked at the same time, both take effect
+// (neither is applied to a value from before the other).
+func TestTagServerCheckWriteReadModifyWriteConcurrent(t *testing.T) {
+	h := newHarness(t)
+	var calls sync.WaitGroup
+	calls.Add(2)
+	h.ts.CheckWrite(func(context.Context, string, Value) cip.GeneralStatus {
+		calls.Done()
+		calls.Wait() // both are being checked
+		return cip.StatusSuccess
+	})
+	var wg sync.WaitGroup
+	for _, bit := range []byte{0x01, 0x02} {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			// OR mask, AND mask: set one bit.
+			r := h.do(cip.Request{Service: cip.ServiceReadModifyWriteTag, Path: h.path("Count"), Data: cat(le16(4), []byte{bit, 0, 0, 0}, []byte{0xFF, 0xFF, 0xFF, 0xFF})}, false)
+			if !r.OK() {
+				t.Errorf("bit %x: %+v", bit, r)
+			}
+		}()
+	}
+	wg.Wait()
+	if g, _ := h.ts.Get("Count"); binary.LittleEndian.Uint32(g.Data) != 0x03 {
+		t.Fatalf("Count %x, want both bits", g.Data)
+	}
+}
+
+// TestTagServerCheckWriteStoresWholeElements: a taken write stores the
+// elements it addresses whole, never a mix of its octets and those a Set
+// stored meanwhile.
+func TestTagServerCheckWriteStoresWholeElements(t *testing.T) {
+	h := newHarness(t)
+	old, _ := Ints(cip.TypeDINT, 0xFF)
+	must(t, h.ts.Set("Count", old))
+	h.ts.CheckWrite(func(_ context.Context, name string, _ Value) cip.GeneralStatus {
+		meanwhile, _ := Ints(cip.TypeDINT, 0x01020304)
+		if err := h.ts.Set(name, meanwhile); err != nil {
+			t.Error(err)
+		}
+		return cip.StatusSuccess
+	})
+	v, _ := Ints(cip.TypeDINT, 0x100)
+	if r := h.write("Count", v); !r.OK() {
+		t.Fatalf("%+v", r)
+	}
+	if g, _ := h.ts.Get("Count"); binary.LittleEndian.Uint32(g.Data) != 0x100 {
+		t.Fatalf("Count %x, want the write's 00000100", g.Data)
+	}
+}

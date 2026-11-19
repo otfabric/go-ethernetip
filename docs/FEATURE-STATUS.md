@@ -34,6 +34,9 @@ Status words, as in INTEROPERABILITY.md:
 | Class 2, redundant owner, CIP Safety, scheduled priority | Not implemented | |
 | Logix tags: read, write, fragmented, read-modify-write, tag list, templates | Interop verified | client and emulation; the emulation holds tags and templates only |
 | Instance addressing (Symbol object) | Implemented | emulation only |
+| Logix I/O module tag names (`Local:1:I.Data[0]`) | Implemented | sent as one symbol, as pycomm3 and libplctag do; no controller recording or interop peer with module tags |
+| Emulation access checks (`CheckRead`, `CheckWrite`) | Implemented | |
+| Per-connection multicast interface (`IOConfig.MulticastInterface`) | Implemented | end-to-end on the loopback interface; one host interface per test runner |
 | EDS: parser, views, validation, formatting, code generation | Implemented | fuzzed; no conformance corpus to verify it against |
 
 ## Verification
