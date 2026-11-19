@@ -440,7 +440,7 @@ Attach registers the emulation on a server: the symbol handler, the Symbol (0x6B
 func (ts *TagServer) CheckRead(f func(name string) cip.GeneralStatus)
 ```
 
-CheckRead sets a function asked before a tag, or a part of it, is read, with the tag's full name: a status other than success is the answer instead of the data, as a controller answers for a tag it cannot serve now. It is called with the database locked for reading, as a handler of the request (see server.Object): it must be quick and must not call the TagServer's Set. nil (the default) serves every read.
+CheckRead sets a function asked before a tag, or a part of it, is read, with the tag's full name: a status other than success is the answer instead of the data, as a controller answers for a tag it cannot serve now. It is called with the database locked for reading, as a handler of the request (see server.Object): it must be quick and must not call the TagServer's methods (Get and Set included: a read lock taken again can deadlock behind a waiting write). nil (the default) serves every read.
 
 #### func (TagServer) CheckWrite
 
@@ -448,7 +448,7 @@ CheckRead sets a function asked before a tag, or a part of it, is read, with the
 func (ts *TagServer) CheckWrite(f func(ctx context.Context, name string, v Value) cip.GeneralStatus)
 ```
 
-CheckWrite sets a function asked before a write (Write Tag, its fragmented form or Read-Modify-Write) takes effect, with the tag's full name and the whole value of the tag as the write would leave it: a status other than success is the answer and the tag keeps its value. It is called without the database's lock, as a handler of the request (see server.Object), so it may take time (the request waits for it) and may call Get and Set; the octets the write changes are then stored, over what changed meanwhile. A write the database itself refuses (a type or a range that does not hold) is never asked. nil (the default) takes every write.
+CheckWrite sets a function asked before a write (Write Tag, its fragmented form or Read-Modify-Write) takes effect, with the tag's full name and the whole value of the tag as the write would leave it: a status other than success is the answer and the tag keeps its value. It is called without the database's lock, as a handler of the request (see server.Object), so it may take time (the request waits for it) and may call Get and Set; reads meanwhile see the tag's value from before the write. A taken write is then applied to the tag as it is: the elements it addresses are stored whole over what changed meanwhile, and a Read-Modify-Write modifies the current value. A write the database itself refuses (a type or a range that does not hold) is never asked. Each fragment of a fragmented write is a request of its own, asked on its own. nil (the default) takes every write.
 
 #### func (TagServer) Get
 

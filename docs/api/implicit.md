@@ -141,6 +141,9 @@ Config describes one I/O connection as seen from one end. "Produce" is the direc
 ```go
 type Connection struct {
 
+	// member is the multicast membership the connection joins (when
+	// cfg.Group is set), fixed when it is made.
+
 	// a datagram was consumed: reset the watchdog
 	// produce now
 
@@ -212,7 +215,6 @@ type Endpoint struct {
 	// consumers by consumed connection ID
 	// every open connection, producers too
 	// multicast memberships, counted
-	// the interface address each group was joined on
 	// the default multicast interface address
 
 	// faults, when set (by the package's chaos tests), decides the fate of

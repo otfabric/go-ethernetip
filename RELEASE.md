@@ -10,7 +10,7 @@
 A minor release on v0.8.3: three exported identifiers are added
 (`scanner.IOConfig.MulticastInterface`, `logix.TagServer.CheckRead`,
 `logix.TagServer.CheckWrite`); none is removed or changed. Thanks to
-Matthew Reed (MatthewReed303), who contributed the three changes
+MatthewReed303, who contributed the three changes
 (otfabric/go-ethernetip#35, #36 and #37).
 
 ## Changes
