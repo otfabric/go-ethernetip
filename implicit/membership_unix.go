@@ -10,8 +10,8 @@ import (
 	"syscall"
 )
 
-// membership joins (or leaves) group on the socket of c.
-func membership(c *net.UDPConn, group, ifaddr netip.Addr, join bool) error {
+// setMembership joins (or leaves) group on the socket of c.
+func setMembership(c *net.UDPConn, group, ifaddr netip.Addr, join bool) error {
 	rc, err := c.SyscallConn()
 	if err != nil {
 		return err

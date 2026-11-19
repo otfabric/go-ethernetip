@@ -12,8 +12,8 @@ import (
 	ethernetip "github.com/otfabric/go-ethernetip"
 )
 
-// membership is not available on this platform.
-func membership(*net.UDPConn, netip.Addr, netip.Addr, bool) error {
+// setMembership is not available on this platform.
+func setMembership(*net.UDPConn, netip.Addr, netip.Addr, bool) error {
 	return fmt.Errorf("%w: multicast membership on this platform", ethernetip.ErrUnsupported)
 }
 

@@ -104,6 +104,9 @@ type Stats struct {
 type Connection struct {
 	e   *Endpoint
 	cfg Config
+	// member is the multicast membership the connection joins (when
+	// cfg.Group is set), fixed when it is made.
+	member membership
 
 	kick    chan struct{} // a datagram was consumed: reset the watchdog
 	trigger chan struct{} // produce now
@@ -145,6 +148,7 @@ func (e *Endpoint) Open(cfg Config) (*Connection, error) {
 	c := &Connection{
 		e:       e,
 		cfg:     cfg,
+		member:  e.membershipOf(cfg.Group, cfg.Interface),
 		kick:    make(chan struct{}, 1),
 		trigger: make(chan struct{}, 1),
 		done:    make(chan struct{}),
@@ -172,7 +176,7 @@ func (e *Endpoint) Open(cfg Config) (*Connection, error) {
 	e.all[c] = struct{}{}
 	e.mu.Unlock()
 	if cfg.Group.IsValid() {
-		if err := e.join(cfg.Group, cfg.Interface); err != nil {
+		if err := e.join(c.member); err != nil {
 			c.unregister()
 			return nil, fmt.Errorf("join %s: %w", cfg.Group, err)
 		}
@@ -226,7 +230,7 @@ func (c *Connection) close(caller uint64) {
 		c.wg.Wait()
 	}
 	if c.cfg.Group.IsValid() {
-		c.e.leave(c.cfg.Group)
+		c.e.leave(c.member)
 	}
 }
 
@@ -315,7 +319,7 @@ func (c *Connection) timeout() {
 	c.unregister()
 	close(c.done)
 	if c.cfg.Group.IsValid() {
-		c.e.leave(c.cfg.Group)
+		c.e.leave(c.member)
 	}
 	if f := c.cfg.OnTimeout; f != nil {
 		callback.Do(c.e.log, "OnTimeout", f)
