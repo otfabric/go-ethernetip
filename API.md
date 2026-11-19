@@ -89,7 +89,8 @@ WithMaxTemplateReplies)` with `Read`, `Write`, `WriteBit`,
 `ParseTag`; `Value` (`Int`, `Uint`, `Float`, `Bool`, `Text`) with `Ints`,
 `Uints`, `Floats`, `Strings`; `Template`, `Member`, `Field`, `SymbolType`;
 `NewTagServer(WithProgramName, WithMaxReply)` with `AddTag`,
-`AddStructTag`, `AddTemplate`, `Get`, `Set`, `OnWrite`, `Attach`. See
+`AddStructTag`, `AddTemplate`, `Get`, `Set`, `OnWrite`, `CheckRead`,
+`CheckWrite`, `Attach`. See
 [docs/LOGIX.md](docs/LOGIX.md).
 
 ## `eds`

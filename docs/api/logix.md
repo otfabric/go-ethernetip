@@ -434,6 +434,22 @@ func (ts *TagServer) Attach(s *server.Server)
 
 Attach registers the emulation on a server: the symbol handler, the Symbol (0x6B), Template (0x6C) and Program Name (0x64) objects.
 
+#### func (TagServer) CheckRead
+
+```go
+func (ts *TagServer) CheckRead(f func(name string) cip.GeneralStatus)
+```
+
+CheckRead sets a function asked before a tag, or a part of it, is read, with the tag's full name: a status other than success is the answer instead of the data, as a controller answers for a tag it cannot serve now. It is called with the database locked for reading, as a handler of the request (see server.Object): it must be quick and must not call the TagServer's Set. nil (the default) serves every read.
+
+#### func (TagServer) CheckWrite
+
+```go
+func (ts *TagServer) CheckWrite(f func(ctx context.Context, name string, v Value) cip.GeneralStatus)
+```
+
+CheckWrite sets a function asked before a write (Write Tag, its fragmented form or Read-Modify-Write) takes effect, with the tag's full name and the whole value of the tag as the write would leave it: a status other than success is the answer and the tag keeps its value. It is called without the database's lock, as a handler of the request (see server.Object), so it may take time (the request waits for it) and may call Get and Set; the octets the write changes are then stored, over what changed meanwhile. A write the database itself refuses (a type or a range that does not hold) is never asked. nil (the default) takes every write.
+
 #### func (TagServer) Get
 
 ```go

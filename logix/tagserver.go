@@ -7,6 +7,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"math"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
@@ -42,6 +43,8 @@ type TagServer struct {
 	templates map[uint16]*Template
 	nextInst  uint32
 	onWrite   func(name string)
+	checkRd   func(name string) cip.GeneralStatus
+	checkWr   func(ctx context.Context, name string, v Value) cip.GeneralStatus
 }
 
 type tagEntry struct {
@@ -143,6 +146,33 @@ func (ts *TagServer) OnWrite(f func(name string)) {
 	ts.mu.Lock()
 	defer ts.mu.Unlock()
 	ts.onWrite = f
+}
+
+// CheckRead sets a function asked before a tag, or a part of it, is read,
+// with the tag's full name: a status other than success is the answer
+// instead of the data, as a controller answers for a tag it cannot serve
+// now. It is called with the database locked for reading, as a handler of
+// the request (see server.Object): it must be quick and must not call the
+// TagServer's Set. nil (the default) serves every read.
+func (ts *TagServer) CheckRead(f func(name string) cip.GeneralStatus) {
+	ts.mu.Lock()
+	defer ts.mu.Unlock()
+	ts.checkRd = f
+}
+
+// CheckWrite sets a function asked before a write (Write Tag, its
+// fragmented form or Read-Modify-Write) takes effect, with the tag's full
+// name and the whole value of the tag as the write would leave it: a status
+// other than success is the answer and the tag keeps its value. It is
+// called without the database's lock, as a handler of the request (see
+// server.Object), so it may take time (the request waits for it) and may
+// call Get and Set; the octets the write changes are then stored, over what
+// changed meanwhile. A write the database itself refuses (a type or a range
+// that does not hold) is never asked. nil (the default) takes every write.
+func (ts *TagServer) CheckWrite(f func(ctx context.Context, name string, v Value) cip.GeneralStatus) {
+	ts.mu.Lock()
+	defer ts.mu.Unlock()
+	ts.checkWr = f
 }
 
 // AddTemplate adds a structure template. Its ID (1 to 0x0FFF) and handle
@@ -513,10 +543,10 @@ func (ts *TagServer) ServeSymbol(ctx context.Context, r *server.Request) cip.Res
 		// A program-scoped tag list: Program:X, then the Symbol object.
 		return ts.listTags(r)
 	}
-	return ts.serveTag(nil, r, r.Path)
+	return ts.serveTag(ctx, nil, r, r.Path)
 }
 
-func (ts *TagServer) serveTag(e *tagEntry, r *server.Request, path cip.Path) cip.Response {
+func (ts *TagServer) serveTag(ctx context.Context, e *tagEntry, r *server.Request, path cip.Path) cip.Response {
 	switch r.Service {
 	case cip.ServiceReadTag, cip.ServiceReadTagFragmented:
 		ts.mu.RLock()
@@ -525,20 +555,36 @@ func (ts *TagServer) serveTag(e *tagEntry, r *server.Request, path cip.Path) cip
 		if fail != nil {
 			return *fail
 		}
+		if f := ts.checkRd; f != nil {
+			if st := f(t.full); st != cip.StatusSuccess {
+				return cip.Response{Status: st}
+			}
+		}
 		return ts.read(t, r)
 	case cip.ServiceWriteTag, cip.ServiceWriteTagFragmented, cip.ServiceReadModifyWriteTag:
 		ts.mu.Lock()
 		t, fail := ts.resolve(e, path)
 		var resp cip.Response
+		var before []byte
+		check := ts.checkWr
 		if fail != nil {
 			resp = *fail
-		} else if r.Service == cip.ServiceReadModifyWriteTag {
-			resp = ts.readModifyWrite(t, r.Data)
 		} else {
-			resp = ts.write(t, r)
+			if check != nil {
+				before = slices.Clone(t.e.data)
+			}
+			if r.Service == cip.ServiceReadModifyWriteTag {
+				resp = ts.readModifyWrite(t, r.Data)
+			} else {
+				resp = ts.write(t, r)
+			}
 		}
 		f := ts.onWrite
-		ts.mu.Unlock()
+		if resp.OK() && check != nil {
+			resp = ts.checkedWrite(ctx, t, before, check)
+		} else {
+			ts.mu.Unlock()
+		}
 		if resp.OK() && f != nil {
 			f(t.full)
 		}
@@ -546,6 +592,28 @@ func (ts *TagServer) serveTag(e *tagEntry, r *server.Request, path cip.Path) cip
 	default:
 		return cip.Response{Status: cip.StatusServiceNotSupported}
 	}
+}
+
+// checkedWrite asks check about the value a write left in t's tag before
+// the tag keeps it: the tag goes back to before while check runs, without
+// the lock, and the octets the write changed are stored again when check
+// takes it. ts.mu is held on entry and released on return.
+func (ts *TagServer) checkedWrite(ctx context.Context, t target, before []byte, check func(context.Context, string, Value) cip.GeneralStatus) cip.Response {
+	after := slices.Clone(t.e.data)
+	v := t.e.value(0, t.e.elements(), slices.Clone(after))
+	copy(t.e.data, before)
+	ts.mu.Unlock()
+	if st := check(ctx, t.full, v); st != cip.StatusSuccess {
+		return cip.Response{Status: st}
+	}
+	ts.mu.Lock()
+	defer ts.mu.Unlock()
+	for i := range after {
+		if after[i] != before[i] {
+			t.e.data[i] = after[i]
+		}
+	}
+	return cip.Response{}
 }
 
 func appendTypeCode(b []byte, t target) []byte {
@@ -795,7 +863,7 @@ type symbolObject struct{ ts *TagServer }
 
 func (o *symbolObject) Class() cip.Class { return cip.ClassSymbol }
 
-func (o *symbolObject) ServeCIP(_ context.Context, r *server.Request) cip.Response {
+func (o *symbolObject) ServeCIP(ctx context.Context, r *server.Request) cip.Response {
 	if r.Service == cip.ServiceGetInstanceAttributeList {
 		return o.ts.listTags(r)
 	}
@@ -805,7 +873,7 @@ func (o *symbolObject) ServeCIP(_ context.Context, r *server.Request) cip.Respon
 	if e == nil {
 		return errNoTag
 	}
-	return o.ts.serveTag(e, r, r.Rest)
+	return o.ts.serveTag(ctx, e, r, r.Rest)
 }
 
 // templateObject is the Template object.

@@ -1,5 +1,39 @@
 # go-ethernetip Releases
 
+## v0.9.0
+
+**Date:** 2026-11-19
+**Previous release:** v0.8.3
+
+## Summary
+
+A minor release on v0.8.3: two methods are added.
+
+## Changes
+
+### Additions
+
+- **logix**: `TagServer.CheckRead` and `TagServer.CheckWrite` let the
+  application refuse a read or a write of a tag with a general status of
+  its choice, whether the request names the tag or its Symbol instance.
+  `CheckWrite` is given the whole value the write would leave and is
+  asked without the database's lock, so it can forward the value
+  elsewhere first (a gateway serving another device's tags); the tag
+  keeps its value until it answers success, and then the octets the write
+  changed are stored. `OnWrite` was the only hook, called after the tag
+  was written: a write could be refused only by not returning normally
+  (0x10 and a logged stack), with the tag written all the same.
+
+### Tests
+
+- `TestTagServerCheckRead`, `TestTagServerCheckWrite`,
+  `TestTagServerCheckWriteKeepsWhatChangedMeanwhile`,
+  `TestTagServerCheckWriteConcurrent`: refusals by name, by instance,
+  fragmented and Read-Modify-Write; the value asked about; what a `Set`
+  changed meanwhile kept; reads served while a write is asked about.
+
+---
+
 ## v0.8.3
 
 **Date:** 2026-11-16

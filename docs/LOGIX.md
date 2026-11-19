@@ -52,4 +52,14 @@ do: pycomm3 1.2.16 sends its write requests twice in one message.
 `OnWrite` runs as a handler of the request: when it does not return
 normally, the server logs it and answers 0x10; the tag stays written.
 
-It is a test tool: no programs, tasks, modes, alarms or access control.
+`CheckRead` and `CheckWrite` let the application refuse a tag's reads and
+writes, by name and by instance alike, with a general status of its
+choice. `CheckRead` is asked with the database locked for reading, so it
+must be quick. `CheckWrite` is asked with the whole value the write would
+leave, without the lock: it may take time (forward the value to a device,
+say), the tag reads its old value meanwhile, and only when it answers
+success are the octets the write changed stored. A refused write leaves
+the tag as it was and calls no `OnWrite`.
+
+It is a test tool: no programs, tasks, modes or alarms; who may read or
+write a tag is the application's, through `CheckRead` and `CheckWrite`.
