@@ -127,6 +127,8 @@ func TestTagServerAddErrors(t *testing.T) {
 	inv("space", ts.AddTag("Bad Name", cip.TypeDINT))
 	inv("program only", ts.AddTag("Program:Main", cip.TypeDINT))
 	inv("program bad tag", ts.AddTag("Program:Main.1x", cip.TypeDINT))
+	inv("program module tag", ts.AddTag("Program:Main.Local:1:I", cip.TypeDINT))
+	inv("module tag without data", ts.AddTag("Local:", cip.TypeDINT))
 	inv("dim 0", ts.AddTag("S", cip.TypeDINT, 0))
 	inv("dim huge", ts.AddTag("S", cip.TypeDINT, 1<<20+1))
 	inv("too large", ts.AddTag("S", cip.TypeLINT, 1<<20, 4))
@@ -1034,5 +1036,28 @@ func TestTagServerOnWriteDoesNotReturnNormally(t *testing.T) {
 	}
 	if got, err := c.Read(ctx, "Count", 1); err != nil || !bytes.Equal(got.Data, v.Data) {
 		t.Errorf("read after the write: %x, %v", got.Data, err)
+	}
+}
+
+// The tag of an I/O module is one symbol with colons, read and written by
+// its name, and listed under it.
+func TestTagServerModuleTag(t *testing.T) {
+	h := newHarness(t)
+	must(t, h.ts.AddTag("Local:1:I", cip.TypeDINT, 4))
+	v, _ := Ints(cip.TypeDINT, 7, -8)
+	wantStatus(t, "write", h.write("Local:1:I[2]", v), cip.StatusSuccess)
+	r := h.read("local:1:i[2]", 2)
+	wantStatus(t, "read", r, cip.StatusSuccess)
+	got, data, err := decodeRead(r.Data)
+	must(t, err)
+	got.Data, got.Count = data, len(data)/4
+	if a, _ := got.Int(0); a != 7 {
+		t.Fatalf("Local:1:I[2] = %d", a)
+	}
+	if b, _ := got.Int(1); b != -8 {
+		t.Fatalf("Local:1:I[3] = %d", b)
+	}
+	if path := h.path("Local:1:I.0"); len(path) != 1 || path[0].(cip.SymbolSegment).Name != "Local:1:I" {
+		t.Fatalf("path %#v", path)
 	}
 }

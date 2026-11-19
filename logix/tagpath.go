@@ -28,9 +28,11 @@ type TagPath struct {
 //	Tag[3]  Tag[1,2]    array elements (up to three dimensions)
 //	Tag.Member[2].Sub   structure members
 //	Tag.5               bit 5 of an integer
+//	Local:1:I.Data[0]   the data of an I/O module (controller scope)
 //
 // Each name becomes an ANSI extended symbol segment, each index a member
-// segment.
+// segment. The tag of an I/O module is named by the controller with colons
+// ("Local:1:I", "Remote:2:C", "Rack:O") and is one symbol.
 func ParseTag(name string) (TagPath, error) {
 	tp := TagPath{Bit: -1}
 	if name == "" {
@@ -59,7 +61,7 @@ func ParseTag(name string) (TagPath, error) {
 			break
 		}
 		sym, idx, ok := strings.Cut(part, "[")
-		if !validSymbol(sym) {
+		if !validSymbol(sym) && (pi > 0 || len(tp.Path) > 0 || !validModuleTag(sym)) {
 			return tp, fmt.Errorf("%w: %q: symbol %q", ErrTagName, name, sym)
 		}
 		tp.Path = append(tp.Path, cip.SymbolSegment{Name: sym})
@@ -102,6 +104,23 @@ func validSymbol(s string) bool {
 	}
 	for _, c := range s {
 		if c != '_' && (c < 'a' || c > 'z') && (c < 'A' || c > 'Z') && (c < '0' || c > '9') {
+			return false
+		}
+	}
+	return true
+}
+
+// validModuleTag accepts the names Logix gives the tags of I/O modules:
+// the module's name, then its slot and the kind of its data, separated by
+// colons ("Local:1:I", "Remote:2:C", "Rack:O"). Each part is a Logix name
+// or, after the first, a slot number.
+func validModuleTag(s string) bool {
+	parts := strings.Split(s, ":")
+	if len(parts) < 2 || !validSymbol(parts[0]) || strings.EqualFold(parts[0], "program") {
+		return false
+	}
+	for _, p := range parts[1:] {
+		if !validSymbol(p) && !isDigits(p) {
 			return false
 		}
 	}

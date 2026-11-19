@@ -67,7 +67,7 @@ timeout rules.
 |---|---|
 | `New(client, opts...)` with `WithLocalAddr`, `WithEndpoint`, `WithLogger` | a scanner of the client's target |
 | `Scanner.Open(ctx, IOConfig)` → `*IO`; `Scanner.Close(ctx)`, `Endpoint` | I/O connections |
-| `IOConfig` | instances, sizes, RPIs, floors on the O->T API (`OTAPIDivisor`, `MinOTAPI`), formats, class 0, multicast, timeout multiplier, large, key, `Reconnect`, `OnInput`, `OnState` |
+| `IOConfig` | instances, sizes, RPIs, floors on the O->T API (`OTAPIDivisor`, `MinOTAPI`), formats, class 0, multicast and its interface (`MulticastInterface`), timeout multiplier, large, key, `Reconnect`, `OnInput`, `OnState` |
 | `IO.SetOutput`, `SetRun`, `Input`, `State`, `Err`, `Done`, `Info`, `Stats`, `Close` | one connection |
 
 ## `server`
@@ -89,7 +89,8 @@ WithMaxTemplateReplies)` with `Read`, `Write`, `WriteBit`,
 `ParseTag`; `Value` (`Int`, `Uint`, `Float`, `Bool`, `Text`) with `Ints`,
 `Uints`, `Floats`, `Strings`; `Template`, `Member`, `Field`, `SymbolType`;
 `NewTagServer(WithProgramName, WithMaxReply)` with `AddTag`,
-`AddStructTag`, `AddTemplate`, `Get`, `Set`, `OnWrite`, `Attach`. See
+`AddStructTag`, `AddTemplate`, `Get`, `Set`, `OnWrite`, `CheckRead`,
+`CheckWrite`, `Attach`. See
 [docs/LOGIX.md](docs/LOGIX.md).
 
 ## `eds`

@@ -270,3 +270,32 @@ func TestIOListenOnly(t *testing.T) {
 	eventually(t, 3*time.Second, "server connections closed", func() bool { return len(a.srv.Connections()) == 0 })
 	eventually(t, 5*time.Second, "listen-only timed out", func() bool { return lio.State() == ethernetip.StateTimedOut })
 }
+
+// TestIOMulticastInterfacePerConnection: a scanner whose endpoint joins on
+// the system's choice receives multicast inputs joined on the interface
+// its connection names.
+func TestIOMulticastInterfacePerConnection(t *testing.T) {
+	lo := loopbackMulticast(t)
+	a := startAdapter(t)
+	c := dial(t, a.addr)
+	s, err := scanner.New(c, scanner.WithLocalAddr("0.0.0.0:0"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx := ctxT(t)
+	defer func() { _ = s.Close(ctx) }()
+	cfg := exclusiveOwner(5 * time.Millisecond)
+	cfg.Multicast, cfg.MulticastInterface = true, lo
+	io, err := s.Open(ctx, cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	out := bytes.Repeat([]byte{0xA5}, ioSize)
+	if err := io.SetOutput(out); err != nil {
+		t.Fatal(err)
+	}
+	eventually(t, 3*time.Second, "multicast input on the connection's interface", func() bool {
+		in, _, _ := io.Input()
+		return bytes.Equal(in, out)
+	})
+}

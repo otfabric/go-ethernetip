@@ -27,11 +27,10 @@ type Endpoint struct {
 	metrics ethernetip.IOMetrics
 
 	mu      sync.Mutex
-	conns   map[uint32][]*Connection  // consumers by consumed connection ID
-	all     map[*Connection]struct{}  // every open connection, producers too
-	groups  map[netip.Addr]int        // multicast memberships, counted
-	groupIf map[netip.Addr]netip.Addr // the interface address each group was joined on
-	local   netip.Addr                // the default multicast interface address
+	conns   map[uint32][]*Connection // consumers by consumed connection ID
+	all     map[*Connection]struct{} // every open connection, producers too
+	groups  map[membership]int       // multicast memberships, counted
+	local   netip.Addr               // the default multicast interface address
 	mcastIf *net.Interface
 	closed  bool
 
@@ -90,7 +89,7 @@ func Listen(addr string, opts ...EndpointOption) (*Endpoint, error) {
 // NewEndpoint returns an endpoint serving an open UDP socket. The endpoint
 // owns it and closes it on Close.
 func NewEndpoint(c *net.UDPConn, opts ...EndpointOption) *Endpoint {
-	e := &Endpoint{conn: c, conns: map[uint32][]*Connection{}, all: map[*Connection]struct{}{}, groups: map[netip.Addr]int{}, groupIf: map[netip.Addr]netip.Addr{}}
+	e := &Endpoint{conn: c, conns: map[uint32][]*Connection{}, all: map[*Connection]struct{}{}, groups: map[membership]int{}}
 	for _, o := range opts {
 		o(e)
 	}
@@ -135,7 +134,7 @@ func (e *Endpoint) Close() error {
 	for c := range e.all {
 		conns = append(conns, c)
 	}
-	e.groups = map[netip.Addr]int{}
+	e.groups = map[membership]int{}
 	e.mu.Unlock()
 	for _, c := range conns {
 		c.close(caller)
@@ -210,49 +209,64 @@ func (e *Endpoint) send(dst netip.AddrPort, b []byte) error {
 	return nil
 }
 
+// membership is one multicast group joined on one interface. Two
+// connections may consume the same group address on different interfaces
+// (targets on different networks can use the same group): each is a
+// membership of its own.
+type membership struct {
+	group  netip.Addr
+	ifaddr netip.Addr // the interface address, 0.0.0.0 for the system's choice
+}
+
+// membershipOf returns the membership a connection consuming group on ifi
+// joins: the interface's address, else the endpoint's bound address, else
+// the system's choice.
+func (e *Endpoint) membershipOf(group netip.Addr, ifi *net.Interface) membership {
+	ifaddr := interfaceAddr(ifi)
+	if ifi == nil && e.local.IsValid() {
+		ifaddr = e.local
+	}
+	return membership{group: group, ifaddr: ifaddr}
+}
+
 // join makes the endpoint's socket receive datagrams to a multicast group
-// (IP_ADD_MEMBERSHIP on the socket itself, so that the group's datagrams to
-// the endpoint's port arrive where the unicast ones do). Joins are counted:
-// the group is left when the last connection that joined it closes.
-func (e *Endpoint) join(group netip.Addr, ifi *net.Interface) error {
+// on an interface (IP_ADD_MEMBERSHIP on the socket itself, so that the
+// group's datagrams to the endpoint's port arrive where the unicast ones
+// do). Joins are counted per group and interface: the membership is left
+// when the last connection that joined it closes.
+func (e *Endpoint) join(m membership) error {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	if e.closed {
 		return ethernetip.ErrClosed
 	}
-	if !group.Is4() || !group.IsMulticast() {
-		return fmt.Errorf("%w: %s is not an IPv4 multicast group", ethernetip.ErrInvalidOption, group)
+	if !m.group.Is4() || !m.group.IsMulticast() {
+		return fmt.Errorf("%w: %s is not an IPv4 multicast group", ethernetip.ErrInvalidOption, m.group)
 	}
-	if e.groups[group] > 0 {
-		e.groups[group]++
+	if e.groups[m] > 0 {
+		e.groups[m]++
 		return nil
 	}
-	ifaddr := interfaceAddr(ifi)
-	if ifi == nil && e.local.IsValid() {
-		ifaddr = e.local
-	}
-	if err := membership(e.conn, group, ifaddr, true); err != nil {
+	if err := setMembership(e.conn, m.group, m.ifaddr, true); err != nil {
 		return err
 	}
-	e.groups[group], e.groupIf[group] = 1, ifaddr
+	e.groups[m] = 1
 	return nil
 }
 
-func (e *Endpoint) leave(group netip.Addr) {
+func (e *Endpoint) leave(m membership) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
-	if e.groups[group] == 0 {
+	if e.groups[m] == 0 {
 		return
 	}
-	e.groups[group]--
-	if e.groups[group] == 0 {
+	e.groups[m]--
+	if e.groups[m] == 0 {
 		// Linux matches the membership to drop by its interface: leave on
 		// the one joined.
-		ifaddr := e.groupIf[group]
-		delete(e.groups, group)
-		delete(e.groupIf, group)
+		delete(e.groups, m)
 		if !e.closed {
-			_ = membership(e.conn, group, ifaddr, false)
+			_ = setMembership(e.conn, m.group, m.ifaddr, false)
 		}
 	}
 }

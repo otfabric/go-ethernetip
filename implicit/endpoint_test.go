@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"maps"
 	"net"
 	"net/netip"
 	"sync"
@@ -765,7 +766,13 @@ func TestMulticastJoinLeave(t *testing.T) {
 	users := func() int {
 		e.mu.Lock()
 		defer e.mu.Unlock()
-		return e.groups[group]
+		n := 0
+		for m, k := range e.groups {
+			if m.group == group {
+				n += k
+			}
+		}
+		return n
 	}
 	if users() != 2 {
 		t.Errorf("users = %d, want 2", users())
@@ -798,9 +805,98 @@ func TestMulticastJoinLeave(t *testing.T) {
 		t.Errorf("users = %d after endpoint close", users())
 	}
 	// Joining on a closed endpoint fails.
-	if err := e.join(group, nil); !errors.Is(err, ethernetip.ErrClosed) {
+	if err := e.join(e.membershipOf(group, nil)); !errors.Is(err, ethernetip.ErrClosed) {
 		t.Errorf("join on closed endpoint: %v", err)
 	}
+}
+
+// TestMulticastGroupPerInterface: connections consuming the same group on
+// different interfaces each join it on their own; closing one leaves only
+// its membership.
+func TestMulticastGroupPerInterface(t *testing.T) {
+	var lo *net.Interface
+	ifs, _ := net.Interfaces()
+	for i := range ifs {
+		if ifs[i].Flags&net.FlagLoopback != 0 && ifs[i].Flags&net.FlagUp != 0 && interfaceAddr(&ifs[i]).IsLoopback() {
+			lo = &ifs[i]
+			break
+		}
+	}
+	if lo == nil {
+		t.Skip("no IPv4 loopback interface")
+	}
+	// Bound to the wildcard address: a connection naming no interface
+	// joins on the system's choice.
+	e, err := Listen("0.0.0.0:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = e.Close() })
+	group := netip.MustParseAddr("239.192.13.38")
+	c1, err := e.Open(Config{ConsumedID: 1, Group: group})
+	if err != nil {
+		testenv.Multicast(t, "multicast not available: %v", err)
+	}
+	c2, err := e.Open(Config{ConsumedID: 2, Group: group, Interface: lo})
+	if err != nil {
+		testenv.Multicast(t, "multicast on the loopback interface not available: %v", err)
+	}
+	c3, err := e.Open(Config{ConsumedID: 3, Group: group, Interface: lo})
+	if err != nil {
+		t.Fatal(err)
+	}
+	members := func() map[membership]int {
+		e.mu.Lock()
+		defer e.mu.Unlock()
+		return maps.Clone(e.groups)
+	}
+	sys, onLo := e.membershipOf(group, nil), e.membershipOf(group, lo)
+	if sys == onLo {
+		t.Fatalf("one membership for both interfaces: %+v", sys)
+	}
+	if m := members(); len(m) != 2 || m[sys] != 1 || m[onLo] != 2 {
+		t.Fatalf("memberships %v", m)
+	}
+	c1.Close()
+	if m := members(); len(m) != 1 || m[onLo] != 2 {
+		t.Fatalf("after closing the system's: %v", m)
+	}
+	c2.Close()
+	c3.Close()
+	if m := members(); len(m) != 0 {
+		t.Fatalf("after closing all: %v", m)
+	}
+}
+
+// TestMembershipOf: a connection naming an interface joins on its address;
+// one naming none joins on the endpoint's bound address, else on the
+// system's choice. No group is joined, so it runs where multicast does not.
+func TestMembershipOf(t *testing.T) {
+	group := netip.MustParseAddr("239.192.13.39")
+	wild, err := Listen("0.0.0.0:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = wild.Close() })
+	if m := wild.membershipOf(group, nil); m.group != group || m.ifaddr != netip.IPv4Unspecified() {
+		t.Errorf("wildcard, no interface: %+v", m)
+	}
+	bound := listen(t)
+	if m := bound.membershipOf(group, nil); m.ifaddr != netip.MustParseAddr("127.0.0.1") {
+		t.Errorf("bound, no interface: %+v", m)
+	}
+	ifs, _ := net.Interfaces()
+	for i := range ifs {
+		if a := interfaceAddr(&ifs[i]); a.Is4() && !a.IsUnspecified() {
+			for _, e := range []*Endpoint{wild, bound} {
+				if m := e.membershipOf(group, &ifs[i]); m.ifaddr != a {
+					t.Errorf("%s: %+v, want %s", ifs[i].Name, m, a)
+				}
+			}
+			return
+		}
+	}
+	t.Skip("no interface with an IPv4 address")
 }
 
 func TestMulticastJoinFailure(t *testing.T) {

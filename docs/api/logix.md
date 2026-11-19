@@ -374,8 +374,9 @@ ParseTag parses a Logix tag name into its symbolic path:
 	Tag[3]  Tag[1,2]    array elements (up to three dimensions)
 	Tag.Member[2].Sub   structure members
 	Tag.5               bit 5 of an integer
+	Local:1:I.Data[0]   the data of an I/O module (controller scope)
 
-Each name becomes an ANSI extended symbol segment, each index a member segment.
+Each name becomes an ANSI extended symbol segment, each index a member segment. The tag of an I/O module is named by the controller with colons ("Local:1:I", "Remote:2:C", "Rack:O") and is one symbol.
 
 ### type TagServer
 
@@ -415,7 +416,7 @@ AddStructTag adds a structure tag or array of template id; the STRING template (
 func (ts *TagServer) AddTag(name string, t cip.DataType, dims ...int) error
 ```
 
-AddTag adds an atomic tag (dims empty) or array (up to three dimensions). name may be program-scoped ("Program:Main.Speed"). Arrays of BOOL are stored as DWORDs, as in Logix.
+AddTag adds an atomic tag (dims empty) or array (up to three dimensions). name may be program-scoped ("Program:Main.Speed") or an I/O module's controller-scoped tag ("Local:1:I"). Arrays of BOOL are stored as DWORDs, as in Logix.
 
 #### func (TagServer) AddTemplate
 
@@ -432,6 +433,22 @@ func (ts *TagServer) Attach(s *server.Server)
 ```
 
 Attach registers the emulation on a server: the symbol handler, the Symbol (0x6B), Template (0x6C) and Program Name (0x64) objects.
+
+#### func (TagServer) CheckRead
+
+```go
+func (ts *TagServer) CheckRead(f func(name string) cip.GeneralStatus)
+```
+
+CheckRead sets a function asked before a tag, or a part of it, is read, with the tag's full name: a status other than success is the answer instead of the data, as a controller answers for a tag it cannot serve now. It is called with the database locked for reading, as a handler of the request (see server.Object): it must be quick and must not call the TagServer's methods (Get and Set included: a read lock taken again can deadlock behind a waiting write). nil (the default) serves every read.
+
+#### func (TagServer) CheckWrite
+
+```go
+func (ts *TagServer) CheckWrite(f func(ctx context.Context, name string, v Value) cip.GeneralStatus)
+```
+
+CheckWrite sets a function asked before a write (Write Tag, its fragmented form or Read-Modify-Write) takes effect, with the tag's full name and the whole value of the tag as the write would leave it: a status other than success is the answer and the tag keeps its value. It is called without the database's lock, as a handler of the request (see server.Object), so it may take time (the request waits for it) and may call Get and Set; reads meanwhile see the tag's value from before the write. A taken write is then applied to the tag as it is: the elements it addresses are stored whole over what changed meanwhile, and a Read-Modify-Write modifies the current value. A write the database itself refuses (a type or a range that does not hold) is never asked. Each fragment of a fragmented write is a request of its own, asked on its own. nil (the default) takes every write.
 
 #### func (TagServer) Get
 

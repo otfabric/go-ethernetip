@@ -1,5 +1,78 @@
 # go-ethernetip Releases
 
+## v0.9.0
+
+**Date:** 2026-11-20
+**Previous release:** v0.8.3
+
+## Summary
+
+A minor release on v0.8.3: three exported identifiers are added
+(`scanner.IOConfig.MulticastInterface`, `logix.TagServer.CheckRead`,
+`logix.TagServer.CheckWrite`); none is removed or changed. Thanks to
+MatthewReed303, who contributed the three changes
+(otfabric/go-ethernetip#35, #36 and #37).
+
+## Changes
+
+### Additions
+
+- **scanner**: `IOConfig.MulticastInterface` is the interface a
+  connection joins its multicast group on, whatever its endpoint's own
+  (`WithMulticastInterface`, the bound address, or the system's choice).
+  Scanners that share one endpoint (`WithEndpoint`, UDP 2222 for every
+  target) can then consume multicast inputs of targets on different
+  networks, each joined on the interface facing its target. Nil keeps the
+  endpoint's choice, as before.
+- **logix**: `TagServer.CheckRead` and `TagServer.CheckWrite` let the
+  application decide, per tag, whether a read or a write is served, and
+  answer a refusal with a general status of its choice, by name and by
+  instance, for the fragmented services and Read-Modify-Write.
+  `CheckWrite` is given the whole value the write would leave and runs
+  without the database's lock (it may forward the write to a device);
+  reads meanwhile see the old value. A taken write is applied to the tag
+  as it is then: the elements it addresses are stored whole, and a
+  Read-Modify-Write modifies the current value. A refused write leaves the
+  tag as it was and calls no `OnWrite`.
+
+### Fixes
+
+- **logix**: `ParseTag`, and so `Read`, `Write`, `WriteBit` and
+  `ReadMany`, accept the tags Logix gives I/O modules: one controller-scoped
+  symbol whose parts are separated by colons (`Local:1:I.Data[0]`,
+  `Remote:2:C`, `Rack:O`). They were refused as invalid names, though the
+  tag list (`ListTags`) returns them. `TagServer.AddTag` and
+  `AddStructTag` accept them too. A program-scoped tag, or a member, is
+  still a plain name. Not verified against a controller (no recording or
+  interop peer has module tags).
+- **implicit**: multicast memberships are counted per group and
+  interface. Two connections consuming the same group address on
+  different interfaces (targets on different networks can use the same
+  group) shared one membership, joined on the first connection's
+  interface, and the second's data never arrived.
+
+### Tests
+
+- `TestParseTag`, `TestParseTagErrors`: module tag names, and the forms
+  that stay refused (an empty part, a program's tag, a member).
+- `TestTagServerModuleTag`: a module tag is written and read by its name.
+- `TestIOMulticastInterfacePerConnection` (e2e): a scanner whose endpoint
+  joins on the system's choice receives the multicast inputs joined on the
+  loopback interface its connection names.
+- `TestMulticastGroupPerInterface`: one group on two interfaces is two
+  memberships, each left by its own connections.
+- `TestTagServerCheckRead`, `TestTagServerCheckWrite`,
+  `TestTagServerCheckWriteKeepsWhatChangedMeanwhile`,
+  `TestTagServerCheckWriteConcurrent`: the checks by name, by instance,
+  fragmented and Read-Modify-Write; refusals; reads while a write is
+  checked.
+- `TestTagServerCheckWriteReadModifyWriteConcurrent`,
+  `TestTagServerCheckWriteStoresWholeElements`: two Read-Modify-Writes
+  checked at once both take effect; a taken write never leaves a mix of
+  its octets and those stored meanwhile.
+
+---
+
 ## v0.8.3
 
 **Date:** 2026-11-16

@@ -32,6 +32,10 @@ func TestParseTag(t *testing.T) {
 		{"A[1].B.63", cip.Path{sym{Name: "A"}, mem(1), sym{Name: "B"}}, 63},
 		{"Program:P.T.0", cip.Path{sym{Name: "Program:P"}, sym{Name: "T"}}, 0},
 		{"Big[70000]", cip.Path{sym{Name: "Big"}, mem(70000)}, -1},
+		{"Local:1:I.Data[0]", cip.Path{sym{Name: "Local:1:I"}, sym{Name: "Data"}, mem(0)}, -1},
+		{"Local:3:O.Data.7", cip.Path{sym{Name: "Local:3:O"}, sym{Name: "Data"}}, 7},
+		{"Rack_2:I", cip.Path{sym{Name: "Rack_2:I"}}, -1},
+		{"Remote:12:C.Ch0Config", cip.Path{sym{Name: "Remote:12:C"}, sym{Name: "Ch0Config"}}, -1},
 	}
 	for _, c := range cases {
 		tp, err := ParseTag(c.name)
@@ -69,6 +73,14 @@ func TestParseTagErrors(t *testing.T) {
 		"A[1]]",
 		"A.5.B",
 		"[1]",
+		"Local:",
+		":1:I",
+		"Local::I",
+		"Local:1:I-x",
+		"1Local:1:I",
+		"Program:Main.Local:1:I",
+		"Tag.Local:1:I",
+		"Program:1:I",
 	}
 	for _, n := range bad {
 		if _, err := ParseTag(n); !errors.Is(err, ErrTagName) {

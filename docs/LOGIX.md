@@ -23,7 +23,8 @@ Logix programming tools do).
 | `ProgramName(ctx)` | Program Name object 0x64 |
 
 Tag names: `Tag`, `Program:Main.Tag`, `Tag[3]`, `Tag[1,2]`,
-`Tag.Member[2].Sub`, and `Tag.5` for bit 5 (`WriteBit`). Values:
+`Tag.Member[2].Sub`, `Tag.5` for bit 5 (`WriteBit`), and the tags of I/O
+modules, `Local:1:I.Data[0]` (one symbol with colons). Values:
 `logix.Ints(cip.TypeDINT, 1, 2)`, `logix.Uints(cip.TypeULINT, 1<<63)` (for
 ULINT and LWORD values above the int64 range), `logix.Floats(cip.TypeREAL,
 1.5)` (a finite value outside the REAL range fails rather than becoming an
@@ -51,4 +52,17 @@ do: pycomm3 1.2.16 sends its write requests twice in one message.
 `OnWrite` runs as a handler of the request: when it does not return
 normally, the server logs it and answers 0x10; the tag stays written.
 
-It is a test tool: no programs, tasks, modes, alarms or access control.
+`CheckRead` and `CheckWrite` let the application refuse a tag's reads and
+writes, by name and by instance alike, with a general status of its
+choice. `CheckRead` is asked with the database locked for reading, so it
+must be quick and must not call the `TagServer`'s methods. `CheckWrite` is
+asked with the whole value the write would leave, without the lock: it may
+take time (forward the value to a device, say), and the tag reads its old
+value meanwhile. Only when it answers success is the write applied, to the
+tag as it is then: the elements it addresses are stored whole, and a
+Read-Modify-Write modifies the current value, so concurrent writes are not
+lost. A refused write leaves the tag as it was and calls no `OnWrite`. Each
+fragment of a fragmented write is asked about on its own.
+
+It is a test tool: no programs, tasks, modes or alarms; who may read or
+write a tag is the application's, through `CheckRead` and `CheckWrite`.
