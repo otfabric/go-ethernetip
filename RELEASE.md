@@ -1,35 +1,5 @@
 # go-ethernetip Releases
 
-## v0.8.4
-
-**Date:** 2026-11-19
-**Previous release:** v0.8.3
-
-## Summary
-
-A patch release on v0.8.3. No exported identifier is added, removed or
-changed.
-
-## Changes
-
-### Fixes
-
-- **logix**: `ParseTag`, and so `Read`, `Write`, `WriteBit` and
-  `ReadMany`, accept the tags Logix gives I/O modules: one controller-scoped
-  symbol whose parts are separated by colons (`Local:1:I.Data[0]`,
-  `Remote:2:C`, `Rack:O`). They were refused as invalid names, though the
-  tag list (`ListTags`) returns them. `TagServer.AddTag` and
-  `AddStructTag` accept them too. A program-scoped tag, or a member, is
-  still a plain name.
-
-### Tests
-
-- `TestParseTag` and `TestParseTagErrors`: module tag names, and the
-  forms that stay refused (an empty part, a program's tag, a member).
-- `TestTagServerModuleTag`: a module tag is written and read by its name.
-
----
-
 ## v0.8.3
 
 **Date:** 2026-11-16

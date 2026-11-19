@@ -67,7 +67,7 @@ timeout rules.
 |---|---|
 | `New(client, opts...)` with `WithLocalAddr`, `WithEndpoint`, `WithLogger` | a scanner of the client's target |
 | `Scanner.Open(ctx, IOConfig)` → `*IO`; `Scanner.Close(ctx)`, `Endpoint` | I/O connections |
-| `IOConfig` | instances, sizes, RPIs, floors on the O->T API (`OTAPIDivisor`, `MinOTAPI`), formats, class 0, multicast, timeout multiplier, large, key, `Reconnect`, `OnInput`, `OnState` |
+| `IOConfig` | instances, sizes, RPIs, floors on the O->T API (`OTAPIDivisor`, `MinOTAPI`), formats, class 0, multicast and its interface (`MulticastInterface`), timeout multiplier, large, key, `Reconnect`, `OnInput`, `OnState` |
 | `IO.SetOutput`, `SetRun`, `Input`, `State`, `Err`, `Done`, `Info`, `Stats`, `Close` | one connection |
 
 ## `server`

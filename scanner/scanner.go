@@ -218,8 +218,14 @@ type IOConfig struct {
 	// Class is the transport class, 1 (the zero value) or 0 (set
 	// ClassZero).
 	ClassZero bool
-	// Multicast asks for the T->O data by multicast.
-	Multicast bool
+	// Multicast asks for the T->O data by multicast. MulticastInterface,
+	// when set, is the interface this connection joins the group on (the
+	// one facing the target), whatever its endpoint's own; nil keeps the
+	// endpoint's choice. It lets one endpoint, shared by the scanners of
+	// targets on different networks, join each group where its data
+	// arrives.
+	Multicast          bool
+	MulticastInterface *net.Interface
 	// TimeoutMultiplier: the connections time out after RPI × 4 << n.
 	// Default 0 (×4); at most 7.
 	TimeoutMultiplier uint8
@@ -541,6 +547,7 @@ func (io *IO) open(ctx context.Context) error {
 		ConsumeSize:   cfg.InputSize,
 		Source:        target,
 		Group:         group,
+		Interface:     cfg.MulticastInterface,
 		OnData:        io.input,
 		OnTimeout:     io.timedOut,
 	})

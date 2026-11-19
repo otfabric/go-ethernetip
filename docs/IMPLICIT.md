@@ -43,7 +43,9 @@ default, `:2222`); an endpoint bound to a unicast address receives no
 multicast on most systems. Groups are joined on the interface of
 `scanner.WithMulticastInterface` (or `implicit.WithMulticastInterface`),
 else on the bound address's interface, else on the system's choice (the
-default route's).
+default route's). `IOConfig.MulticastInterface` names the interface for one
+connection, whatever its endpoint's: scanners of targets on different
+networks can then share one endpoint (`scanner.WithEndpoint`).
 
 ## Actual packet intervals
 
